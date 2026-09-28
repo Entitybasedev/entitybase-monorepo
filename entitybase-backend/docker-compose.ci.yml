@@ -253,6 +253,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
+      DB_TYPE: mysql
       S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: fakekey
       S3_SECRET_KEY: fakesecret
