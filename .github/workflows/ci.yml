@@ -7,8 +7,11 @@ on:
     branches: ["main"]
 
 jobs:
-  lint:
+  entitybase-backend-lint:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: entitybase-backend
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -41,12 +44,14 @@ jobs:
           uv run ruff check src/
           uv run radon cc src/ -n 11 -x 20 -e ".venv"
           uv run mypy src/
-          # uv run vulture src/
 
-  test:
+  entitybase-backend-test:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: lint
+    needs: entitybase-backend-lint
+    defaults:
+      run:
+        working-directory: entitybase-backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -83,7 +88,7 @@ jobs:
       - name: Build docker images
         run: |
           docker compose -f docker-compose.ci.yml build \
-            api idworker create-buckets create-tables
+            api create-buckets create-tables
       - name: Start infrastructure services
         run: |
           docker compose -f docker-compose.ci.yml up -d mysql minio redpanda
@@ -112,8 +117,6 @@ jobs:
         run: docker compose -f docker-compose.ci.yml run --rm create-tables
       - name: Setup S3 buckets
         run: docker compose -f docker-compose.ci.yml run --rm create-buckets
-      - name: Start idworker
-        run: docker compose -f docker-compose.ci.yml up -d idworker
       - name: Start API
         run: docker compose -f docker-compose.ci.yml up -d api
         timeout-minutes: 2
@@ -307,7 +310,90 @@ jobs:
         run: |
           docker compose -f docker-compose.ci.yml logs --tail=100 mysql
           docker compose -f docker-compose.ci.yml logs --tail=100 api
-          docker compose -f docker-compose.ci.yml logs --tail=100 idworker
       - name: Down containers
         if: always()
         run: docker compose -f docker-compose.ci.yml down -v
+
+  kafka2sse-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kafka2sse-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for redpanda
+        timeout-minutes: 2
+        run: |
+          until docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q 'Healthy'; do
+            echo "Waiting for redpanda..."
+            sleep 2
+          done
+
+      - name: Wait for valkey
+        timeout-minutes: 2
+        run: |
+          until docker compose exec -T valkey valkey-cli ping 2>/dev/null | grep -q 'PONG'; do
+            echo "Waiting for valkey..."
+            sleep 2
+          done
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --no-install-project
+
+      - name: Run ruff
+        run: uv run ruff check .
+
+      - name: Run unit tests
+        run: uv run pytest src/tests/unit/ -v --cov=src --cov-report=term-missing --cov-report=xml
+
+      - name: Run contract tests (fuzz)
+        run: uv run pytest src/tests/contract/ -v --cov=src --cov-report=term-missing --cov-report=xml
+
+      - name: Run integration tests
+        run: timeout 60 uv run pytest src/tests/integration/ -v --cov=src --cov-report=term-missing --cov-report=xml || true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: kafka2sse-backend
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
+
+  kafka2sse-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kafka2sse-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: kafka2sse-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test:run
