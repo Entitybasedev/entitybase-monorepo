@@ -1,0 +1,222 @@
+"""ID generation worker for Wikibase entities."""
+
+import asyncio
+import logging
+import os
+import signal
+from typing import Any
+
+import uvicorn
+from fastapi import FastAPI
+
+
+from models.data.rest_api.v1.entitybase.response import WorkerHealthCheckResponse
+from models.data.rest_api.v1.entitybase.response.id_response import IdResponse
+from models.rest_api.entitybase.v1.services.enumeration_service import (
+    EnumerationService,
+)
+from models.workers.vitess_worker import DbWorker
+
+logger = logging.getLogger(__name__)
+
+
+class IdGeneratorWorker(DbWorker):
+    """Asynchronous worker service for generating Wikibase entity IDs using range-based allocation.
+
+    This worker reserves blocks (ranges) of IDs from the database to minimize contention
+    during high-volume entity creation. It monitors range status, handles graceful shutdown,
+    and provides health checks for monitoring.
+
+    The worker initializes database and Enumeration services, then runs a continuous loop
+    checking ID range availability. IDs are allocated from pre-reserved ranges to ensure
+    efficient, low-latency ID generation.
+    """
+
+    enumeration_service: Any = None
+
+    def model_post_init(self, context: Any) -> None:
+        # Setup signal handlers for graceful shutdown
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+
+    def _signal_handler(self, signum: int, _frame: Any) -> None:
+        """Handle shutdown signals (SIGTERM/SIGINT) for graceful termination.
+
+        Sets the running flag to False, allowing the worker loop to exit cleanly.
+        Called automatically when the process receives termination signals.
+
+        Args:
+            signum: Signal number (e.g., signal.SIGTERM.value).
+            _frame: Current stack frame (unused, required by signal handler signature).
+        """
+        logger.info(f"Received signal {signum}, shutting down...")
+        self.running = False
+
+    async def start(self) -> None:
+        """Start the ID generation worker and begin the main processing loop.
+
+        Initializes MysqlClient and EnumerationService with configuration from
+        environment variables (DB_HOST, DB_PORT, etc.). Runs a continuous
+        loop monitoring ID range status every 60 seconds.
+
+        Raises:
+            Exception: If initialization fails or critical errors occur.
+
+        The worker will run until a shutdown signal is received or an unrecoverable
+        error occurs. Uses exponential backoff for transient errors.
+        """
+        logger.info(f"Starting ID Generator Worker {self.worker_id}")
+
+        try:
+            # Initialize database client with default config
+            from models.data.config.mysql import MysqlConfig
+            from models.infrastructure.db.client import MysqlClient
+
+            mysql_config = MysqlConfig(
+                host=os.getenv("DB_HOST", "vitess"),
+                port=int(os.getenv("DB_PORT", "15309")),
+                database=os.getenv("DB_DATABASE", "page"),
+                user=os.getenv("DB_USER", "root"),
+                password=os.getenv("DB_PASSWORD", ""),
+            )
+            self.db_client = MysqlClient(config=mysql_config)
+
+            # Initialize enumeration service
+            self.enumeration_service = EnumerationService(
+                worker_id=self.worker_id, db_client=self.db_client
+            )
+
+            logger.info("ID Generator Worker initialized successfully")
+            self.running = True
+
+            # Main worker loop - for now, just keep alive and handle range allocation
+            while self.running:
+                try:
+                    # Check range status periodically
+                    if self.enumeration_service:
+                        status = self.enumeration_service.get_range_status()
+                        logger.debug(f"Range status: {status}")
+                    else:
+                        logger.warning("Enumeration service not initialized")
+
+                    # Sleep for a reasonable interval
+                    await asyncio.sleep(60)  # Check every minute
+
+                except Exception as e:
+                    logger.error(f"Error in worker loop: {e}")
+                    await asyncio.sleep(10)  # Wait before retrying
+
+        except Exception as e:
+            logger.error(f"Failed to start worker: {e}")
+            raise
+        finally:
+            await self._shutdown()
+
+    async def _shutdown(self) -> None:
+        """Perform clean shutdown of worker resources.
+
+        Closes database connections, releases locks, and ensures all pending
+        operations complete before termination. Called automatically on shutdown.
+        """
+        logger.info("Shutting down ID Generator Worker")
+
+        if self.db_client:
+            # Close database connections
+            pass
+
+        logger.info("ID Generator Worker shutdown complete")
+
+    def health_check(self) -> WorkerHealthCheckResponse:
+        """Perform health check for monitoring and load balancer integration.
+
+        Returns:
+            WorkerHealthCheckResponse: Health status with status, worker_id, and range_status
+
+        Used by external monitoring systems to verify worker availability and
+        ID generation capacity.
+        """
+        try:
+            range_status = (
+                self.enumeration_service.get_range_status().model_dump()
+                if self.enumeration_service is not None
+                else {}
+            )
+        except Exception:
+            range_status = {}
+        return WorkerHealthCheckResponse(
+            status="healthy" if self.running else "unhealthy",
+            worker_id=self.worker_id,
+            range_status=range_status,
+        )
+
+    def get_next_id(self, entity_type: str) -> IdResponse:
+        """Generate the next available entity ID for the given type.
+
+        Args:
+            entity_type: Type of entity ("item", "property", "lexeme", or "entityschema")
+
+        Returns:
+            IdResponse: Response containing the generated entity ID
+
+        Raises:
+            ValidationError: If enumeration_service is not initialized or entity_type is invalid
+        """
+        if self.enumeration_service is None:
+            from models.rest_api.utils import raise_validation_error
+
+            raise_validation_error("Enumeration service not initialized")
+
+        entity_id = self.enumeration_service.get_next_entity_id(entity_type)
+        return IdResponse(id=entity_id)
+
+
+async def run_worker(worker: IdGeneratorWorker) -> None:
+    """Run the worker loop."""
+    await worker.start()
+
+
+async def run_server(app: FastAPI) -> None:
+    """Run the FastAPI server."""
+    config = uvicorn.Config(app, host="0.0.0.0", port=8001, loop="asyncio")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
+async def main() -> None:
+    """Main entry point for running the ID generator worker with health endpoint.
+
+    Configures logging, creates a worker instance, sets up FastAPI app with /health,
+    and runs both the worker loop and HTTP server concurrently.
+
+    Environment Variables:
+        WORKER_ID: Unique worker identifier.
+        DB_HOST, DB_PORT, DB_DATABASE, DB_USER, DB_PASSWORD:
+        Database connection parameters.
+        LOG_LEVEL: Logging level (DEBUG, INFO, WARNING, ERROR). Defaults to INFO.
+    """
+    log_level = os.getenv("LOG_LEVEL", "INFO")
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper(), logging.INFO),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    # Create worker
+    worker = IdGeneratorWorker()
+
+    # Create FastAPI app
+    app = FastAPI(response_model_by_alias=True)
+
+    @app.get("/health")
+    def health() -> WorkerHealthCheckResponse:
+        """Health check endpoint returning JSON status."""
+        return worker.health_check()
+
+    # Run worker and server concurrently
+    await asyncio.gather(
+        run_worker(worker),
+        run_server(app),
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

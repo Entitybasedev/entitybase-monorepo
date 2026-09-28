@@ -1,0 +1,26 @@
+@startuml Detailed Service Components
+
+title Wikibase Backend - Detailed Service Components
+
+package "Services" as Services #LightGreen {
+    "Backlink" as BacklinkService
+    "BacklinkStatistics" as BacklinkStatisticsService
+    "Delete" as DeleteService
+    "EntityStatement" as EntityStatementService
+    "Enumeration" as EnumerationService
+    "GeneralStats" as GeneralStatsService
+    "Hash" as HashService
+    "IdRange" as IdRange
+    "IdRangeManager" as IdRangeManager
+    "Redirect" as RedirectService
+    "RevisionParams" as RevisionParams
+    "SnakHandler" as SnakHandler
+    "StatementProcessingContext" as StatementProcessingContext
+    "Statement" as StatementService
+    "StatusOperation" as StatusOperation
+    "Status" as StatusService
+    "UserStats" as UserStatsService
+    "_PropertyCountHelper" as _PropertyCountHelper
+}
+
+@enduml

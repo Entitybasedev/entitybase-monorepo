@@ -1,0 +1,45 @@
+# repo related
+df
+mediawiki-extensions-EventBus
+KafkaSSE
+eventstreams
+eventgate
+schemas-event-primary
+
+# code related
+.idea
+deprecated/.env
+/seaweedfs_data/
+/minio-data/
+seaweedfs
+alarik_data
+deprecated
+wikidata-query-rdf
+mediawiki-extensions-Wikibase
+/WikibaseDataModelSerialization/
+/WikibaseIntegrator/
+*.pyc
+/src/schemas/schemas-event-primary/
+
+# test data cache
+test_data/properties/*.json
+/safe-sh
+/debug/debug_*_comparison.txt
+/debug/debug_*_generated.ttl
+/coverage.xml
+/.coverage*
+/.vscode
+/htmlcov
+/coverage.txt
+/coverage_below_threshold.txt
+/.opencode/plans/
+/unit.log
+/output.log
+/integration.log
+/.beads
+/site/
+/.cache/
+/draft/
+e2e.env
+/data/
+/entitybase.db

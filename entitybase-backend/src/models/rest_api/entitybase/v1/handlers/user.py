@@ -1,0 +1,274 @@
+"""Handler for user operations."""
+
+import json
+import logging
+from datetime import datetime, timezone
+from typing import Any, cast
+
+from models.config.settings import settings
+from models.data.infrastructure.stream.change_type import ChangeType
+from models.data.rest_api.v1.entitybase.response import (
+    DeduplicationDatabaseStatsResponse,
+    GeneralStatsResponse,
+    TermsByType,
+    TermsPerLanguage,
+)
+from models.data.rest_api.v1.entitybase.response import UserStatsResponse
+from models.data.rest_api.v1.entitybase.response import (
+    WatchlistToggleResponse,
+    UserCreateResponse,
+)
+from models.infrastructure.stream.event import UserChangeEvent
+from models.rest_api.entitybase.v1.handler import Handler
+from models.rest_api.utils import raise_validation_error
+from models.data.rest_api.v1.entitybase.request import (
+    UserCreateRequest,
+    WatchlistToggleRequest,
+)
+from models.data.rest_api.v1.entitybase.response import UserResponse
+
+logger = logging.getLogger(__name__)
+
+
+class UserHandler(Handler):
+    """Handler for user-related operations."""
+
+    async def create_user(self, request: UserCreateRequest) -> UserCreateResponse:
+        """Create/register a user."""
+        created = False
+        if not self.state.db_client.user_repository.user_exists(request.user_id):
+            result = self.state.db_client.user_repository.create_user(
+                request.user_id
+            )
+            if not result.success:
+                raise_validation_error(
+                    result.error or "Failed to create user", status_code=500
+                )
+            created = True
+            await self._publish_user_change_event(
+                str(request.user_id), ChangeType.USER_CREATION
+            )
+        return UserCreateResponse(user_id=request.user_id, created=created)
+
+    async def delete_user(self, user_id: int) -> None:
+        """Delete a user by ID."""
+        if not self.state.db_client.user_repository.user_exists(user_id):
+            raise_validation_error("User not found", status_code=404)
+
+        result = self.state.db_client.user_repository.delete_user(user_id)
+        if not result.success:
+            raise_validation_error(
+                result.error or "Failed to delete user", status_code=500
+            )
+        await self._publish_user_change_event(str(user_id), ChangeType.USER_DELETION)
+
+    async def _publish_user_change_event(
+        self, user_id: str, change_type: ChangeType
+    ) -> None:
+        """Publish user change event to stream."""
+        if settings.streaming_enabled and self.state.user_change_stream_producer:
+            event = UserChangeEvent(
+                user=user_id,
+                type=change_type,
+                ts=datetime.now(timezone.utc),
+            )
+            await self.state.user_change_stream_producer.publish(event)
+
+    def get_user(self, user_id: int) -> UserResponse:
+        """Get user by ID."""
+        user = self.state.db_client.user_repository.get_user(user_id)
+        if user is None:
+            raise_validation_error("User not found", status_code=404)
+        if not isinstance(user, UserResponse):
+            logger.error(f"Unexpected type for user: {type(user)}, value: {user}")
+            raise_validation_error(
+                f"Unexpected response type: {type(user).__name__}", status_code=500
+            )
+        return user
+
+    async def toggle_watchlist(
+        self, user_id: int, request: WatchlistToggleRequest
+    ) -> WatchlistToggleResponse:
+        """Enable or disable watchlist for user."""
+        if not self.state.db_client.user_repository.user_exists(user_id):
+            raise_validation_error("User not registered", status_code=404)
+
+        if not request.enabled:
+            result = self.state.db_client.user_repository.disable_watchlist(user_id)
+            change_type = ChangeType.WATCHLIST_DISABLED
+        else:
+            result = self.state.db_client.user_repository.enable_watchlist(user_id)
+            change_type = ChangeType.WATCHLIST_ENABLED
+        if not result.success:
+            raise_validation_error(
+                result.error or "Failed to set watchlist", status_code=500
+            )
+        await self._publish_user_change_event(str(user_id), change_type)
+        return WatchlistToggleResponse(user_id=user_id, enabled=request.enabled)
+
+    def get_user_stats(self) -> UserStatsResponse:
+        """Get user statistics from the daily stats table."""
+        logger.debug("Fetching user stats from database")
+        connection = self.state.db_client.connection_manager.acquire()
+        cursor = connection.cursor()
+        try:
+            logger.debug("Executing query for user_daily_stats")
+            cursor.execute(
+                "SELECT stat_date, total_users, active_users FROM user_daily_stats ORDER BY stat_date DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if row:
+                # Handle both datetime objects and string dates
+                date_str = (
+                    row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0])
+                )
+                logger.debug(
+                    f"Found user stats: date={date_str}, total={row[1]}, active={row[2]}"
+                )
+                return UserStatsResponse(
+                    date=date_str,
+                    total=row[1],
+                    active=row[2],
+                )
+            else:
+                # Fallback to live computation if no data
+                logger.debug("No daily stats found, computing live stats")
+                from models.rest_api.entitybase.v1.services.user_stats_service import (
+                    UserStatsService,
+                )
+
+                service = UserStatsService(state=self.state)
+                stats = service.compute_daily_stats()
+                logger.debug(
+                    f"Computed live stats: total={stats.total_users}, active={stats.active_users}"
+                )
+                return UserStatsResponse(
+                    date="live",
+                    total=stats.total_users,
+                    active=stats.active_users,
+                )
+        finally:
+            cursor.close()
+            self.state.db_client.connection_manager.release(connection)
+
+    def _parse_stats_terms(
+        self, terms_data: Any, response_class: type
+    ) -> TermsPerLanguage | TermsByType:
+        """Parse stats terms with JSON validation.
+
+        Args:
+            terms_data: Raw terms data from database
+            response_class: Response class to instantiate
+
+        Returns:
+            Parsed response object
+        """
+        parsed = (
+            json.loads(terms_data) if isinstance(terms_data, str) and terms_data else {}
+        )
+        if response_class == TermsPerLanguage:
+            return cast(
+                TermsPerLanguage,
+                response_class(terms=parsed if isinstance(parsed, dict) else {}),
+            )
+        elif response_class == TermsByType:
+            return cast(
+                TermsByType,
+                response_class(counts=parsed if isinstance(parsed, dict) else {}),
+            )
+        else:
+            return cast(TermsPerLanguage, response_class())
+
+    def _compute_fallback_stats(self) -> GeneralStatsResponse:
+        """Compute stats from service when database has no data.
+
+        Returns:
+            GeneralStatsResponse with computed statistics
+        """
+        logger.debug("Computing fallback stats from service")
+        from models.rest_api.entitybase.v1.services.general_stats_service import (
+            GeneralStatsService,
+        )
+
+        service = GeneralStatsService(state=self.state)
+        stats = service.compute_daily_stats()
+        terms_per_lang = (
+            stats.terms_per_language
+            if isinstance(stats.terms_per_language, TermsPerLanguage)
+            else TermsPerLanguage(
+                terms=stats.terms_per_language
+                if isinstance(stats.terms_per_language, dict)
+                else {}
+            )
+        )
+        terms_by_t = (
+            stats.terms_by_type
+            if isinstance(stats.terms_by_type, TermsByType)
+            else TermsByType(
+                counts=stats.terms_by_type
+                if isinstance(stats.terms_by_type, dict)
+                else {}
+            )
+        )
+        logger.debug(
+            f"Computed fallback stats: statements={stats.total_statements}, items={stats.total_items}, properties={stats.total_properties}"
+        )
+        return GeneralStatsResponse(
+            date="live",
+            total_statements=stats.total_statements,
+            total_qualifiers=stats.total_qualifiers,
+            total_references=stats.total_references,
+            total_items=stats.total_items,
+            total_lexemes=stats.total_lexemes,
+            total_properties=stats.total_properties,
+            total_sitelinks=stats.total_sitelinks,
+            total_terms=stats.total_terms,
+            terms_per_language=terms_per_lang,
+            terms_by_type=terms_by_t,
+        )
+
+    def get_general_stats(self) -> GeneralStatsResponse:
+        """Get general wiki statistics from the daily stats table."""
+        logger.debug("Fetching general stats from database")
+        connection = self.state.db_client.connection_manager.acquire()
+        cursor = connection.cursor()
+        try:
+            logger.debug("Executing query for general_daily_stats")
+            cursor.execute(
+                "SELECT stat_date, total_statements, total_qualifiers, total_references, total_items, total_lexemes, total_properties, total_sitelinks, total_terms, terms_per_language, terms_by_type FROM general_daily_stats ORDER BY stat_date DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if row:
+                return GeneralStatsResponse(
+                    date=row[0].isoformat(),
+                    total_statements=row[1],
+                    total_qualifiers=row[2],
+                    total_references=row[3],
+                    total_items=row[4],
+                    total_lexemes=row[5],
+                    total_properties=row[6],
+                    total_sitelinks=row[7],
+                    total_terms=row[8],
+                    terms_per_language=cast(
+                        TermsPerLanguage,
+                        self._parse_stats_terms(row[9], TermsPerLanguage),
+                    ),
+                    terms_by_type=cast(
+                        TermsByType, self._parse_stats_terms(row[10], TermsByType)
+                    ),
+                )
+            else:
+                return self._compute_fallback_stats()
+        finally:
+            cursor.close()
+            self.state.db_client.connection_manager.release(connection)
+
+    def get_deduplication_statistics(self) -> DeduplicationDatabaseStatsResponse:
+        """Get deduplication statistics for all data types."""
+        logger.debug("Computing deduplication stats")
+        from models.rest_api.entitybase.v1.services.general_stats_service import (
+            GeneralStatsService,
+        )
+
+        service = GeneralStatsService(state=self.state)
+        return service.compute_deduplication_stats()

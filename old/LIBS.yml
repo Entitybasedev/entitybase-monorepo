@@ -1,0 +1,15 @@
+repos:
+  - name: entitybase-backend
+    url: https://github.com/dpriskorn/entitybase-backend.git
+  # - name: entitybase-frontend
+  #   url: https://github.com/dpriskorn/entitybase-frontend.git
+  - name: entitybase-import
+    url: https://github.com/dpriskorn/entitybase-import.git
+  - name: kafka2sse-backend
+    url: https://github.com/Entitybasedev/kafka2sse-backend.git
+  - name: kafka2sse-frontend
+    url: https://github.com/Entitybasedev/kafka2sse-frontend.git
+  - name: meilisearch
+    url: https://github.com/meilisearch/meilisearch.git
+  - name: wikibase-integrator
+    url: https://github.com/dpriskorn/WikibaseIntegrator.git

@@ -1,0 +1,322 @@
+[project]
+name = "entitybase-backend"
+version = "v2026.3.2"
+api_version = "v1"
+description = ""
+authors = [
+    {name = "Nizo Priskorn",email = "68460690+dpriskorn@users.noreply.github.com"}
+]
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "pydantic (>=2.13.4,<3.0.0)",
+    "fastapi (>=0.141.1,<1.0.0)",
+    "pydantic-settings (>=2.15.0,<3.0.0)",
+    "boto3 (>=1.43.79,<2.0.0)",
+    "opensearch-py (>=3.2.0,<4.0.0)",
+    "pymysql (>=1.2.0,<2.0.0)",
+    "uvicorn (>=0.52.4,<1.0.0)",
+    "rapidhash (>=0.1.0,<0.2.0)",
+    "rdflib (>=7.6.0,<8.0.0)",
+    "requests (>=2.34.2,<3.0.0)",
+    "jsonschema (>=4.26.0,<5.0.0)",
+    "aiokafka (>=0.14.0,<1.0.0)",
+    "pyld (>=3.2.0,<4.0.0)",
+    "pyyaml (>=6.0.3,<7.0.0)",
+    "mypy-boto3-s3 (>=1.43.66,<2.0.0)",
+    "wikibaseintegrator @ git+https://github.com/dpriskorn/WikibaseIntegrator.git@fix-hash",
+    "websockets (>=17.0,<18.0)",
+    "aiohttp (>=3.14.3,<4.0.0)",
+]
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/models"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[dependency-groups]
+idworker = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pymysql",
+]
+stats-worker = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pymysql",
+]
+json-worker = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pymysql",
+    "boto3",
+]
+ttl-worker = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pymysql",
+    "boto3",
+    "rdflib",
+]
+# We use a version of pytest that is compatible with pytest-asyncio
+dev = [
+    "pytest (>=9.1.1)",
+    "pytest-cov (>=7.1.0,<8.0.0)",
+    "pytest-mock (>=3.15.1,<4.0.0)",
+    "pytest-xdist (>=3.8.0,<4.0.0)",
+    "pytest-asyncio (>=1.4.0,<2.0.0)",
+    "requests (>=2.34.2,<3.0.0)",
+    "httpx (>=0.28.1,<1.0.0)",
+    "httpie (>=3.2.4,<4.0.0)",
+    "vulture (>=2.16,<3.0)",
+    "moto[s3] (>=5.2.3,<6.0.0)",
+    "mypy (>=2.3.1,<3.0.0)",
+    "ruff (>=0.16.4,<1.0.0)",
+    "radon (>=6.0.1,<7.0.0)",
+    "types-pyyaml (>=6.0.12.20260815,<7.0.0.0)",
+    "types-requests (>=2.33.0.20260712,<3.0.0.0)",
+    "types-boto3 (>=1.43.79,<2.0.0)",
+    "types-jsonschema (>=4.26.0.20260518,<5.0.0.0)",
+    "beartype (>=0.22.9,<0.23.0)",
+    "boto3-stubs (>=1.43.79,<2.0.0)",
+    "types-pymysql (>=1.2.0.20260807,<2.0.0.0)",
+    "mkdocs-material (>=9.7.7,<10.0.0)",
+    "zensical (>=0.0.57,<0.0.58)",
+]
+
+[tool.pytest.ini_options]
+addopts = "--tb=short"
+testpaths = ["tests"]
+log_cli = true
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+markers = [
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as e2e tests",
+    "contract: marks tests as contract tests",
+]
+
+[tool.vulture]
+paths = ["src"]
+exclude = ["tests"]
+ignore_names = [
+    "arbitrary_types_allowed",
+    "model_config",
+    "__init__",
+    "model_post_init",
+    # Pydantic model fields (used at runtime)
+    "dump_id",
+    "generated_at",
+    "time_range_start",
+    "time_range_end",
+    "size_bytes",
+    "compression",
+    "entity_count",
+    "file",
+    "sha256",
+    "dump_type",
+    # Worker/dev variables
+    "buckets",
+    "buckets_created",
+    "setup_status",
+    "total_tables",
+    "tables_created",
+    "entity_map",
+    "cleanup_buckets",
+    "_calculate_seconds_until_next_run",
+    "_generate_checksum",
+    # Exception handler parameters (Python protocol)
+    "exc_type",
+    "exc_val",
+    "exc_tb",
+    "__context",
+    # Data classes/variables
+    "region",
+    "MASS_EDIT",
+    "watchlist_context",
+    "reason",
+    "write_entity_revision",
+    # Unused classes (placeholder/future use)
+    "CreateRevisionRequest",
+    "DescriptionsResponse",
+    "NewThankEvent",
+    # FastAPI endpoints - used via router decorators
+    # admin endpoints
+    "list_items",
+    "list_properties",
+    "list_lexemes",
+    # debug endpoints
+    "debug_entity",
+    "debug_entity_head",
+    # entities endpoints
+    "get_entity_data_json",
+    "get_entity_ttl_revision",
+    "get_entity_json_revision",
+    "add_entity_property",
+    "add_entity_statement",
+    "remove_entity_statement",
+    "patch_entity_statement",
+    "get_all_sitelinks",
+    "get_entity_sitelink",
+    "post_entity_sitelink",
+    "put_entity_sitelink",
+    "delete_entity_sitelink",
+    "get_entity_backlinks",
+    # entities aliases
+    "get_entity_aliases",
+    "update_entity_aliases",
+    "add_entity_alias",
+    "delete_entity_aliases",
+    # entities descriptions
+    "get_entity_description",
+    "update_entity_description",
+    "delete_entity_description",
+    "add_entity_description",
+    # entities labels
+    "get_entity_label",
+    "update_entity_label",
+    "delete_entity_label",
+    "add_entity_label",
+    # import
+    "import_entity",
+    # items
+    "create_item",
+    # lexeme forms
+    "get_lexeme_forms",
+    "create_lexeme_form",
+    "get_form_representations",
+    "get_form_representation",
+    "add_form_representation",
+    "update_form_representation",
+    "delete_form",
+    "delete_form_representation",
+    "add_form_statement",
+    # lexeme senses
+    "get_lexeme_senses",
+    "create_lexeme_sense",
+    "get_sense_glosses",
+    "get_sense_gloss_by_language",
+    "add_sense_gloss",
+    "update_sense_gloss",
+    "delete_sense",
+    "delete_sense_gloss",
+    "add_sense_statement",
+    # lexemes
+    "_validate_qid",
+    "create_lexeme",
+    "get_lexeme_language",
+    "update_lexeme_language",
+    "get_lexeme_lexicalcategory",
+    "update_lexeme_lexicalcategory",
+    "get_lexeme_lemmas",
+    "get_lexeme_lemma",
+    "add_lexeme_lemma",
+    "update_lexeme_lemma",
+    "delete_lexeme_lemma",
+    # properties
+    "create_property",
+    # statements
+    "get_batch_statements",
+    # routes/endorsements
+    "endorse_statement_endpoint",
+    "withdraw_endorsement_endpoint",
+    "get_statement_endorsements_endpoint",
+    "get_user_endorsements_endpoint",
+    "get_user_endorsement_stats_endpoint",
+    "get_statement_endorsement_stats",
+    # routes/health
+    "health_check_endpoint",
+    # routes/resolve
+    "get_qualifiers",
+    "get_references",
+    "get_snaks",
+    "get_statements",
+    "get_glosses",
+    "get_representations",
+    "get_batch_labels",
+    "get_batch_descriptions",
+    "get_batch_aliases",
+    "get_batch_sitelinks",
+    # routes/thanks
+    "send_thank_endpoint",
+    "get_thanks_received_endpoint",
+    "get_thanks_sent_endpoint",
+    "get_revision_thanks_endpoint",
+    # handlers
+    "validate_protection_settings",
+    "_infer_entity_type_from_id",
+    "import_entities_from_jsonl",
+    "entitydiff_stream_producer",
+    "UserPreferencesHandler",
+    "get_preferences",
+    "update_preferences",
+    # main.py handlers
+    "dispatch",
+    "validation_error_handler",
+    "starlette_http_exception_handler",
+    "global_exception_handler",
+    "get_openapi",
+    "redirect_to_docs",
+]
+# Note: Vulture allowlist is configured in run-vulture.sh, not here
+
+[tool.mypy]
+mypy_path = ["src"]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+follow_imports = "skip"
+strict = false # this makes the number of errors explode
+exclude = ["src/types/", "types/", ".venv/"]
+
+[[tool.mypy.overrides]]
+module = "src/models/rest_api/main.py"
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "src/models/rest_api/entitybase/v1/services/entity_statement_service.py"
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "wikibaseintegrator.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+# Max line length
+line-length = 88
+
+# Exclude test files from docstring requirements
+exclude = ["tests/", "scripts/"]
+
+[tool.ruff.lint]
+# General rules to check: exclude docstring rules (handled by custom script)
+select = ["PL"]
+
+# Optional: ignore private functions/methods
+ignore = ["D105", "D106", "D107", "PLC0415", "PLR2004"]
+
+[tool.ruff.lint.pydocstyle]
+# Use Google style
+# convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Skip docstring requirements for frozen models (data classes) and enums
+# "src/models/**/*.py" = ["D101"]
+# Ignore PLR0915 (too many statements) for test files
+"tests/**/*.py" = ["PLR0915"]

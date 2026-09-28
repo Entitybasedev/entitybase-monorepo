@@ -1,0 +1,69 @@
+"""Entity validation service."""
+
+import logging
+
+from pydantic import BaseModel
+
+from models.data.infrastructure.s3.entity_state import EntityState
+from models.data.rest_api.v1.entitybase.response import EntityResponse
+from models.rest_api.utils import raise_validation_error
+
+logger = logging.getLogger(__name__)
+
+
+class EntityValidationService(BaseModel):
+    """Service for entity validation operations."""
+
+    def validate_protection_settings(
+        self,
+        entity_id: str,
+        is_mass_edit: bool | None,
+        is_not_autoconfirmed_user: bool | None,
+    ) -> None:
+        """Validate protection settings."""
+        if is_mass_edit and is_not_autoconfirmed_user:
+            if self.state.db_client.is_entity_semi_protected(entity_id):
+                raise_validation_error(
+                    "Semi-protected entity cannot be mass edited", status_code=403
+                )
+
+    def validate_idempotency(
+        self,
+        entity_id: str,
+        head_revision_id: int,
+        content_hash: int,
+    ) -> EntityResponse | None:
+        """Check if request is idempotent."""
+        if head_revision_id == 0:
+            return None
+
+        logger.debug(f"Checking idempotency against head revision {head_revision_id}")
+        try:
+            head_revision = self.state.read_revision_data(
+                entity_id, head_revision_id
+            )
+            head_content_hash = head_revision.content_hash
+            logger.debug(f"Head revision content hash: {head_content_hash}")
+
+            if head_content_hash == content_hash:
+                logger.debug(
+                    f"Content unchanged, returning existing revision {head_revision_id}"
+                )
+                revision_dict = head_revision.revision
+                state_data = revision_dict.get("state", {})
+                return EntityResponse(
+                    id=entity_id,
+                    rev_id=head_revision_id,
+                    data=head_revision,
+                    state=EntityState(
+                        sp=state_data.get("is_semi_protected", False),
+                        locked=state_data.get("is_locked", False),
+                        archived=state_data.get("is_archived", False),
+                        dangling=state_data.get("is_dangling", False),
+                        mep=state_data.get("is_mass_edit_protected", False),
+                    ),
+                )
+        except Exception as e:
+            logger.warning(f"Failed to read head revision for idempotency check: {e}")
+
+        return None

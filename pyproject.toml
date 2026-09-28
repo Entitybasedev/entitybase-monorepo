@@ -1,0 +1,12 @@
+[project]
+name = "entitybase-monorepo"
+version = "0.1.0"
+description = "Entitybase repo containing both frontend and backend"
+authors = [{name = "Nizo Priskorn"}]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

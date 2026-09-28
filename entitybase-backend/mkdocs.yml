@@ -1,0 +1,85 @@
+site_name: Entitybase Backend
+site_description: Documentation for the Entitybase Backend project
+
+theme:
+  name: material
+  palette: 
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: amber
+
+nav:
+  - 🏠 Home: index.md
+  - 🚀 Getting Started:
+      - GETTING_STARTED.md
+      - SETUP.md
+      - PROJECT_STRUCTURE.md
+      - Value Proposition: docs/VALUE_PROPOSITION.md
+      - 🔍 Glossary: docs/GLOSSARY.md
+      - ⚡ Quick Reference: docs/QUICKREF.md
+  - 🏗️ Architecture:
+      - ARCHITECTURE/ARCHITECTURE.md
+      - Storage: ARCHITECTURE/STORAGE-ARCHITECTURE.md
+      - Entity Model: ARCHITECTURE/ENTITY-MODEL.md
+      - Repositories: ARCHITECTURE/REPOSITORIES.md
+      - Workers: ARCHITECTURE/WORKERS.md
+      - Configuration: ARCHITECTURE/CONFIGURATION.md
+      - API Models: ARCHITECTURE/API_MODELS.md
+      - Services: ARCHITECTURE/SERVICES.md
+      - Concurrency Control: ARCHITECTURE/CONCURRENCY-CONTROL.md
+      - Consistency Model: ARCHITECTURE/CONSISTENCY-MODEL.md
+      - Caching Strategy: ARCHITECTURE/CACHING-STRATEGY.md
+      - Bulk Operations: ARCHITECTURE/BULK-OPERATIONS.md
+      - Scaling Properties: ARCHITECTURE/SCALING-PROPERTIES.md
+      - Architecture Changelog: ARCHITECTURE/ARCHITECTURE-CHANGELOG.md
+      - RDF Builder: ARCHITECTURE/RDF-BUILDER/RDF-ENDPOINT-ARCHITECTURE.md
+      - Change Streaming: ARCHITECTURE/CHANGE-STREAMING/CHANGE-NOTIFICATION.md
+      - Diagrams: 
+          - DIAGRAMS/index.md
+          - Read Paths:
+              - Entity GET: DIAGRAMS/READ-PATHS/ENTITIES-GET-PROCESS.md
+          - Write Paths:
+              - Entity Create: DIAGRAMS/WRITE-PATHS/ENTITY-CREATE-PROCESS.md
+              - Entity Update: DIAGRAMS/WRITE-PATHS/ENTITY-UPDATE-PROCESS.md
+              - Terms PUT: DIAGRAMS/WRITE-PATHS/TERMS-PUT.md
+              - Terms PATCH: DIAGRAMS/WRITE-PATHS/TERMS-PATCH.md
+              - Terms DELETE: DIAGRAMS/WRITE-PATHS/TERMS-DELETE.md
+              - Delete/Undelete: DIAGRAMS/WRITE-PATHS/DELETE-UNDELETE-PROCESS.md
+              - Archive/Unarchive: DIAGRAMS/WRITE-PATHS/ARCHIVE-UNARCHIVE-PROCESS.md
+              - Lock/Unlock: DIAGRAMS/WRITE-PATHS/LOCK-UNLOCK-PROCESS.md
+              - Redirect: DIAGRAMS/WRITE-PATHS/REDIRECT-WRITE-PROCESS.md
+              - Statement Processing: DIAGRAMS/WRITE-PATHS/STATEMENT-PROCESSING-PATHS.md
+              - Lexeme Update: DIAGRAMS/WRITE-PATHS/LEXEME-UPDATE-PROCESS.md
+  - 📚 API Reference:
+      - API Reference: docs/API.md
+      - OpenAPI Spec: docs/openapi.json
+  - ✨ Features:
+      - features/ENDPOINTS.md
+      - features/IMMUTABLE-REVISIONS.md
+      - features/LEXEME-SUPPORT.md
+      - features/STATEMENT-DEDUPLICATION.md
+      - features/RDF-EXPORT.md
+      - features/ENTITY-PROTECTION.md
+      - features/HORIZONTAL-SCALING.md
+      - features/THANKS.md
+      - features/ENDORSEMENTS.md
+  - 📈 Scaling:
+      - Vitess cost: ECONOMIC-ESTIMATIONS/VITESS-COST-ESTIMATION.md
+      - Hash Collisions: RISK/HASH-COLLISION.md
+
+plugins:
+  - search:
+      lang: en
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences

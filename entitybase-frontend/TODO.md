@@ -1,0 +1,1 @@
+Create a delightful frontend using Vue. It should have both beginner and expert modes. Users should be able to adjust settings. It should follow system light/dark by default and be adjustable.

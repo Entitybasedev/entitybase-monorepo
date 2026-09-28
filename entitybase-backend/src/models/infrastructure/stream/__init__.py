@@ -1,0 +1,1 @@
+"""Streaming infrastructure for event publishing."""

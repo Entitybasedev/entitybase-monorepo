@@ -1,0 +1,321 @@
+"""Integration tests for lexeme import via /import endpoint."""
+
+import json
+import pytest
+import time
+from httpx import ASGITransport, AsyncClient
+
+from models.data.rest_api.v1.entitybase.request import EntityCreateRequest
+
+
+class LexemeIdGenerator:
+    """Generate unique lexeme IDs for testing."""
+
+    _counter = 0
+
+    @classmethod
+    def get_next(cls) -> str:
+        """Generate a unique lexeme ID."""
+        cls._counter += 1
+        return f"L9999{cls._counter}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_import_with_lemmas() -> None:
+    """Test that lexeme import works with lemmas field."""
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+    form_id = f"{lexeme_id}-F1"
+    sense_id = f"{lexeme_id}-S1"
+
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "lemmas": {"en": {"language": "en", "value": "answer"}},
+        "labels": {"en": {"language": "en", "value": "answer"}},
+        "forms": [
+            {
+                "id": form_id,
+                "representations": {"en": {"language": "en", "value": "answer"}},
+                "grammaticalFeatures": ["Q110786"],
+            }
+        ],
+        "senses": [
+            {
+                "id": sense_id,
+                "glosses": {"en": {"language": "en", "value": "reply to a question"}},
+            }
+        ],
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["id"] == lexeme_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_import_without_lemmas_fails() -> None:
+    """Test that lexeme import fails without lemmas field."""
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "labels": {"en": {"language": "en", "value": "test"}},
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 400
+        result = response.json()
+        assert "lemma" in str(result.get("message", "")).lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_import_preserves_wikidata_id() -> None:
+    """Test that lexeme import preserves Wikidata L-prefixed ID."""
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "lemmas": {"en": {"language": "en", "value": "test"}},
+        "labels": {"en": {"language": "en", "value": "test"}},
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["id"] == lexeme_id
+
+
+# Language Endpoint Integration Tests
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_language_get_after_creation() -> None:
+    """Test that language can be retrieved after lexeme creation."""
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "lemmas": {"en": {"language": "en", "value": "test"}},
+        "labels": {"en": {"language": "en", "value": "test"}},
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 200
+
+        response = await client.get(f"/v1/entities/lexemes/{lexeme_id}/language")
+        assert response.status_code == 200
+        result = response.json()
+        assert result["language"] == "Q1860"
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_lexicalcategory_get_after_creation() -> None:
+    """Test that lexical category can be retrieved after lexeme creation."""
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "lemmas": {"en": {"language": "en", "value": "test"}},
+        "labels": {"en": {"language": "en", "value": "test"}},
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 200
+
+        response = await client.get(f"/v1/entities/lexemes/{lexeme_id}/lexicalcategory")
+        assert response.status_code == 200
+        result = response.json()
+        assert result["lexical_category"] == "Q1084"
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_language_update_invalid_qid_fails() -> None:
+    """Test that language update with invalid QID fails."""
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "lemmas": {"en": {"language": "en", "value": "test"}},
+        "labels": {"en": {"language": "en", "value": "test"}},
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 200
+
+        response = await client.put(
+            f"/v1/entities/lexemes/{lexeme_id}/language",
+            json={"language": "invalid-qid"},
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 400
+        error_msg = response.json().get("detail", response.json().get("message", ""))
+        assert "qid" in error_msg.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_lexicalcategory_update_invalid_qid_fails() -> None:
+    """Test that lexical category update with invalid QID fails."""
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "lemmas": {"en": {"language": "en", "value": "test"}},
+        "labels": {"en": {"language": "en", "value": "test"}},
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 200
+
+        response = await client.put(
+            f"/v1/entities/lexemes/{lexeme_id}/lexicalcategory",
+            json={"lexical_category": "not-valid"},
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 400
+        error_msg = response.json().get("detail", response.json().get("message", ""))
+        assert "qid" in error_msg.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_lexeme_import_with_claims_and_references() -> None:
+    """Test that lexeme import works with claims containing references (Wikidata format).
+
+    This tests the fix for KeyError: 'hash' when WBI tries to parse references
+    in Wikidata JSON format (which includes hash fields).
+    """
+    from models.rest_api.main import app
+
+    lexeme_id = LexemeIdGenerator.get_next()
+
+    lexeme_data = {
+        "id": lexeme_id,
+        "type": "lexeme",
+        "language": "Q1860",
+        "lexical_category": "Q1084",
+        "lemmas": {"en": {"language": "en", "value": "test"}},
+        "labels": {"en": {"language": "en", "value": "test"}},
+        "claims": {
+            "P31": [
+                {
+                    "mainsnak": {
+                        "snaktype": "value",
+                        "property": "P31",
+                        "hash": "abc123def456",
+                        "datavalue": {
+                            "value": {
+                                "entity-type": "item",
+                                "numeric-id": 42,
+                                "id": "Q42",
+                            },
+                            "type": "wikibase-entityid",
+                        },
+                        "datatype": "wikibase-item",
+                    },
+                    "type": "statement",
+                    "id": f"{lexeme_id}$123",
+                    "rank": "normal",
+                    "references": [
+                        {"hash": "ref_hash_abc123", "snaks": {}, "snaks-order": []}
+                    ],
+                }
+            ]
+        },
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/import",
+            json=lexeme_data,
+            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["id"] == lexeme_id

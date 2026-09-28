@@ -1,0 +1,1 @@
+find docs/ -name "*.md" -type f -exec wc -w {} + >word-counts.txt

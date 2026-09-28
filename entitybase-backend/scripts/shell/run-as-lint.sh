@@ -1,0 +1,9 @@
+#!/bin/bash
+cd "$(dirname "$0")/../.."
+set -Eeuo pipefail
+
+echo "Checking for 'as' in import statements..."
+
+uv run python scripts/linters/check_as_imports.py src/ tests/
+
+echo "As import linting passed!"

@@ -1,0 +1,3 @@
+from typing import Any
+
+def rs_rapidhash(*args, **kwargs) -> Any: ...

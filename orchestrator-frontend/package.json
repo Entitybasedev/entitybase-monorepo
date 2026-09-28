@@ -1,0 +1,30 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "serve -s dist -l 8080",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "serve": "^14.2.6",
+    "vue": "^3.5.25"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "@vitejs/plugin-vue": "^6.0.2",
+    "@vue/test-utils": "^2.4.6",
+    "eslint": "^9.20.0",
+    "eslint-plugin-vue": "^10.0.0",
+    "globals": "^15.14.0",
+    "jsdom": "^28.1.0",
+    "vite": "^7.3.1",
+    "vitest": "^3.0.0"
+  }
+}

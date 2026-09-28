@@ -1,0 +1,536 @@
+"""Entity update term mixins."""
+
+import logging
+from typing import Any
+
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
+from models.data.rest_api.v1.entitybase.request.entity import PreparedRequestData
+from models.data.rest_api.v1.entitybase.request.edit_context import EditContext
+from models.data.rest_api.v1.entitybase.request.entity.context import (
+    TermUpdateContext,
+    EventPublishContext,
+)
+from models.data.rest_api.v1.entitybase.response import EntityResponse
+from models.data.infrastructure.stream.change_type import ChangeType
+from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.infrastructure.s3.enums import EntityType, MetadataType
+from models.infrastructure.db.repositories.terms import TermsRepository
+
+
+class TermTransactionContext(BaseModel):
+    """Context for term transaction operations."""
+
+    entity_id: str
+    entity_type: EntityType
+    updated_hashes: dict[str, Any]
+    existing_revision: dict[str, Any]
+    edit_headers: EditHeaders
+
+
+from models.rest_api.entitybase.v1.handlers.entity.read import EntityReadHandler
+from models.rest_api.utils import infer_entity_type_from_id, raise_validation_error
+
+logger = logging.getLogger(__name__)
+
+
+class EntityUpdateTermsMixin(BaseModel):
+    """Mixin for entity term update operations (labels, descriptions, aliases)."""
+
+    model_config = {"extra": "allow"}
+
+    state: Any
+
+    async def update_label(
+        self,
+        entity_id: str,
+        context: TermUpdateContext,
+        edit_headers: EditHeaders,
+        validator: Any | None = None,
+    ) -> EntityResponse:
+        """Update or add a label for a language."""
+        logger.debug(f"Updating label for {entity_id} in {context.language_code}")
+        if context.language != context.language_code:
+            raise_validation_error(
+                f"Language in request ({context.language}) does not match path parameter ({context.language_code})",
+                status_code=400,
+            )
+
+        entity_type = infer_entity_type_from_id(entity_id)
+        if not entity_type:
+            raise_validation_error("Invalid entity ID format", status_code=400)
+
+        read_handler = EntityReadHandler(state=self.state)
+        current_entity = read_handler.get_entity(entity_id)
+
+        entity_dict = current_entity.entity_data.revision
+
+        if "labels" not in entity_dict:
+            entity_dict["labels"] = {}
+        entity_dict["labels"][context.language_code] = {
+            "language": context.language_code,
+            "value": context.value,
+        }
+
+        return await self._update_with_transaction(  # type: ignore[no-any-return]
+            entity_id,
+            entity_dict,
+            entity_type,
+            edit_headers,
+            validator,
+        )
+
+    async def delete_label(
+        self,
+        entity_id: str,
+        language_code: str,
+        edit_headers: EditHeaders,
+        validator: Any | None = None,
+    ) -> EntityResponse:
+        """Delete a label for a language (idempotent)."""
+        logger.debug(f"Deleting label for {entity_id} in {language_code}")
+        entity_type = infer_entity_type_from_id(entity_id)
+        if not entity_type:
+            raise_validation_error("Invalid entity ID format", status_code=400)
+
+        if self.state.db_client.is_entity_deleted(entity_id):
+            raise_validation_error("Entity deleted", status_code=410)
+
+        if self.state.db_client.is_entity_locked(entity_id):
+            raise_validation_error("Entity locked", status_code=423)
+
+        read_handler = EntityReadHandler(state=self.state)
+        current_entity = read_handler.get_entity(entity_id)
+
+        existing_hashes = current_entity.entity_data.revision.get("hashes", {})
+        labels_hashes = existing_hashes.get("labels", {})
+        if language_code not in labels_hashes:
+            return current_entity
+
+        removed_hash = labels_hashes[language_code]
+        updated_labels_hashes = dict(labels_hashes)
+        del updated_labels_hashes[language_code]
+
+        updated_hashes = dict(existing_hashes)
+        updated_hashes["labels"] = updated_labels_hashes
+
+        return await self._execute_term_delete_transaction(
+            TermTransactionContext(
+                entity_id=entity_id,
+                entity_type=entity_type,
+                updated_hashes=updated_hashes,
+                existing_revision=current_entity.entity_data.revision,
+                edit_headers=edit_headers,
+            ),
+            [int(removed_hash)],
+        )
+
+    def _decrement_term_ref_count(self, hash_value: int) -> None:
+        """Decrement ref_count for a term hash and clean up if orphaned."""
+        terms_repo = TermsRepository(db_client=self.state.db_client)
+        result = terms_repo.decrement_ref_count(hash_value)
+        if not result.success:
+            logger.warning(
+                f"Failed to decrement ref_count for term {hash_value}: {result.error}"
+            )
+            return
+        new_count = result.data if result.data else 0
+        if new_count == 0:
+            terms_repo.delete_term(hash_value)
+            self.state.s3_client.delete_metadata(MetadataType.LABELS, hash_value)
+            self.state.s3_client.delete_metadata(MetadataType.DESCRIPTIONS, hash_value)
+            self.state.s3_client.delete_metadata(MetadataType.ALIASES, hash_value)
+            logger.info(f"Cleaned up orphaned term hash {hash_value}")
+
+    async def _execute_term_delete_transaction(
+        self,
+        context: TermTransactionContext,
+        removed_hashes: list[int] | None = None,
+    ) -> EntityResponse:
+        """Execute common transaction pattern for term deletion operations.
+
+        This helper encapsulates the repeated pattern of:
+        1. Creating UpdateTransaction
+        2. Getting head revision ID
+        3. Creating revision with hashes
+        4. Decrementing ref counts for removed hashes
+        5. Publishing event
+        6. Logging user activity
+        7. Committing
+        """
+        from .update_transaction import UpdateTransaction
+
+        tx = UpdateTransaction(state=self.state)
+        tx.entity_id = context.entity_id
+        try:
+            head_revision_id = tx.state.db_client.get_head(context.entity_id)
+
+            response = await tx.create_revision_with_hashes(
+                entity_id=context.entity_id,
+                entity_type=context.entity_type,
+                edit_headers=context.edit_headers,
+                existing_hashes=context.updated_hashes,
+                existing_revision=context.existing_revision,
+            )
+
+            if removed_hashes:
+                for hash_value in removed_hashes:
+                    self._decrement_term_ref_count(hash_value)
+
+            edit_context = EditContext(
+                user_id=context.edit_headers.x_user_id,
+                edit_summary=context.edit_headers.x_edit_summary,
+            )
+            event_context = EventPublishContext(
+                entity_id=context.entity_id,
+                revision_id=response.revision_id,
+                change_type=ChangeType.EDIT,
+                from_revision_id=head_revision_id,
+                changed_at=None,
+            )
+            await tx.publish_event(event_context, edit_context)
+
+            if context.edit_headers.x_user_id:
+                activity_result = await (
+                    self.state.db_client.user_repository.log_user_activity(
+                        user_id=context.edit_headers.x_user_id,
+                        activity_type=UserActivityType.ENTITY_EDIT,
+                        entity_id=context.entity_id,
+                        revision_id=response.revision_id,
+                    )
+                )
+                if not activity_result.success:
+                    logger.warning(
+                        f"Failed to log user activity: {activity_result.error}"
+                    )
+
+            tx.commit()
+            return response
+        except HTTPException:
+            tx.rollback()
+            raise
+        except Exception as e:
+            logger.error(
+                f"Term delete transaction failed for {context.entity_id}: {e}",
+                exc_info=True,
+            )
+            tx.rollback()
+            raise_validation_error(
+                f"Term delete transaction failed: {type(e).__name__}: {str(e)}",
+                status_code=500,
+            )
+
+    async def _execute_term_add_transaction(
+        self,
+        context: TermTransactionContext,
+    ) -> EntityResponse:
+        """Execute common transaction pattern for term add operations.
+
+        This helper is similar to _execute_term_delete_transaction but without
+        ref count decrementing.
+        """
+        from .update_transaction import UpdateTransaction
+
+        tx = UpdateTransaction(state=self.state)
+        tx.entity_id = context.entity_id
+        try:
+            head_revision_id = tx.state.db_client.get_head(context.entity_id)
+
+            response = await tx.create_revision_with_hashes(
+                entity_id=context.entity_id,
+                entity_type=context.entity_type,
+                edit_headers=context.edit_headers,
+                existing_hashes=context.updated_hashes,
+                existing_revision=context.existing_revision,
+            )
+
+            edit_context = EditContext(
+                user_id=context.edit_headers.x_user_id,
+                edit_summary=context.edit_headers.x_edit_summary,
+            )
+            event_context = EventPublishContext(
+                entity_id=context.entity_id,
+                revision_id=response.revision_id,
+                change_type=ChangeType.EDIT,
+                from_revision_id=head_revision_id,
+                changed_at=None,
+            )
+            await tx.publish_event(event_context, edit_context)
+
+            if context.edit_headers.x_user_id:
+                activity_result = await (
+                    self.state.db_client.user_repository.log_user_activity(
+                        user_id=context.edit_headers.x_user_id,
+                        activity_type=UserActivityType.ENTITY_EDIT,
+                        entity_id=context.entity_id,
+                        revision_id=response.revision_id,
+                    )
+                )
+                if not activity_result.success:
+                    logger.warning(
+                        f"Failed to log user activity: {activity_result.error}"
+                    )
+
+            tx.commit()
+            return response
+        except HTTPException:
+            tx.rollback()
+            raise
+        except Exception as e:
+            logger.error(
+                f"Term add transaction failed for {context.entity_id}: {e}",
+                exc_info=True,
+            )
+            tx.rollback()
+            raise_validation_error(
+                f"Term add transaction failed: {type(e).__name__}: {str(e)}",
+                status_code=500,
+            )
+
+    async def update_description(
+        self,
+        entity_id: str,
+        context: TermUpdateContext,
+        edit_headers: EditHeaders,
+        validator: Any | None = None,
+    ) -> EntityResponse:
+        """Update or add a description for a language."""
+        logger.debug(f"Updating description for {entity_id} in {context.language_code}")
+        if context.language != context.language_code:
+            raise_validation_error(
+                f"Language in request ({context.language}) does not match path parameter ({context.language_code})",
+                status_code=400,
+            )
+
+        entity_type = infer_entity_type_from_id(entity_id)
+        if not entity_type:
+            raise_validation_error("Invalid entity ID format", status_code=400)
+
+        read_handler = EntityReadHandler(state=self.state)
+        current_entity = read_handler.get_entity(entity_id)
+
+        entity_dict = current_entity.entity_data.revision
+
+        if "descriptions" not in entity_dict:
+            entity_dict["descriptions"] = {}
+        entity_dict["descriptions"][context.language_code] = {
+            "language": context.language_code,
+            "value": context.value,
+        }
+
+        return await self._update_with_transaction(  # type: ignore[no-any-return]
+            entity_id,
+            entity_dict,
+            entity_type,
+            edit_headers,
+            validator,
+        )
+
+    async def delete_description(
+        self,
+        entity_id: str,
+        language_code: str,
+        edit_headers: EditHeaders,
+        validator: Any | None = None,
+    ) -> EntityResponse:
+        """Delete a description for a language (idempotent)."""
+        logger.debug(f"Deleting description for {entity_id} in {language_code}")
+        entity_type = infer_entity_type_from_id(entity_id)
+        if not entity_type:
+            raise_validation_error("Invalid entity ID format", status_code=400)
+
+        if self.state.db_client.is_entity_deleted(entity_id):
+            raise_validation_error("Entity deleted", status_code=410)
+
+        if self.state.db_client.is_entity_locked(entity_id):
+            raise_validation_error("Entity locked", status_code=423)
+
+        read_handler = EntityReadHandler(state=self.state)
+        current_entity = read_handler.get_entity(entity_id)
+
+        existing_hashes = current_entity.entity_data.revision.get("hashes", {})
+        descriptions_hashes = existing_hashes.get("descriptions", {})
+        if language_code not in descriptions_hashes:
+            return current_entity
+
+        removed_hash = descriptions_hashes[language_code]
+        updated_descriptions_hashes = dict(descriptions_hashes)
+        del updated_descriptions_hashes[language_code]
+
+        updated_hashes = dict(existing_hashes)
+        updated_hashes["descriptions"] = updated_descriptions_hashes
+
+        return await self._execute_term_delete_transaction(
+            TermTransactionContext(
+                entity_id=entity_id,
+                entity_type=entity_type,
+                updated_hashes=updated_hashes,
+                existing_revision=current_entity.entity_data.revision,
+                edit_headers=edit_headers,
+            ),
+            [int(removed_hash)],
+        )
+
+    async def update_aliases(
+        self,
+        entity_id: str,
+        language_code: str,
+        aliases: list[str],
+        edit_headers: EditHeaders,
+        validator: Any | None = None,
+    ) -> EntityResponse:
+        """Replace all aliases for a language."""
+        logger.info(
+            f"update_aliases: entity={entity_id}, lang={language_code}, count={len(aliases)}"
+        )
+        logger.debug(
+            f"[update_aliases] db_client={id(self.state.db_client)}, id_resolver={id(self.state.db_client.id_resolver)}"
+        )
+        entity_type = infer_entity_type_from_id(entity_id)
+        if not entity_type:
+            logger.warning(f"update_aliases: invalid entity ID format: {entity_id}")
+            raise_validation_error("Invalid entity ID format", status_code=400)
+
+        logger.debug(f"update_aliases: reading entity {entity_id}")
+        read_handler = EntityReadHandler(state=self.state)
+        current_entity = read_handler.get_entity(entity_id)
+
+        entity_dict = current_entity.entity_data.revision
+        logger.debug(f"update_aliases: entity_dict keys: {list(entity_dict.keys())}")
+
+        if "aliases" not in entity_dict:
+            entity_dict["aliases"] = {}
+        entity_dict["aliases"][language_code] = [{"value": alias} for alias in aliases]
+        logger.debug(
+            f"update_aliases: updated aliases for {language_code}: {entity_dict['aliases'].get(language_code)}"
+        )
+
+        logger.debug(
+            f"update_aliases: calling _update_with_transaction for {entity_id}"
+        )
+        return await self._update_with_transaction(  # type: ignore[no-any-return]
+            entity_id,
+            entity_dict,
+            entity_type,
+            edit_headers,
+            validator,
+        )
+
+    async def add_alias(
+        self,
+        entity_id: str,
+        language_code: str,
+        alias: str,
+        edit_headers: EditHeaders,
+        validator: Any | None = None,
+    ) -> EntityResponse:
+        """Add a single alias to the existing list for a language.
+
+        Uses hash-direct approach:
+        1. Hash the new alias
+        2. Check against existing alias hashes (no S3 read needed)
+        3. Store the new alias in S3/database
+        4. Create new revision with updated hash list
+        """
+        from models.internal_representation.metadata_extractor import MetadataExtractor
+        from models.infrastructure.db.repositories.terms import TermsRepository
+
+        logger.debug(
+            f"Adding alias '{alias}' for entity {entity_id}, language {language_code}"
+        )
+
+        entity_type = infer_entity_type_from_id(entity_id)
+        if not entity_type:
+            raise_validation_error("Invalid entity ID format", status_code=400)
+
+        if self.state.db_client.is_entity_deleted(entity_id):
+            raise_validation_error("Entity deleted", status_code=410)
+
+        if self.state.db_client.is_entity_locked(entity_id):
+            raise_validation_error("Entity locked", status_code=423)
+
+        read_handler = EntityReadHandler(state=self.state)
+        current_entity = read_handler.get_entity(entity_id)
+
+        existing_hashes = current_entity.entity_data.revision.get("hashes", {})
+        aliases_hashes = existing_hashes.get("aliases", {})
+        existing_alias_hashes = list(aliases_hashes.get(language_code, []))
+
+        new_alias_hash = MetadataExtractor.hash_string(alias)
+        if new_alias_hash in existing_alias_hashes:
+            logger.warning(
+                f"Alias '{alias}' already exists for entity {entity_id}, language {language_code}"
+            )
+            raise_validation_error(
+                f"Alias '{alias}' already exists for language {language_code}",
+                status_code=409,
+            )
+
+        self.state.s3_client.store_term_metadata(alias, new_alias_hash, "aliases")
+        if self.state.mysql_config:
+            terms_repo = TermsRepository(db_client=self.state.db_client)
+            terms_repo.insert_term(new_alias_hash, alias, "alias")
+
+        updated_alias_hashes = existing_alias_hashes + [new_alias_hash]
+        updated_aliases_hashes = dict(aliases_hashes)
+        updated_aliases_hashes[language_code] = updated_alias_hashes
+
+        updated_hashes = dict(existing_hashes)
+        updated_hashes["aliases"] = updated_aliases_hashes
+
+        return await self._execute_term_add_transaction(
+            TermTransactionContext(
+                entity_id=entity_id,
+                entity_type=entity_type,
+                updated_hashes=updated_hashes,
+                existing_revision=current_entity.entity_data.revision,
+                edit_headers=edit_headers,
+            ),
+        )
+
+    async def delete_aliases(
+        self,
+        entity_id: str,
+        language_code: str,
+        edit_headers: EditHeaders,
+        validator: Any | None = None,
+    ) -> EntityResponse:
+        """Delete all aliases for a language (idempotent)."""
+        logger.debug(f"Deleting all aliases for {entity_id} in {language_code}")
+        entity_type = infer_entity_type_from_id(entity_id)
+        if not entity_type:
+            raise_validation_error("Invalid entity ID format", status_code=400)
+
+        if self.state.db_client.is_entity_deleted(entity_id):
+            raise_validation_error("Entity deleted", status_code=410)
+
+        if self.state.db_client.is_entity_locked(entity_id):
+            raise_validation_error("Entity locked", status_code=423)
+
+        read_handler = EntityReadHandler(state=self.state)
+        current_entity = read_handler.get_entity(entity_id)
+
+        existing_hashes = current_entity.entity_data.revision.get("hashes", {})
+        aliases_hashes = existing_hashes.get("aliases", {})
+        if language_code not in aliases_hashes:
+            return current_entity
+
+        removed_hashes = aliases_hashes[language_code]
+        updated_aliases_hashes = dict(aliases_hashes)
+        del updated_aliases_hashes[language_code]
+
+        updated_hashes = dict(existing_hashes)
+        updated_hashes["aliases"] = updated_aliases_hashes
+
+        return await self._execute_term_delete_transaction(
+            TermTransactionContext(
+                entity_id=entity_id,
+                entity_type=entity_type,
+                updated_hashes=updated_hashes,
+                existing_revision=current_entity.entity_data.revision,
+                edit_headers=edit_headers,
+            ),
+            [int(h) for h in removed_hashes],
+        )

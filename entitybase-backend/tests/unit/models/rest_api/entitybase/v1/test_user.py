@@ -1,0 +1,113 @@
+import sys
+from unittest.mock import MagicMock
+
+import pytest
+
+pytestmark = pytest.mark.unit
+
+sys.path.insert(0, "src")
+
+from models.data.rest_api.v1.entitybase.request import UserCreateRequest
+from models.data.rest_api.v1.entitybase.response import UserCreateResponse
+from models.rest_api.entitybase.v1.handlers.user import UserHandler
+
+
+class TestUserHandler:
+    """Unit tests for UserHandler"""
+
+    @pytest.fixture
+    def mock_db_client(self) -> MagicMock:
+        """Mock Vitess client"""
+        client = MagicMock()
+        client.user_repository = MagicMock()
+        return client
+
+    @pytest.fixture
+    def mock_state(self, mock_db_client: MagicMock) -> MagicMock:
+        """Create handler instance"""
+        state = MagicMock()
+        state.db_client = mock_db_client
+        state.user_change_stream_producer = None
+        return state
+
+    @pytest.fixture
+    def handler(self, mock_state: MagicMock) -> UserHandler:
+        """Create handler instance"""
+        return UserHandler(state=mock_state)
+
+    @pytest.mark.asyncio
+    async def test_create_user_new(
+        self, handler: UserHandler, mock_db_client: MagicMock
+    ) -> None:
+        """Test creating a new user"""
+        request = UserCreateRequest(user_id=12345)
+
+        mock_db_client.user_repository.user_exists.return_value = False
+
+        result = await handler.create_user(request)
+
+        assert isinstance(result, UserCreateResponse)
+        assert result.user_id == 12345
+        assert result.created is True
+        mock_db_client.user_repository.user_exists.assert_called_once_with(12345)
+        mock_db_client.user_repository.create_user.assert_called_once_with(12345)
+
+    @pytest.mark.asyncio
+    async def test_create_user_existing(
+        self, handler: UserHandler, mock_db_client: MagicMock
+    ) -> None:
+        """Test creating a user that already exists"""
+        request = UserCreateRequest(user_id=12345)
+
+        mock_db_client.user_repository.user_exists.return_value = True
+
+        result = await handler.create_user(request)
+
+        assert isinstance(result, UserCreateResponse)
+        assert result.user_id == 12345
+        assert result.created is False
+        mock_db_client.user_repository.user_exists.assert_called_once_with(12345)
+        mock_db_client.user_repository.create_user.assert_not_called()
+
+    def test_get_user_found(
+        self, handler: UserHandler, mock_db_client: MagicMock
+    ) -> None:
+        """Test getting a user that exists"""
+        from models.data.rest_api.v1.entitybase.response import UserResponse
+        from datetime import datetime
+
+        mock_user = UserResponse(
+            user_id=12345, created_at=datetime(2023, 1, 1), preferences=None
+        )
+
+        mock_db_client.user_repository.get_user.return_value = mock_user
+
+        result = handler.get_user(12345)
+
+        assert result == mock_user
+        mock_db_client.user_repository.get_user.assert_called_once_with(12345)
+
+    @pytest.mark.asyncio
+    async def test_toggle_watchlist_success(
+        self, handler: UserHandler, mock_db_client: MagicMock
+    ) -> None:
+        """Test successful watchlist toggle"""
+        from models.data.rest_api.v1.entitybase.request import WatchlistToggleRequest
+        from models.data.rest_api.v1.entitybase.response import WatchlistToggleResponse
+
+        request = WatchlistToggleRequest(enabled=False)
+
+        mock_db_client.user_repository.user_exists.return_value = True
+        mock_db_client.user_repository.disable_watchlist.return_value = MagicMock(
+            success=True
+        )
+
+        result = await handler.toggle_watchlist(12345, request)
+
+        assert isinstance(result, WatchlistToggleResponse)
+        assert result.user_id == 12345
+        assert result.enabled is False
+        mock_db_client.user_repository.user_exists.assert_called_once_with(12345)
+        mock_db_client.user_repository.disable_watchlist.assert_called_once_with(
+            12345
+        )

@@ -1,0 +1,115 @@
+"""Tests for models.rest_api.main module."""
+
+import pytest
+import logging
+from unittest.mock import AsyncMock, PropertyMock, patch
+
+
+class TestFastAPIApp:
+    """Test suite for the FastAPI app initialization and configuration."""
+
+    def test_app_initialization(self):
+        """Test that the FastAPI app is initialized correctly."""
+        from models.config.version import API_VERSION
+
+        from models.rest_api.main import app
+
+        assert app is not None
+        assert app.title == "Entitybase-backend"
+        assert app.version == API_VERSION
+
+    def test_app_has_lifespan_configured(self):
+        """Test that app has lifespan configured."""
+        from models.rest_api.main import app
+
+        assert app.router.lifespan_context is not None
+
+    def test_logging_configuration(self):
+        """Test that logging is configured at module level."""
+        from models.rest_api.main import logger
+
+        assert logger is not None
+        assert logger.name == "models.rest_api.main"
+
+    @pytest.mark.asyncio
+    async def test_lifespan_startup_success(self, mocker):
+        """Test that lifespan startup initializes StateHandler correctly."""
+        from models.rest_api.main import lifespan
+        from fastapi import FastAPI
+
+        app_mock = FastAPI()
+        mock_state_handler = mocker.Mock()
+        mock_state_handler.start.return_value = None
+        mock_state_handler.async_shutdown = AsyncMock()
+
+        mocker.patch(
+            "models.rest_api.main.StateHandler", return_value=mock_state_handler
+        )
+        mocker.patch(
+            "models.rest_api.main.settings",
+            new_callable=PropertyMock,
+        ).return_value.streaming_enabled = False
+
+        async with lifespan(app_mock) as _:
+            assert hasattr(app_mock.state, "state_handler")
+            assert app_mock.state.state_handler == mock_state_handler
+            mock_state_handler.start.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_lifespan_shutdown_logs_message(self, mocker, caplog):
+        """Test that lifespan shutdown logs appropriate messages."""
+        from models.rest_api.main import lifespan
+        from fastapi import FastAPI
+
+        app_mock = FastAPI()
+        mock_state_handler = mocker.Mock()
+        mock_state_handler.start.return_value = None
+        mock_state_handler.async_shutdown = AsyncMock()
+
+        mocker.patch(
+            "models.rest_api.main.StateHandler", return_value=mock_state_handler
+        )
+        mocker.patch(
+            "models.rest_api.main.settings",
+            new_callable=PropertyMock,
+        ).return_value.streaming_enabled = False
+
+        with caplog.at_level(logging.DEBUG):
+            async with lifespan(app_mock) as _:
+                pass
+
+        assert "All clients disconnected" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_lifespan_startup_failure(self, mocker):
+        """Test that lifespan startup failure raises exception."""
+        from models.rest_api.main import lifespan
+        from fastapi import FastAPI
+
+        app_mock = FastAPI()
+        mock_state_handler = mocker.Mock()
+        mock_state_handler.start.side_effect = RuntimeError("Startup failed")
+        mock_state_handler.async_shutdown = AsyncMock()
+
+        mocker.patch(
+            "models.rest_api.main.StateHandler", return_value=mock_state_handler
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            async with lifespan(app_mock) as _:
+                pass
+
+        assert "Startup failed" in str(exc_info.value)
+
+    def test_settings_import(self):
+        """Test that settings are imported and accessible."""
+        from models.rest_api.main import settings
+
+        assert settings is not None
+        assert hasattr(settings, "log_level")
+
+    def test_state_handler_import(self):
+        """Test that StateHandler is imported."""
+        from models.rest_api.main import StateHandler
+
+        assert StateHandler is not None
