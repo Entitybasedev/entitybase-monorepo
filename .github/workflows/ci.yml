@@ -314,6 +314,80 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
+  e2e-ui:
+    # Playwright e2e against the REAL backend stack (never the mock API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_URL: http://localhost:8000
+      API_TARGET: http://localhost:8000
+      FRONTEND_PORT: 8085
+    defaults:
+      run:
+        working-directory: e2e-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build backend images
+        run: |
+          docker compose -f entitybase-backend/docker-compose.ci.yml build \
+            api create-buckets create-tables
+      - name: Start backend stack
+        run: |
+          docker compose -f entitybase-backend/docker-compose.ci.yml up -d \
+            mysql minio redpanda create-tables create-buckets api
+
+      - name: Wait for MySQL
+        timeout-minutes: 2
+        run: |
+          until docker compose -f entitybase-backend/docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost --silent; do
+            echo "Waiting for MySQL..."; sleep 2
+          done
+      - name: Wait for MinIO
+        timeout-minutes: 2
+        run: |
+          until curl -f http://localhost:9000/minio/health/live; do
+            echo "Waiting for MinIO..."; sleep 2
+          done
+      - name: Wait for API
+        timeout-minutes: 2
+        run: |
+          until curl -f http://localhost:8000/health; do
+            echo "Waiting for API..."; sleep 2
+          done
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install e2e + frontend deps
+        run: |
+          npm install --silent
+          npx playwright install --with-deps chromium
+          (cd ../entitybase-frontend && npm install --silent)
+
+      - name: Run Playwright e2e
+        run: npx playwright test
+
+      - name: Show API logs on failure
+        if: failure()
+        run: docker compose -f ../entitybase-backend/docker-compose.ci.yml logs --tail=100 api
+      - name: Down containers
+        if: always()
+        run: docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e-ui/playwright-report/
+            e2e-ui/test-results/
+          if-no-files-found: ignore
+
   kafka2sse-backend:
     runs-on: ubuntu-latest
     defaults:
