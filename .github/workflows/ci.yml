@@ -91,7 +91,7 @@ jobs:
             api create-buckets create-tables
       - name: Start infrastructure services
         run: |
-          docker compose -f docker-compose.ci.yml up -d mysql minio redpanda
+          docker compose -f docker-compose.ci.yml up -d mysql rustfs redpanda
       - name: Wait for MySQL
         timeout-minutes: 2
         run: |
@@ -99,11 +99,11 @@ jobs:
             echo "Waiting for MySQL..."
             sleep 2
           done
-      - name: Wait for MinIO
+      - name: Wait for RustFS
         timeout-minutes: 2
         run: |
-          until curl -f http://localhost:9000/minio/health/live; do
-            echo "Waiting for MinIO..."
+          until curl -f http://localhost:9000/health; do
+            echo "Waiting for RustFS..."
             sleep 2
           done
       - name: Wait for Redpanda
@@ -339,7 +339,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           docker compose -f entitybase-backend/docker-compose.ci.yml up -d \
-            mysql minio redpanda create-tables create-buckets api
+            mysql rustfs redpanda create-tables create-buckets api
 
       - name: Wait for MySQL
         timeout-minutes: 2
@@ -348,11 +348,11 @@ jobs:
           until docker compose -f entitybase-backend/docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost --silent; do
             echo "Waiting for MySQL..."; sleep 2
           done
-      - name: Wait for MinIO
+      - name: Wait for RustFS
         timeout-minutes: 2
         run: |
-          until curl -f http://localhost:9000/minio/health/live; do
-            echo "Waiting for MinIO..."; sleep 2
+          until curl -f http://localhost:9000/health; do
+            echo "Waiting for RustFS..."; sleep 2
           done
       - name: Wait for API
         timeout-minutes: 2

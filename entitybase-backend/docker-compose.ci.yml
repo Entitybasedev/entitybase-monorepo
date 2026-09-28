@@ -17,21 +17,22 @@ services:
     mem_limit: 512m
     cpus: 0.5
 
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    command: server /data --console-address ":9001"
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs
+    command: /data
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      - MINIO_ROOT_USER=fakekey
-      - MINIO_ROOT_PASSWORD=fakesecret
-      - MINIO_DEFAULT_BUCKETS=testbucket
+      - RUSTFS_ACCESS_KEY=fakekey
+      - RUSTFS_SECRET_KEY=fakesecret
+      - RUSTFS_ADDRESS=:9000
+      - RUSTFS_CONSOLE_ADDRESS=:9001
     volumes:
       - /data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -69,13 +70,13 @@ services:
       context: .
       dockerfile: docker/containers/Dockerfile.api
     environment:
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: http://rustfs:9000
       MINIO_ACCESS_KEY: fakekey
       MINIO_SECRET_KEY: fakesecret
       PYTHONPATH: /app/src
       CI: "true"
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
     command: python -m models.workers.dev buckets setup
     mem_limit: 512m
@@ -114,7 +115,7 @@ services:
       DB_DATABASE: entitybase
       DB_USER: root
       DB_PASSWORD: ""
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: fakekey
       S3_SECRET_KEY: fakesecret
       S3_DUMP_BUCKET: wikibase-dumps
@@ -131,7 +132,7 @@ services:
         condition: service_completed_successfully
       create-buckets:
         condition: service_completed_successfully
-      minio:
+      rustfs:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8002/health"]
@@ -157,7 +158,7 @@ services:
       DB_DATABASE: entitybase
       DB_USER: root
       DB_PASSWORD: ""
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: fakekey
       S3_SECRET_KEY: fakesecret
       S3_DUMP_BUCKET: wikibase-dumps
@@ -174,7 +175,7 @@ services:
         condition: service_completed_successfully
       create-buckets:
         condition: service_completed_successfully
-      minio:
+      rustfs:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8003/health"]
@@ -288,7 +289,7 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
       mysql:
         condition: service_healthy
@@ -297,7 +298,7 @@ services:
       create-tables:
         condition: service_completed_successfully
     environment:
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: fakekey
       S3_SECRET_KEY: fakesecret
       S3_BUCKET: testbucket
