@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from models.infrastructure.db.repository import Repository
 
@@ -33,8 +33,8 @@ class RevisionDataRepository(Repository):
                 return None
             data = row[0]
             if isinstance(data, str):
-                return json.loads(data)
-            return data
+                return cast("dict[str, Any] | None", json.loads(data))
+            return cast("dict[str, Any] | None", data)
 
     def exists(self, content_hash: int) -> bool:
         """Check if revision data exists for a given content hash."""

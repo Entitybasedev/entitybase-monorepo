@@ -10,7 +10,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 try:
     import uvicorn
@@ -341,7 +341,7 @@ class JsonDumpWorker(Worker):
                 return None
 
             revision = S3RevisionData.model_validate(data)
-            return revision.revision
+            return cast("dict[str, Any] | None", revision.revision)
         except Exception as e:
             logger.error(f"Error fetching {record.entity_id}: {e}")
             return None

@@ -217,7 +217,7 @@ async def lock_entity(
     entity_id: str,
     req: Request,
     headers: EditHeadersType,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Lock an entity from edits."""
     state = req.app.state.state_handler
@@ -231,7 +231,7 @@ async def unlock_entity(
     entity_id: str,
     req: Request,
     headers: EditHeadersType,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Remove lock from an entity."""
     state = req.app.state.state_handler
@@ -245,7 +245,7 @@ async def archive_entity(
     entity_id: str,
     req: Request,
     headers: EditHeadersType,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Archive an entity."""
     state = req.app.state.state_handler
@@ -259,7 +259,7 @@ async def unarchive_entity(
     entity_id: str,
     req: Request,
     headers: EditHeadersType,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Unarchive an entity."""
     state = req.app.state.state_handler
@@ -272,7 +272,7 @@ async def unarchive_entity(
 async def semi_protect_entity(
     entity_id: str,
     req: Request,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Semi-protect an entity."""
     state = req.app.state.state_handler
@@ -287,7 +287,7 @@ async def semi_protect_entity(
 async def unsemi_protect_entity(
     entity_id: str,
     req: Request,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Remove semi-protection from an entity."""
     state = req.app.state.state_handler
@@ -302,7 +302,7 @@ async def unsemi_protect_entity(
 async def mass_edit_protect_entity(
     entity_id: str,
     req: Request,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Add mass edit protection to an entity."""
     state = req.app.state.state_handler
@@ -317,7 +317,7 @@ async def mass_edit_protect_entity(
 async def mass_edit_unprotect_entity(
     entity_id: str,
     req: Request,
-    request: EntityStatusRequest = Body(default_factory=lambda: EntityStatusRequest()),
+    request: EntityStatusRequest = Body(default_factory=EntityStatusRequest),
 ) -> EntityStatusResponse:
     """Remove mass edit protection from an entity."""
     state = req.app.state.state_handler
@@ -421,7 +421,7 @@ async def remove_entity_statement(
     req: Request,
     headers: EditHeadersType,
     request: RemoveStatementRequest = Body(
-        default_factory=lambda: RemoveStatementRequest()
+        default_factory=RemoveStatementRequest
     ),
 ) -> OperationResult[RevisionIdResult]:
     """Remove a statement by hash from an entity."""

@@ -7,3 +7,11 @@ src/models/infrastructure/vitess/storage/base.py:122
 src/models/infrastructure/vitess/repositories/revision.py:229
 src/models/infrastructure/vitess/repositories/revision.py:321
 src/models/infrastructure/vitess/repositories/backlink.py:116
+src/models/infrastructure/db/repositories/user.py:375
+src/models/infrastructure/db/storage/base.py:39
+src/models/infrastructure/db/storage/base.py:122
+src/models/infrastructure/db/repositories/revision_data.py:21
+src/models/infrastructure/db/repositories/revision.py:229
+src/models/infrastructure/db/repositories/revision.py:321
+src/models/infrastructure/db/repositories/backlink.py:116
+src/models/infrastructure/db/repositories/user.py:374

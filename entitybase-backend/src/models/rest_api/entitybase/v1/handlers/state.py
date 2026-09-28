@@ -149,7 +149,7 @@ class StateHandler(BaseModel):
         from models.data.infrastructure.s3.revision_data import S3RevisionData
         from models.rest_api.utils import raise_validation_error
 
-        internal_id = self.db_client.id_resolver.resolve_id(entity_id)
+        internal_id = self.db_client.id_resolver.resolve_id(entity_id)  # type: ignore[union-attr]
         if not internal_id:
             raise_validation_error("Entity not found", status_code=404)
 

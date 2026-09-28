@@ -4,7 +4,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Optional, cast
 
 from pydantic import Field
 
@@ -281,7 +281,7 @@ class IncrementalRDFWorker(Worker):
             from models.infrastructure.db.repositories.revision_data import RevisionDataRepository
             from models.data.infrastructure.s3.revision_data import S3RevisionData
 
-            internal_id = self.db_client.id_resolver.resolve_id(entity_id)
+            internal_id = self.db_client.id_resolver.resolve_id(entity_id)  # type: ignore[union-attr]
             if not internal_id:
                 return None
 
@@ -296,7 +296,7 @@ class IncrementalRDFWorker(Worker):
                 return None
 
             revision = S3RevisionData.model_validate(data)
-            return revision.revision
+            return cast("dict[str, Any] | None", revision.revision)
         except Exception as e:
             logger.error(
                 f"Failed to fetch entity data for {entity_id} rev {revision_id}: {e}"

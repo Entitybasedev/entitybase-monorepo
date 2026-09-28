@@ -40,7 +40,7 @@ class EntityTransaction(BaseModel, ABC):
         logger.info(f"[EntityTransaction] Registering entity {entity_id}")
         self.entity_id = entity_id
         self.state.db_client.entity_repository.create_entity(entity_id)
-        self.operations.append(lambda: self._rollback_entity_registration())
+        self.operations.append(self._rollback_entity_registration)
 
     def _rollback_entity_registration(self) -> None:
         """Rollback entity registration."""
