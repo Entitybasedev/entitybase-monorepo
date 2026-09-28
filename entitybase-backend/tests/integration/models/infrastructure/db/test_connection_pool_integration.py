@@ -34,6 +34,7 @@ def connection_manager() -> VitessConnectionManager:
         pool_size=20,
         max_overflow=20,
         pool_timeout=5,
+        pool_enabled=True,
     )
     manager = VitessConnectionManager(config=test_config)
     yield manager
