@@ -129,12 +129,22 @@ jobs:
         run: docker compose -f docker-compose.ci.yml up -d api
         timeout-minutes: 2
       - name: Wait for API
-        timeout-minutes: 2
+        timeout-minutes: 5
         run: |
-          until curl -f http://localhost:8000/health; do
-            echo "Waiting for API..."
-            sleep 2
+          for i in $(seq 1 60); do
+            if curl -f http://localhost:8000/health 2>/dev/null; then
+              exit 0
+            fi
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "--- api container status (attempt $i) ---"
+              docker compose -f docker-compose.ci.yml ps
+              docker compose -f docker-compose.ci.yml logs --tail=30 api
+            fi
+            sleep 5
           done
+          echo "API did not become healthy in time; dumping logs:"
+          docker compose -f docker-compose.ci.yml logs api
+          exit 1
 
       # === E2E TESTS ===
       - name: Run e2e tests (01 - basics)
@@ -376,11 +386,22 @@ jobs:
               print('bucket created:', bucket)
           "
       - name: Wait for API
-        timeout-minutes: 2
+        timeout-minutes: 5
         run: |
-          until curl -f http://localhost:8000/health; do
-            echo "Waiting for API..."; sleep 2
+          for i in $(seq 1 60); do
+            if curl -f http://localhost:8000/health 2>/dev/null; then
+              exit 0
+            fi
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "--- api container status (attempt $i) ---"
+              docker compose -f ../entitybase-backend/docker-compose.ci.yml ps
+              docker compose -f ../entitybase-backend/docker-compose.ci.yml logs --tail=30 api
+            fi
+            sleep 5
           done
+          echo "API did not become healthy in time; dumping logs:"
+          docker compose -f ../entitybase-backend/docker-compose.ci.yml logs api
+          exit 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
