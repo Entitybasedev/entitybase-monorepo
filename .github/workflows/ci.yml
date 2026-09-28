@@ -107,8 +107,17 @@ jobs:
           done
       - name: Create S3 bucket
         run: |
-          docker run --rm --network host minio/mc alias set local http://localhost:9000 fakekey fakesecret
-          docker run --rm --network host minio/mc mb --ignore-existing local/testbucket
+          docker compose -f docker-compose.ci.yml run --rm --entrypoint "" api python -c "
+          import boto3, os
+          s3 = boto3.client('s3', endpoint_url=os.environ['S3_ENDPOINT'], aws_access_key_id=os.environ['S3_ACCESS_KEY'], aws_secret_access_key=os.environ['S3_SECRET_KEY'])
+          bucket = os.environ['S3_BUCKET']
+          try:
+              s3.head_bucket(Bucket=bucket)
+              print('bucket exists:', bucket)
+          except Exception:
+              s3.create_bucket(Bucket=bucket)
+              print('bucket created:', bucket)
+          "
       - name: Wait for Redpanda
         timeout-minutes: 2
         run: |
@@ -355,8 +364,17 @@ jobs:
       - name: Create S3 bucket
         working-directory: ${{ github.workspace }}
         run: |
-          docker run --rm --network host minio/mc alias set local http://localhost:9000 fakekey fakesecret
-          docker run --rm --network host minio/mc mb --ignore-existing local/testbucket
+          docker compose -f entitybase-backend/docker-compose.ci.yml run --rm --entrypoint "" api python -c "
+          import boto3, os
+          s3 = boto3.client('s3', endpoint_url=os.environ['S3_ENDPOINT'], aws_access_key_id=os.environ['S3_ACCESS_KEY'], aws_secret_access_key=os.environ['S3_SECRET_KEY'])
+          bucket = os.environ['S3_BUCKET']
+          try:
+              s3.head_bucket(Bucket=bucket)
+              print('bucket exists:', bucket)
+          except Exception:
+              s3.create_bucket(Bucket=bucket)
+              print('bucket created:', bucket)
+          "
       - name: Wait for API
         timeout-minutes: 2
         run: |
