@@ -20,6 +20,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY ./src/ ./
 COPY ./scripts/ ./scripts/
+COPY ./pyproject.toml ./
 
 EXPOSE 8080
 

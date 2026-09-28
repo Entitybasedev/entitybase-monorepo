@@ -28,6 +28,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY ./tests/ ./tests/
 COPY ./src/ ./
+COPY ./pyproject.toml ./
 COPY ./test_data/ ./test_data/
 COPY ./schemas/ ./schemas/
 
