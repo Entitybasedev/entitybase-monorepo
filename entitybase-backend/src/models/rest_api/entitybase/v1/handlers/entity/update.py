@@ -143,7 +143,7 @@ class EntityUpdateHandler(
             await tx.publish_event(event_context, edit_context)
 
             if edit_headers.x_user_id:
-                activity_result = await (
+                activity_result = (
                     self.state.db_client.user_repository.log_user_activity(
                         user_id=edit_headers.x_user_id,
                         activity_type=UserActivityType.ENTITY_EDIT,
