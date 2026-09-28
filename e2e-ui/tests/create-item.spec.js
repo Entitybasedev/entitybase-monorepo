@@ -3,8 +3,27 @@ import { test, expect } from '@playwright/test'
 const USER_ID = process.env.E2E_USER_ID || '90001'
 const API_URL = process.env.API_URL || 'http://localhost:8083'
 
-test('create item, add statement, see both in the UI', async ({ page }) => {
+test('create item, add statement, see both in the UI', async ({ page, request }) => {
   const label = `E2E Item ${Date.now()}`
+
+  // The statement add validates that the property entity exists, so create
+  // one first via the API (property IDs are auto-enumerated, e.g. P30000).
+  const propRes = await request.post(`${API_URL}/v1/entities/properties`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-ID': USER_ID,
+      'X-Edit-Summary': 'e2e setup property',
+    },
+    data: {
+      type: 'property',
+      datatype: 'wikibase-item',
+      labels: { en: { language: 'en', value: 'instance of' } },
+    },
+  })
+  expect(propRes.ok()).toBeTruthy()
+  const propBody = await propRes.json()
+  const propertyId = propBody.data?.entity_id ?? propBody.entity_id
+  expect(propertyId).toMatch(/^P\d+$/)
 
   await page.goto('/')
 
@@ -18,7 +37,7 @@ test('create item, add statement, see both in the UI', async ({ page }) => {
   await expect(page.getByTestId('item-label')).toHaveText(label)
 
   // Add a statement (instance of = human)
-  await page.getByTestId('statement-property-input').fill('P31')
+  await page.getByTestId('statement-property-input').fill(propertyId)
   await page.getByTestId('statement-value-input').fill('Q5')
   await page.getByTestId('add-statement-button').click()
 
