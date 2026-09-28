@@ -70,11 +70,11 @@ def db_conn():
     from models.config.settings import settings
 
     conn = pymysql.connect(
-        host=settings.vitess_host,
-        port=settings.vitess_port,
-        user=settings.vitess_user,
-        password=settings.vitess_password,
-        database=settings.vitess_database,
+        host=settings.db_host,
+        port=settings.db_port,
+        user=settings.db_user,
+        password=settings.db_password,
+        database=settings.db_database,
         connect_timeout=2,
     )
     yield conn
@@ -132,11 +132,11 @@ def db_client():
     from models.config.settings import settings
 
     mysql_config = MysqlConfig(
-        host=settings.vitess_host,
-        port=settings.vitess_port,
-        database=settings.vitess_database,
-        user=settings.vitess_user,
-        password=settings.vitess_password,
+        host=settings.db_host,
+        port=settings.db_port,
+        database=settings.db_database,
+        user=settings.db_user,
+        password=settings.db_password,
         pool_size=20,
         max_overflow=20,
         pool_timeout=5,

@@ -26,11 +26,11 @@ def test_timer():
 def connection_manager() -> VitessConnectionManager:
     """Create a VitessConnectionManager for testing."""
     test_config = MysqlConfig(
-        host=settings.vitess_host,
-        port=settings.vitess_port,
-        database=settings.vitess_database,
-        user=settings.vitess_user,
-        password=settings.vitess_password,
+        host=settings.db_host,
+        port=settings.db_port,
+        database=settings.db_database,
+        user=settings.db_user,
+        password=settings.db_password,
         pool_size=20,
         max_overflow=20,
         pool_timeout=5,

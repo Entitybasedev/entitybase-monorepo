@@ -89,7 +89,7 @@ def db_conn():
     start_time = time_module.time()
     logger.debug("=== db_conn fixture START ===")
     logger.debug(
-        f"Attempting to connect to: host='{settings.vitess_host}', port={settings.vitess_port}, user='{settings.vitess_user}', database='{settings.vitess_database}'"
+        f"Attempting to connect to: host='{settings.db_host}', port={settings.db_port}, user='{settings.db_user}', database='{settings.db_database}'"
     )
 
     # Wait for DB to be ready - optimized retry logic
@@ -102,11 +102,11 @@ def db_conn():
                 f"Attempt {attempt + 1}/{max_retries}: Connecting to database..."
             )
             conn = pymysql.connect(
-                host=settings.vitess_host,
-                port=settings.vitess_port,
-                user=settings.vitess_user,
-                password=settings.vitess_password,
-                database=settings.vitess_database,
+                host=settings.db_host,
+                port=settings.db_port,
+                user=settings.db_user,
+                password=settings.db_password,
+                database=settings.db_database,
                 connect_timeout=2,
             )
             logger.debug(
@@ -214,11 +214,11 @@ def create_tables(db_client):
 
             fallback_start = time_module.time()
             conn = pymysql.connect(
-                host=settings.vitess_host,
-                port=settings.vitess_port,
-                user=settings.vitess_user,
-                password=settings.vitess_password,
-                database=settings.vitess_database,
+                host=settings.db_host,
+                port=settings.db_port,
+                user=settings.db_user,
+                password=settings.db_password,
+                database=settings.db_database,
                 connect_timeout=2,
             )
             with conn.cursor() as cursor:
@@ -292,11 +292,11 @@ def db_client():
 
     # Create a test-specific config with smaller pool for faster tests
     mysql_config = MysqlConfig(
-        host=settings.vitess_host,
-        port=settings.vitess_port,
-        database=settings.vitess_database,
-        user=settings.vitess_user,
-        password=settings.vitess_password,
+        host=settings.db_host,
+        port=settings.db_port,
+        database=settings.db_database,
+        user=settings.db_user,
+        password=settings.db_password,
         pool_size=20,
         max_overflow=20,
         pool_timeout=5,
@@ -325,11 +325,11 @@ def connection_manager():
 
     # Use settings config but with smaller timeouts for faster tests
     test_config = MysqlConfig(
-        host=settings.vitess_host,
-        port=settings.vitess_port,
-        database=settings.vitess_database,
-        user=settings.vitess_user,
-        password=settings.vitess_password,
+        host=settings.db_host,
+        port=settings.db_port,
+        database=settings.db_database,
+        user=settings.db_user,
+        password=settings.db_password,
         pool_size=20,
         max_overflow=20,
         pool_timeout=5,
