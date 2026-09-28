@@ -51,8 +51,8 @@
 
       <ul data-testid="statement-list">
         <li v-for="s in statements" :key="s.id" data-testid="statement">
-          <span class="field-name">{{ propertyOf(s) }}</span>
-          <span data-testid="statement-value">{{ valueOf(s) }}</span>
+          <span class="field-name">{{ s.property }}</span>
+          <span data-testid="statement-value">{{ s.value }}</span>
         </li>
         <li v-if="!statements.length" data-testid="no-statements">No statements yet.</li>
       </ul>
@@ -62,7 +62,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { getItem, postStatement, postItem, putLabel } from './api.js'
+import { getItem, getLabel, getStatement, postStatement, postItem, putLabel } from './api.js'
 
 const userId = ref(90001)
 const newLabel = ref('')
@@ -74,19 +74,12 @@ const item = ref(null)
 const stmtProperty = ref('')
 const stmtValue = ref('')
 
+const label = ref('')
+const statements = ref([])
+
 const entityData = computed(
   () => item.value?.data?.revision ?? item.value?.data ?? item.value ?? {}
 )
-
-const label = computed(() => {
-  const l = entityData.value.labels?.en
-  return typeof l?.value === 'string' ? l.value : (l?.value ?? '')
-})
-
-const statements = computed(() => {
-  const all = entityData.value.statements ?? {}
-  return Object.values(all).flat()
-})
 
 function loadFromQuery() {
   const id = new URLSearchParams(window.location.search).get('entity')
@@ -95,8 +88,30 @@ function loadFromQuery() {
 
 async function loadItem(id) {
   error.value = ''
+  label.value = ''
+  statements.value = []
   try {
     item.value = await getItem(id)
+
+    // Label values are stored hash-referenced; fetch via the labels endpoint
+    label.value = (await getLabel(id, 'en')) ?? ''
+
+    // Statement values are resolved per content hash
+    const hashes = entityData.value.hashes?.statements ?? []
+    const fetched = await Promise.all(hashes.map((h) => getStatement(h)))
+    statements.value = fetched
+      .map((res) => res.statement)
+      .filter((stmt) => stmt && stmt.mainsnak)
+      .map((stmt) => {
+        const dv = stmt.mainsnak.datavalue
+        const value =
+          dv?.type === 'wikibase-item' ? (dv.value?.id ?? '?') : String(dv?.value ?? '?')
+        return {
+          id: stmt.id ?? stmt.mainsnak.hash ?? String(stmt.mainsnak.property),
+          property: stmt.mainsnak.property,
+          value,
+        }
+      })
   } catch (e) {
     error.value = String(e.message || e)
   }
@@ -147,17 +162,6 @@ async function addStatement() {
   } finally {
     adding.value = false
   }
-}
-
-function propertyOf(s) {
-  return s.mainsnak?.property ?? '?'
-}
-
-function valueOf(s) {
-  const dv = s.mainsnak?.datavalue
-  if (!dv) return '?'
-  if (dv.type === 'wikibase-item') return dv.value?.id ?? '?'
-  return String(dv.value ?? '?')
 }
 
 onMounted(loadFromQuery)

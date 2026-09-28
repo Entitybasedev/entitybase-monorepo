@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getItem, postItem, postStatement, putLabel } from '../api.js'
+import { getItem, getLabel, getStatement, postItem, postStatement, putLabel } from '../api.js'
 
 const fetchMock = vi.fn()
 
@@ -99,5 +99,34 @@ describe('getItem', () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: 'Q 1' }))
     await getItem('Q 1')
     expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/Q%201')
+  })
+})
+
+describe('getLabel', () => {
+  it('GETs the label endpoint and returns the value', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ value: 'Universe' }))
+
+    const value = await getLabel('Q42', 'en')
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/Q42/labels/en')
+    expect(value).toBe('Universe')
+  })
+
+  it('returns null on 404 (no label for language)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: 'not found' }, 404))
+    expect(await getLabel('Q42', 'de')).toBeNull()
+  })
+})
+
+describe('getStatement', () => {
+  it('GETs the statement by content hash', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ schema: '1.0', hash: 123, statement: { mainsnak: {} } })
+    )
+
+    const res = await getStatement(123)
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/statements/123')
+    expect(res.hash).toBe(123)
   })
 })

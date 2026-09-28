@@ -45,3 +45,17 @@ export async function getItem(entityId) {
   const res = await fetch(`${BASE}/v1/entities/${encodeURIComponent(entityId)}`)
   return unwrap(res, `GET item ${entityId}`)
 }
+
+export async function getLabel(entityId, language) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/labels/${encodeURIComponent(language)}`
+  )
+  if (res.status === 404) return null
+  const json = await unwrap(res, `GET label ${entityId}/${language}`)
+  return json.value ?? null
+}
+
+export async function getStatement(contentHash) {
+  const res = await fetch(`${BASE}/v1/statements/${encodeURIComponent(contentHash)}`)
+  return unwrap(res, `GET statement ${contentHash}`)
+}

@@ -3,6 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 const apiMocks = vi.hoisted(() => ({
   getItem: vi.fn(),
+  getLabel: vi.fn(),
+  getStatement: vi.fn(),
   postItem: vi.fn(),
   postStatement: vi.fn(),
   putLabel: vi.fn(),
@@ -12,7 +14,7 @@ vi.mock('../api.js', () => apiMocks)
 
 import App from '../App.vue'
 
-function itemPayload(id, label, statements = {}) {
+function itemPayload(id, label, statementHashes = []) {
   return {
     id,
     rev_id: 1,
@@ -22,8 +24,7 @@ function itemPayload(id, label, statements = {}) {
       created_at: '2025-01-01T00:00:00Z',
       revision: {
         id,
-        labels: { en: { language: 'en', value: label } },
-        statements,
+        hashes: { statements: statementHashes },
       },
     },
   }
@@ -61,16 +62,20 @@ describe('App', () => {
   it('loads an item from the ?entity= query param on mount', async () => {
     window.history.replaceState(null, '', '/?entity=Q42')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabel.mockResolvedValue('Douglas Adams')
 
-    await mountApp()
+    const wrapper = await mountApp()
 
     expect(apiMocks.getItem).toHaveBeenCalledWith('Q42')
+    expect(apiMocks.getLabel).toHaveBeenCalledWith('Q42', 'en')
+    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams')
   })
 
   it('creates an item: posts item, sets label, then loads it', async () => {
     apiMocks.postItem.mockResolvedValue('Q1000')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1000', 'E2E Item'))
+    apiMocks.getLabel.mockResolvedValue('E2E Item')
 
     const wrapper = await mountApp()
     await wrapper.find('[data-testid="item-label-input"]').setValue('E2E Item')
@@ -91,23 +96,23 @@ describe('App', () => {
   it('adds a statement and renders property and value', async () => {
     window.history.replaceState(null, '', '/?entity=Q1')
     apiMocks.getItem
-      .mockResolvedValueOnce(itemPayload('Q1', 'Test', {}))
-      .mockResolvedValueOnce(
-        itemPayload('Q1', 'Test', {
-          P31: [
-            {
-              id: 'S1',
-              mainsnak: {
-                snaktype: 'value',
-                property: 'P31',
-                datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
-              },
-              type: 'statement',
-              rank: 'normal',
-            },
-          ],
-        })
-      )
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', []))
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
+    apiMocks.getLabel.mockResolvedValue('Test')
+    apiMocks.getStatement.mockResolvedValue({
+      schema: '1.0',
+      hash: 777,
+      statement: {
+        id: 'S1',
+        mainsnak: {
+          snaktype: 'value',
+          property: 'P31',
+          datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+        },
+        type: 'statement',
+        rank: 'normal',
+      },
+    })
     apiMocks.postStatement.mockResolvedValue({ success: true })
 
     const wrapper = await mountApp()
