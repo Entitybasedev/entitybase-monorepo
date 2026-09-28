@@ -331,16 +331,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build backend images
+        working-directory: ${{ github.workspace }}
         run: |
           docker compose -f entitybase-backend/docker-compose.ci.yml build \
             api create-buckets create-tables
       - name: Start backend stack
+        working-directory: ${{ github.workspace }}
         run: |
           docker compose -f entitybase-backend/docker-compose.ci.yml up -d \
             mysql minio redpanda create-tables create-buckets api
 
       - name: Wait for MySQL
         timeout-minutes: 2
+        working-directory: ${{ github.workspace }}
         run: |
           until docker compose -f entitybase-backend/docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost --silent; do
             echo "Waiting for MySQL..."; sleep 2
