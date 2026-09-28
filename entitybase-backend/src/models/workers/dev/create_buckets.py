@@ -46,7 +46,6 @@ class CreateBuckets(BaseModel):
         from models.config.settings import settings
 
         self.required_buckets: List[str] = [
-            settings.s3_revisions_bucket,
             settings.s3_dump_bucket,
         ]
 

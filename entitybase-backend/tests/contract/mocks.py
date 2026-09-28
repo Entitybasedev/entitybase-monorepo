@@ -5,6 +5,7 @@ for use in contract tests. These mocks simulate the real clients without requiri
 external services (Vitess, S3).
 """
 
+import json
 import sys
 from typing import Any, Literal
 from unittest.mock import MagicMock
@@ -22,7 +23,8 @@ class MockConnectionManager:
     """Mock Vitess connection manager."""
 
     def __init__(self) -> None:
-        self._cursor = MockCursor()
+        self._revision_data_store: dict[int, dict] = {}
+        self._cursor = MockCursor(revision_data_store=self._revision_data_store)
         self._connection = MagicMock()
         self._connection.cursor = lambda: self._cursor
 
@@ -38,15 +40,25 @@ class MockConnectionManager:
 
 
 class MockCursor:
-    def __init__(self) -> None:
+    def __init__(self, revision_data_store: dict[int, dict] | None = None) -> None:
         self._rows: list[tuple] = []
+        self._revision_data_store = (
+            revision_data_store if revision_data_store is not None else {}
+        )
 
     @property
     def cursor(self) -> "MockCursor":
         return self
 
     def execute(self, query: str, params: Any = None) -> None:
-        pass
+        q = " ".join(query.split())
+        if "INSERT INTO entity_revision_data" in q and params:
+            self._revision_data_store[params[0]] = json.loads(params[1])
+        elif "SELECT data FROM entity_revision_data" in q and params:
+            row = self._revision_data_store.get(params[0])
+            self._rows = [(json.dumps(row),)] if row else []
+        elif "SELECT 1 FROM entity_revision_data" in q and params:
+            self._rows = [(1,)] if params[0] in self._revision_data_store else []
 
     def fetchone(self) -> tuple | None:
         if self._rows:
@@ -161,7 +173,8 @@ class MockMysqlClient:
         self.revision_repository = MockRevisionRepository()
         self.head_repository = MockHeadRepository()
         self.statement_repository = MockStatementRepository()
-        self._cursor = MockCursor()
+        self._revision_data_store: dict[int, dict] = {}
+        self._cursor = MockCursor(revision_data_store=self._revision_data_store)
         self._s3_client: Any = None
         self._pending_revisions: dict[tuple[str, int], int] = {}
         self._revisions: dict[str, list[int]] = {}
@@ -268,6 +281,42 @@ class MockS3Client:
         from models.data.infrastructure.s3 import S3RevisionData
 
         mock_revision = MagicMock(spec=S3RevisionData)
+        default_revision: dict[str, Any] = {
+            "revision_id": revision_id,
+            "entity_type": "item",
+            "type": "item",
+            "id": entity_id,
+            "edit": {
+                "type": "manual-create",
+                "user_id": 0,
+                "summary": "test",
+                "at": "2023-01-01T12:00:00Z",
+            },
+            "hashes": {
+                "labels": {},
+                "descriptions": {},
+                "aliases": {},
+                "sitelinks": {},
+                "statements": [],
+            },
+            "labels_hashes": {},
+            "descriptions_hashes": {},
+            "aliases_hashes": {},
+            "labels": {},
+            "descriptions": {},
+            "aliases": {},
+            "statements": {},
+            "sitelinks": {},
+            "properties": [],
+            "property_counts": {},
+            "state": {
+                "is_semi_protected": False,
+                "is_locked": False,
+                "is_archived": False,
+                "is_dangling": False,
+                "is_mass_edit_protected": False,
+            },
+        }
         key = (entity_id, revision_id)
         if key in self._revision_hashes:
             content_hash = self._revision_hashes[key]
@@ -276,17 +325,9 @@ class MockS3Client:
                     "revision", {}
                 )
             else:
-                mock_revision.revision = {}
+                mock_revision.revision = default_revision
         else:
-            mock_revision.revision = {
-                "state": {
-                    "is_semi_protected": False,
-                    "is_locked": False,
-                    "is_archived": False,
-                    "is_dangling": False,
-                    "is_mass_edit_protected": False,
-                }
-            }
+            mock_revision.revision = default_revision
         return mock_revision
 
     def read_full_revision(self, entity_id: str, revision_id: int) -> MagicMock:
@@ -383,6 +424,30 @@ class TestStateHandler:
     @property
     def mysql_config(self) -> Any:
         return self._mysql_config
+
+    def read_revision_data(self, entity_id: str, revision_id: int) -> Any:
+        """Mimic StateHandler.read_revision_data using mock storage."""
+        from models.data.infrastructure.s3 import S3RevisionData
+
+        content_hash = self._db_client._pending_revisions.get(
+            (entity_id, revision_id)
+        ) or self._s3_client._revision_hashes.get((entity_id, revision_id))
+        if content_hash is not None and content_hash in (
+            self._db_client._revision_data_store
+        ):
+            return S3RevisionData.model_validate(
+                self._db_client._revision_data_store[content_hash]
+            )
+
+        revision = self._s3_client.read_revision(entity_id, revision_id)
+        return S3RevisionData.model_validate(
+            {
+                "schema": "1.0.0",
+                "revision": revision.revision,
+                "hash": 123456789,
+                "created_at": "2023-01-01T12:00:00Z",
+            }
+        )
 
     @property
     def enumeration_service(self) -> Any:

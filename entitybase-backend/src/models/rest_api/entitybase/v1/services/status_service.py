@@ -310,30 +310,21 @@ class StatusService(Service):
             f"operation={operation.value}, edit_type={edit_type.value}"
         )
 
+        hashes = current_revision.revision.get("hashes", {})
         revision = RevisionData(
             schema_version=settings.s3_schema_revision_version,
             revision_id=new_revision_id,
             entity_type=EntityType(
                 current_revision.revision.get("entity_type", "item")
             ),
-            properties=current_revision.revision.get("properties", {}),
+            properties=current_revision.revision.get("properties", []),
             property_counts=current_revision.revision.get("property_counts", {}),
             hashes=HashMaps(
-                statements=StatementsHashes(
-                    root=current_revision.revision.get("statements", [])
-                ),
-                sitelinks=SitelinkHashes(
-                    root=current_revision.revision.get("sitelinks", {})
-                ),
-                labels=LabelsHashes(
-                    root=current_revision.revision.get("labels_hashes", {})
-                ),
-                descriptions=DescriptionsHashes(
-                    root=current_revision.revision.get("descriptions_hashes", {})
-                ),
-                aliases=AliasesHashes(
-                    root=current_revision.revision.get("aliases_hashes", {})
-                ),
+                statements=StatementsHashes(root=hashes.get("statements", [])),
+                sitelinks=SitelinkHashes(root=hashes.get("sitelinks", {})),
+                labels=LabelsHashes(root=hashes.get("labels", {})),
+                descriptions=DescriptionsHashes(root=hashes.get("descriptions", {})),
+                aliases=AliasesHashes(root=hashes.get("aliases", {})),
             ),
             edit=EditData(
                 mass=False,
