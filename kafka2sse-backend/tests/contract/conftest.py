@@ -7,7 +7,6 @@ services, mirroring the entitybase-backend contract test style.
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from confluent_kafka import KafkaError, KafkaException
 
 
@@ -60,4 +59,6 @@ def api_prefix() -> str:
 @pytest.fixture
 def kafka_transport_error():
     """Exception used to simulate an unreachable broker."""
-    return KafkaException(KafkaError._TRANSPORT)
+    return KafkaException(
+        KafkaError(KafkaError._TRANSPORT, "mock transport failure")
+    )

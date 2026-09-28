@@ -1,7 +1,6 @@
 """Contract tests for GET /v1/topics."""
 
 import pytest
-
 from httpx import ASGITransport, AsyncClient
 
 from tests.contract.conftest import make_cluster_metadata

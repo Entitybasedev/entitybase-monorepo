@@ -4,9 +4,7 @@ Asserts response shape conformance: status codes and required fields.
 """
 
 import pytest
-
 from confluent_kafka import KafkaException
-
 from httpx import ASGITransport, AsyncClient
 
 

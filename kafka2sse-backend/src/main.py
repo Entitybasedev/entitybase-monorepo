@@ -56,7 +56,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from confluent_kafka import KafkaError, KafkaException, Producer
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -187,41 +187,33 @@ async def stream_metadata(topic: str):
         topic_meta = metadata.topics.get(topic)
         if not topic_meta:
             consumer.close()
-            return {
-                "topic": topic,
-                "earliest_offset": 0,
-                "latest_offset": 0,
-                "message_count": 0,
-            }
+            raise HTTPException(
+                status_code=404, detail=f"Topic '{topic}' not found"
+            )
 
         partitions = topic_meta.partitions
-        if partitions:
-            partition_id = next(iter(partitions.keys()))
-            tp = TopicPartition(topic, partition_id)
-            low, high = consumer.get_watermark_offsets(tp)
+        if not partitions:
             consumer.close()
-            return {
-                "topic": topic,
-                "earliest_offset": low,
-                "latest_offset": high,
-                "message_count": high - low if high > 0 and low >= 0 else 0,
-            }
+            raise HTTPException(
+                status_code=404, detail=f"Topic '{topic}' has no partitions"
+            )
+        partition_id = next(iter(partitions.keys()))
+        tp = TopicPartition(topic, partition_id)
+        low, high = consumer.get_watermark_offsets(tp)
         consumer.close()
         return {
             "topic": topic,
-            "earliest_offset": 0,
-            "latest_offset": 0,
-            "message_count": 0,
+            "earliest_offset": low,
+            "latest_offset": high,
+            "message_count": high - low if high > 0 and low >= 0 else 0,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error getting metadata for {topic}")
-        return {
-            "topic": topic,
-            "earliest_offset": 0,
-            "latest_offset": 0,
-            "message_count": 0,
-            "error": str(e),
-        }
+        raise HTTPException(
+            status_code=503, detail=f"Kafka metadata unavailable for '{topic}'"
+        ) from e
 
 
 @app.get("/v1/streams/{topic}")
@@ -254,6 +246,22 @@ async def stream(
         Server-Sent Events response that streams Kafka messages as JSON.
     """
     logger.info(f"Stream endpoint called for topic={topic}, offset={offset}, limit={limit}")
+
+    # Validate the topic exists before starting the stream
+    try:
+        producer = Producer({"bootstrap.servers": config.kafka.brokers})
+        cluster_metadata = producer.list_topics(topic, timeout=5)
+        if topic not in cluster_metadata.topics:
+            raise HTTPException(
+                status_code=404, detail=f"Topic '{topic}' not found"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error validating topic {topic}")
+        raise HTTPException(
+            status_code=503, detail=f"Kafka unavailable while validating '{topic}'"
+        ) from e
 
     # Create a client connection
     client = ClientConnection(queue_size=100)
