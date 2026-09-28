@@ -3,7 +3,6 @@ import logging
 import uuid
 from collections import defaultdict
 from datetime import datetime
-from typing import Optional
 
 from src.config import config
 from src.models.sse_event import SSEEvent
@@ -46,9 +45,9 @@ class StreamManager:
     async def subscribe(
         self,
         topic: str,
-        offset: Optional[int] = None,
-        since: Optional[datetime] = None,
-        limit: Optional[int] = None,
+        offset: int | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
     ) -> ClientConnection:
         logger.info(f"subscribe called for topic={topic}, offset={offset}")
         
@@ -74,7 +73,7 @@ class StreamManager:
                         f"(offset={offset}, since={since}, limit={limit})"
                     )
                     return client
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Timeout acquiring lock for topic {topic}")
             raise
 
@@ -129,7 +128,7 @@ class StreamManager:
             partitions = topic_meta.partitions
             logger.info(f"Topic {topic} has {len(partitions)} partitions")
             if partitions:
-                partition_id = list(partitions.keys())[0]
+                partition_id = next(iter(partitions.keys()))
                 tp = TopicPartition(topic, partition_id)
                 low, high = consumer.get_watermark_offsets(tp)
                 logger.info(f"Watermarks for {topic}: partition={partition_id}, low={low}, high={high}")

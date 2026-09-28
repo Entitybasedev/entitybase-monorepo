@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import Optional
 
 import valkey
 
@@ -13,7 +12,7 @@ class RedisState:
     """Shared state manager using Valkey (Redis alternative) for multi-worker coordination."""
     
     def __init__(self):
-        self._client: Optional[valkey.Valkey] = None
+        self._client: valkey.Valkey | None = None
         self._lock = asyncio.Lock()
 
     def _get_client(self) -> valkey.Valkey:

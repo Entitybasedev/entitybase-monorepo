@@ -1,8 +1,9 @@
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.services.stream_manager import StreamManager, ClientConnection
+import pytest
+
+from src.services.stream_manager import ClientConnection, StreamManager
 
 
 @patch("src.services.stream_manager.redis_state")
@@ -95,11 +96,10 @@ class TestStreamManagerSubscribe:
         
         manager = StreamManager()
         
-        import asyncio
         manager._lock = asyncio.Lock()
         async def fake_acquire():
             await asyncio.sleep(0)
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
         
         manager._lock.acquire = fake_acquire
         
@@ -146,8 +146,8 @@ class TestStreamManagerUnsubscribe:
 class TestStreamManagerRouteEvent:
     @pytest.mark.asyncio
     async def test_route_event(self, mock_redis):
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         client = ClientConnection()
@@ -165,8 +165,8 @@ class TestStreamManagerRouteEvent:
 
     @pytest.mark.asyncio
     async def test_route_event_disconnected_client(self, mock_redis):
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         client = ClientConnection()
@@ -185,9 +185,8 @@ class TestStreamManagerRouteEvent:
 
     @pytest.mark.asyncio
     async def test_route_event_queue_full(self, mock_redis):
-        import asyncio
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         client = ClientConnection(queue_size=1)
@@ -206,9 +205,8 @@ class TestStreamManagerRouteEvent:
 
     @pytest.mark.asyncio
     async def test_route_event_queue_empty_after_full(self, mock_redis):
-        import asyncio
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         client = ClientConnection(queue_size=1)
@@ -226,8 +224,8 @@ class TestStreamManagerRouteEvent:
 
     @pytest.mark.asyncio
     async def test_route_event_no_clients(self, mock_redis):
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         
@@ -241,9 +239,8 @@ class TestStreamManagerRouteEvent:
 
     @pytest.mark.asyncio
     async def test_route_event_queue_full_then_empty(self, mock_redis):
-        import asyncio
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         client = ClientConnection(queue_size=1)
@@ -268,8 +265,8 @@ class TestStreamManagerRouteEvent:
     
     @pytest.mark.asyncio
     async def test_route_event_multiple_clients(self, mock_redis):
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         client1 = ClientConnection()
@@ -290,8 +287,8 @@ class TestStreamManagerRouteEvent:
     
     @pytest.mark.asyncio
     async def test_route_event_disconnected_skipped(self, mock_redis):
+        from src.models.entity_change import ChangeType, EntityChange
         from src.models.sse_event import SSEEvent
-        from src.models.entity_change import EntityChange, ChangeType
         
         manager = StreamManager()
         client1 = ClientConnection()

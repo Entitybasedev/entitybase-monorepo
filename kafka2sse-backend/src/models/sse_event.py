@@ -6,20 +6,8 @@ from src.models.entity_change import EntityChange
 class SSEEvent(BaseModel):
     """Server-Sed Events message format for entity changes."""
     
-    model_config = {"populate_by_name": True}
-    
-    event_type: str = Field(default="entity_change", description="Event type identifier")
-    id: str = Field(..., description="Unique ID for SSE event")
-    data: EntityChange = Field(..., description="The entity change data")
-
-    @field_validator("event_type")
-    @classmethod
-    def validate_event_type(cls, v: str) -> str:
-        if v != "entity_change":
-            raise ValueError("event_type must be 'entity_change'")
-        return v
-
     model_config = {
+        "populate_by_name": True,
         "json_schema_extra": {
             "examples": [
                 {
@@ -35,5 +23,17 @@ class SSEEvent(BaseModel):
                     },
                 }
             ]
-        }
+        },
     }
+
+    event_type: str = Field(default="entity_change", description="Event type identifier")
+    id: str = Field(..., description="Unique ID for SSE event")
+    data: EntityChange = Field(..., description="The entity change data")
+
+    @field_validator("event_type")
+    @classmethod
+    def validate_event_type(cls, v: str) -> str:
+        if v != "entity_change":
+            raise ValueError("event_type must be 'entity_change'")
+        return v
+

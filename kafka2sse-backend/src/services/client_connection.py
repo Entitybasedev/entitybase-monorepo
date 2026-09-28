@@ -1,6 +1,5 @@
 import asyncio
 import uuid
-from typing import Optional
 
 from src.models.sse_event import SSEEvent
 
@@ -12,5 +11,5 @@ class ClientConnection:
         self.id = str(uuid.uuid4())[:8]
         self.queue: asyncio.Queue[SSEEvent] = asyncio.Queue(maxsize=queue_size)
         self.events_sent = 0
-        self.limit: Optional[int] = None
+        self.limit: int | None = None
         self.disconnected = False

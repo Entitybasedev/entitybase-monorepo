@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.services.kafka_consumer import KafkaConsumerService
 
@@ -254,7 +255,6 @@ class TestKafkaConsumerConsumeLoop:
     
     @pytest.mark.asyncio
     async def test_consume_loop_kafka_exception(self):
-        from confluent_kafka import KafkaError, KafkaException
         
         consumer = KafkaConsumerService("test-topic", lambda t, e: None)
         consumer._running = True

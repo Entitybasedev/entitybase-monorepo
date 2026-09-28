@@ -30,7 +30,7 @@ class SSEBroadcaster:
                         client.queue.get(), timeout=30.0
                     )
                     logger.info(f"[Worker {worker_pid}] SSE got event {event.id} for client {client.id}")
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 yield self._format_sse_event(event)

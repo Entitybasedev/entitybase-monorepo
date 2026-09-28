@@ -1,5 +1,5 @@
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from src.models.sse_event import SSEEvent
 
@@ -16,5 +16,5 @@ class EventRouter:
         try:
             logger.info(f"EventRouter routing event {event.id} for topic {topic}")
             self._on_event(topic, event)
-        except Exception as e:
-            logger.exception(f"Error routing event for topic {topic}: {e}")
+        except Exception:
+            logger.exception(f"Error routing event for topic {topic}")

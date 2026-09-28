@@ -1,10 +1,11 @@
-import pytest
 import asyncio
 
-from src.services.sse_broadcaster import SSEBroadcaster
-from src.services.client_connection import ClientConnection
+import pytest
+
+from src.models.entity_change import ChangeType, EntityChange
 from src.models.sse_event import SSEEvent
-from src.models.entity_change import EntityChange, ChangeType
+from src.services.client_connection import ClientConnection
+from src.services.sse_broadcaster import SSEBroadcaster
 
 
 class TestSSEBroadcaster:

@@ -1,8 +1,9 @@
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 from confluent_kafka import Consumer, KafkaError, KafkaException, TopicPartition
 
@@ -19,9 +20,9 @@ class KafkaConsumerService:
     def __init__(self, topic: str, on_event: Callable[[str, SSEEvent], None]):
         self.topic = topic
         self._on_event = on_event
-        self._consumer: Optional[Consumer] = None
+        self._consumer: Consumer | None = None
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
     def _create_consumer(self) -> Consumer:
         conf = {
@@ -49,8 +50,8 @@ class KafkaConsumerService:
 
                 logger.info(f"[Worker {worker_pid}] Received message from Kafka: offset={msg.offset()}")
                 await self._process_message(msg)
-            except Exception as e:
-                logger.exception(f"Error in consume loop: {e}")
+            except Exception:
+                logger.exception("Error in consume loop")
                 await asyncio.sleep(1)
 
     async def _process_message(self, msg: Any):
@@ -70,13 +71,13 @@ class KafkaConsumerService:
             self._on_event(self.topic, sse_event)
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to decode message: {e}")
-        except Exception as e:
-            logger.exception(f"Failed to process message: {e}")
+        except Exception:
+            logger.exception("Failed to process message")
 
     def start(
         self,
-        offset: Optional[int] = None,
-        since: Optional[datetime] = None,
+        offset: int | None = None,
+        since: datetime | None = None,
     ):
         logger.info(f"Starting Kafka consumer for {self.topic}")
         self._consumer = self._create_consumer()

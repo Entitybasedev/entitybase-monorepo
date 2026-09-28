@@ -69,7 +69,7 @@ def get_available_topics() -> list[str]:
         cluster_metadata = producer.list_topics(timeout=5)
         return sorted(
             topic
-            for topic in cluster_metadata.topics.keys()
+            for topic in cluster_metadata.topics
             if not topic.startswith("_")
         )
     except KafkaException as e:
@@ -78,12 +78,11 @@ def get_available_topics() -> list[str]:
         raise
 
 
-from src.config import config  # noqa: E402
-from src.models.entity_change import EntityChange  # noqa: E402
-from src.models.sse_event import SSEEvent  # noqa: E402
-from src.services.client_connection import ClientConnection  # noqa: E402
-from src.services.stream_manager import stream_manager  # noqa: E402
-
+from src.config import config
+from src.models.entity_change import EntityChange
+from src.models.sse_event import SSEEvent
+from src.services.client_connection import ClientConnection
+from src.services.stream_manager import stream_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -197,7 +196,7 @@ async def stream_metadata(topic: str):
 
         partitions = topic_meta.partitions
         if partitions:
-            partition_id = list(partitions.keys())[0]
+            partition_id = next(iter(partitions.keys()))
             tp = TopicPartition(topic, partition_id)
             low, high = consumer.get_watermark_offsets(tp)
             consumer.close()
@@ -232,7 +231,7 @@ async def stream(
     since: str | None = None,
     limit: int | None = None,
 ):
-    logger.info(f"=== STREAM ENDPOINT CALLED ===")
+    logger.info("=== STREAM ENDPOINT CALLED ===")
     logger.info(f"topic={topic}, offset={offset}, offset_type={type(offset)}, since={since}, limit={limit}")
     
     """
@@ -382,8 +381,8 @@ async def stream(
                             logger.warning(f"Failed to process message: {e}, offset={msg.offset}, raw_value={raw_value or 'N/A'}")
         except asyncio.CancelledError:
             logger.info(f"[{log_prefix}] Consumer task cancelled")
-        except Exception as e:
-            logger.exception(f"[{log_prefix}] ERROR in kafka_consumer: {e}")
+        except Exception:
+            logger.exception(f"[{log_prefix}] ERROR in kafka_consumer")
         finally:
             if 'consumer' in locals():
                 try:
@@ -406,7 +405,7 @@ async def stream(
                     logger.debug(f"[{log_prefix}] Sending SSE event: id={event.id}, entity_id={event.data.entity_id}")
                     data = event.model_dump_json()
                     yield f"data: {data}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield "data: {\"ping\": true}\n\n"
         except asyncio.CancelledError:
             logger.info("Event generator cancelled")

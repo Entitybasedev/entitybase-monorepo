@@ -1,6 +1,5 @@
-from enum import Enum
 from datetime import datetime
-from typing import Optional
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -27,7 +26,7 @@ class EntityChange(BaseModel):
     entity_id: str = Field(alias="id", description="The ID of the entity that changed")
     revision_id: int = Field(alias="rev", ge=1, description="The new revision ID after the change")
     change_type: ChangeType = Field(alias="type", description="The type of change")
-    from_revision_id: Optional[int] = Field(default=0, alias="from_rev", description="The previous revision ID")
+    from_revision_id: int | None = Field(default=0, alias="from_rev", description="The previous revision ID")
     changed_at: str = Field(alias="at", description="Timestamp of the change in ISO 8601 format")
     edit_summary: str = Field(default="", alias="summary", description="Summary of the edit")
     user_id: str = Field(alias="user", description="ID of the user who made the change")

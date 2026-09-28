@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import MagicMock
 
 from src.services.client_connection import ClientConnection
 from src.services.event_router import EventRouter
@@ -29,8 +28,8 @@ class TestClientConnection:
 
 class TestEventRouter:
     def test_route_event(self):
-        from src.models.sse_event import SSEEvent
         from src.models.entity_change import EntityChange
+        from src.models.sse_event import SSEEvent
 
         mock_callback = MagicMock()
         router = EventRouter(mock_callback)
@@ -53,8 +52,8 @@ class TestEventRouter:
         mock_callback.assert_called_once_with("test-topic", event)
 
     def test_route_event_exception(self):
-        from src.models.sse_event import SSEEvent
         from src.models.entity_change import EntityChange
+        from src.models.sse_event import SSEEvent
 
         def failing_callback(topic, event):
             raise Exception("test error")
