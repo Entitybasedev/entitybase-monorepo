@@ -87,8 +87,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Build docker images
         run: |
-          docker compose -f docker-compose.ci.yml build \
-            api create-buckets create-tables
+          docker compose -f docker-compose.ci.yml build api
       - name: Start infrastructure services
         run: |
           docker compose -f docker-compose.ci.yml up -d mysql rustfs redpanda
@@ -113,10 +112,6 @@ jobs:
             echo "Waiting for Redpanda..."
             sleep 2
           done
-      - name: Setup database tables
-        run: docker compose -f docker-compose.ci.yml run --rm create-tables
-      - name: Setup S3 buckets
-        run: docker compose -f docker-compose.ci.yml run --rm create-buckets
       - name: Start API
         run: docker compose -f docker-compose.ci.yml up -d api
         timeout-minutes: 2
@@ -333,13 +328,12 @@ jobs:
       - name: Build backend images
         working-directory: ${{ github.workspace }}
         run: |
-          docker compose -f entitybase-backend/docker-compose.ci.yml build \
-            api create-buckets create-tables
+          docker compose -f entitybase-backend/docker-compose.ci.yml build api
       - name: Start backend stack
         working-directory: ${{ github.workspace }}
         run: |
           docker compose -f entitybase-backend/docker-compose.ci.yml up -d \
-            mysql rustfs redpanda create-tables create-buckets api
+            mysql rustfs redpanda api
 
       - name: Wait for MySQL
         timeout-minutes: 2

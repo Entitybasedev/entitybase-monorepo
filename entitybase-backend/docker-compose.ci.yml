@@ -64,43 +64,6 @@ services:
     mem_limit: "1.5g"
     cpus: "1.0"
 
-  create-buckets:
-    container_name: create-buckets
-    build:
-      context: .
-      dockerfile: docker/containers/Dockerfile.api
-    environment:
-      MINIO_ENDPOINT: http://rustfs:9000
-      MINIO_ACCESS_KEY: fakekey
-      MINIO_SECRET_KEY: fakesecret
-      PYTHONPATH: /app/src
-      CI: "true"
-    depends_on:
-      rustfs:
-        condition: service_healthy
-    command: python -m models.workers.dev buckets setup
-    mem_limit: 512m
-    cpus: 0.5
-
-  create-tables:
-    build:
-      context: .
-      dockerfile: docker/containers/Dockerfile.api
-    container_name: create-tables
-    depends_on:
-      mysql:
-        condition: service_healthy
-    command: sh -c "sleep 20 && python -m models.workers.dev tables setup"
-    environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_DATABASE: entitybase
-      DB_USER: root
-      DB_PASSWORD: ""
-      CI: "true"
-    mem_limit: 512m
-    cpus: 0.5
-
   json-dump-worker:
     container_name: json-dump-worker
     build:
@@ -128,10 +91,8 @@ services:
       LOG_LEVEL: "INFO"
       CI: "true"
     depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-buckets:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
       rustfs:
         condition: service_healthy
     healthcheck:
@@ -171,10 +132,8 @@ services:
       LOG_LEVEL: "INFO"
       PROPERTY_REGISTRY_PATH: /app/src/properties
     depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-buckets:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
       rustfs:
         condition: service_healthy
     healthcheck:
@@ -207,8 +166,8 @@ services:
       LOG_LEVEL: "INFO"
       CI: "true"
     depends_on:
-      create-tables:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8004/health"]
       interval: 30s
@@ -238,8 +197,8 @@ services:
       LOG_LEVEL: "INFO"
       CI: "true"
     depends_on:
-      create-tables:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8005/health"]
       interval: 30s
@@ -269,8 +228,8 @@ services:
       LOG_LEVEL: "INFO"
       CI: "true"
     depends_on:
-      create-tables:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8006/health"]
       interval: 30s
@@ -293,10 +252,6 @@ services:
         condition: service_healthy
       mysql:
         condition: service_healthy
-      create-buckets:
-        condition: service_completed_successfully
-      create-tables:
-        condition: service_completed_successfully
     environment:
       S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: fakekey
