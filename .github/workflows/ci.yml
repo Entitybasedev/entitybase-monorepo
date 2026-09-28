@@ -208,6 +208,7 @@ jobs:
     needs:
       - entitybase-backend-lint
       - entitybase-backend-test
+      - entitybase-frontend
       - kafka2sse-backend
       - kafka2sse-frontend
     runs-on: ubuntu-latest
@@ -365,6 +366,31 @@ jobs:
       - name: Stop services
         if: always()
         run: docker compose down
+
+  entitybase-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: entitybase-frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: entitybase-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
 
   kafka2sse-frontend:
     runs-on: ubuntu-latest
