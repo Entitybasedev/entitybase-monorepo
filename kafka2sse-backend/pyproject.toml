@@ -43,3 +43,8 @@ ignore = ["BLE001", "S110", "EXE002"]
 [tool.ruff.lint.per-file-ignores]
 # tests: exception-object conventions and naive datetimes are not worth enforcing
 "tests/**" = ["TRY002", "TRY401", "DTZ001"]
+
+[tool.pytest.ini_options]
+markers = [
+    "contract: API response-shape conformance tests (no external services)",
+]
