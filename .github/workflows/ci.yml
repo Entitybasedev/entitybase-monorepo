@@ -105,6 +105,10 @@ jobs:
             echo "Waiting for RustFS..."
             sleep 2
           done
+      - name: Create S3 bucket
+        run: |
+          docker run --rm --network host minio/mc alias set local http://localhost:9000 fakekey fakesecret
+          docker run --rm --network host minio/mc mb --ignore-existing local/testbucket
       - name: Wait for Redpanda
         timeout-minutes: 2
         run: |
@@ -348,6 +352,11 @@ jobs:
           until curl -f http://localhost:9000/health; do
             echo "Waiting for RustFS..."; sleep 2
           done
+      - name: Create S3 bucket
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker run --rm --network host minio/mc alias set local http://localhost:9000 fakekey fakesecret
+          docker run --rm --network host minio/mc mb --ignore-existing local/testbucket
       - name: Wait for API
         timeout-minutes: 2
         run: |
