@@ -74,7 +74,9 @@ const item = ref(null)
 const stmtProperty = ref('')
 const stmtValue = ref('')
 
-const entityData = computed(() => item.value?.data ?? item.value ?? {})
+const entityData = computed(
+  () => item.value?.data?.revision ?? item.value?.data ?? item.value ?? {}
+)
 
 const label = computed(() => {
   const l = entityData.value.labels?.en

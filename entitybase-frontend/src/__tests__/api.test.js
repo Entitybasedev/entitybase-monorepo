@@ -81,14 +81,18 @@ describe('postStatement', () => {
 describe('getItem', () => {
   it('GETs the entity and unwraps the response', async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ id: 'Q42', rev_id: 1, data: { labels: {} } })
+      jsonResponse({
+        id: 'Q42',
+        rev_id: 1,
+        data: { schema: '4.0.0', revision: { labels: {} } },
+      })
     )
 
     const item = await getItem('Q42')
 
     expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/Q42')
     expect(item.id).toBe('Q42')
-    expect(item.data.labels).toEqual({})
+    expect(item.data.revision.labels).toEqual({})
   })
 
   it('encodes the entity id in the URL', async () => {

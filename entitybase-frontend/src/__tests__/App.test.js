@@ -17,9 +17,14 @@ function itemPayload(id, label, statements = {}) {
     id,
     rev_id: 1,
     data: {
-      id,
-      labels: { en: { language: 'en', value: label } },
-      statements,
+      schema: '4.0.0',
+      hash: 123456789,
+      created_at: '2025-01-01T00:00:00Z',
+      revision: {
+        id,
+        labels: { en: { language: 'en', value: label } },
+        statements,
+      },
     },
   }
 }
