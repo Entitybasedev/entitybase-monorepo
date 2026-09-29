@@ -13,12 +13,11 @@ async function produceEntityChange(entityId, revisionId) {
     user: '90001',
   })
   const { execSync } = await import('node:child_process')
-  // Escape single quotes for shell
-  const safe = payload.replace(/'/g, "'\\''")
-  execSync(
-    `${COMPOSE} exec -T redpanda rpk topic produce entity_change --value '${safe}'`,
-    { cwd: '..' }
-  )
+  // rpk reads the record value from stdin
+  execSync(`${COMPOSE} exec -T redpanda rpk topic produce entity_change`, {
+    cwd: '..',
+    input: payload,
+  })
 }
 
 test('change stream tab shows topics, connection status and events', async ({
