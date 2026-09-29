@@ -98,13 +98,10 @@ if check_container_running entitybase-api; then
     ANY_RUNNING=1
     api_health=$(timeout 10 curl -sf http://localhost:8083/health 2>/dev/null)
     if [ -n "$api_health" ]; then
-        kafka=$(echo "$api_health" | grep -o '"kafka":"[^"]*"' | cut -d'"' -f4)
         status=$(echo "$api_health" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-        if [ "$status" = "ok" ]; then
-            report "entitybase-api" healthy "status=$status kafka=$kafka"
-        else
-            report "entitybase-api" healthy "status=$status (degraded)"
-        fi
+        s3=$(echo "$api_health" | grep -o '"s3":"[^"]*"' | cut -d'"' -f4)
+        db=$(echo "$api_health" | grep -o '"vitess":"[^"]*"' | cut -d'"' -f4)
+        report "entitybase-api" healthy "status=$status db=$db s3=$s3"
     else
         fail "entitybase-api" "health endpoint not responding on :8083"
     fi
@@ -129,21 +126,8 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
-# --- orchestrator-frontend ---
-if check_container_running orchestrator-frontend; then
-    ANY_RUNNING=1
-    if timeout 10 curl -sf http://localhost:8080/health.html > /dev/null 2>&1; then
-        report "orchestrator-frontend" running
-    else
-        fail "orchestrator-frontend" "not responding on :8080"
-    fi
-else
-    report "orchestrator-frontend" not-running
-    FAILURES=$((FAILURES + 1))
-fi
-
 echo ""
-TOTAL=7
+TOTAL=6
 HEALTHY=$((TOTAL - FAILURES))
 if [ "$FAILURES" -eq 0 ]; then
     echo "${GREEN}${HEALTHY}/${TOTAL} healthy${RESET}"

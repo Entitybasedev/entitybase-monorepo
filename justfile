@@ -60,22 +60,19 @@ frontend-build:
 
 # --- Full docker stack ---
 
-# Build images and start the whole stack (infra + api + stream backend + orchestrator)
+# Build images and start the whole stack (infra + api + stream backend)
 up:
     #!/usr/bin/env bash
     set -e
     [ -f .env ] || (cp env.example .env && echo "Created .env from env.example")
     ./scripts/build-images.sh
-    docker compose up -d
+    docker compose up -d --remove-orphans --wait
     echo "Waiting for the api to become healthy..."
-    for i in $$(seq 1 60); do
+    for i in $(seq 1 60); do
         if curl -sf http://localhost:8083/health > /dev/null; then
             echo ""
-            echo "Entitybase is running:"
-            echo "  API:            http://localhost:8083"
-            echo "  UI (dev):       cd entitybase-frontend && npm run dev  # http://localhost:8085"
-            echo "  Orchestrator:   http://localhost:8080"
-            echo "  Stream backend: http://localhost:8888/v1/topics"
+            echo "Entitybase is running."
+            just docker-help
             exit 0
         fi
         sleep 3
@@ -95,6 +92,15 @@ down-v:
 # Show health of all docker services
 health:
     ./scripts/health/check.sh
+
+# Show the URLs of the running docker services
+docker-help:
+    @echo "Entitybase docker stack:"
+    @echo "  API:             http://localhost:8083"
+    @echo "  API docs:        http://localhost:8083/docs"
+    @echo "  Stream backend:  http://localhost:8888/v1/topics"
+    @echo "  MinIO console:   http://localhost:9001"
+    @echo "  Health check:    just health"
 
 # Follow logs from all services
 logs:

@@ -22,8 +22,4 @@ echo "[kafka2sse] Building kafka2sse-backend:latest..."
 docker build $NO_CACHE -t kafka2sse-backend:latest kafka2sse-backend/
 
 echo ""
-echo "[orchestrator] Building entitybase-orchestrator-frontend:latest..."
-docker build $NO_CACHE -t entitybase-orchestrator-frontend:latest orchestrator-frontend/
-
-echo ""
 echo "All images built."

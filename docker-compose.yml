@@ -6,7 +6,6 @@
 #   redpanda:         9092 (Kafka), 9644 (admin)
 #   entitybase-api:   8083
 #   kafka2sse-be:     8888
-#   orchestrator-fe:  8080
 #
 # Usage:
 #   just up           # build images and start everything
@@ -98,7 +97,7 @@ services:
     cpus: 0.25
     networks:
       - entitybase-network
-    user: ${REDPANDA_USER}
+    user: ${REDPANDA_USER:-root}
     volumes:
       - ${VOLUMES_PATH}/redpanda-data:/var/lib/redpanda/data
 
@@ -109,37 +108,25 @@ services:
       - "8083:8080"
     environment:
       - VERSION=${VERSION_ENTITYBASE_BACKEND}
+      - DB_TYPE=mariadb
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=entitybase
+      - DB_USER=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-}
       - S3_ENDPOINT=http://minio:9000
       - S3_ACCESS_KEY=${MINIO_ROOT_USER:-fakekey}
       - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-fakesecret}
       - S3_BUCKET=entitybase
-      - VITESS_HOST=mysql
-      - VITESS_PORT=3306
-      - VITESS_DATABASE=entitybase
-      - VITESS_USER=root
-      - VITESS_PASSWORD=${MYSQL_ROOT_PASSWORD:-}
       - STREAMING_ENABLED=true
-      - STREAMING_BACKEND=redpanda
-      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
-      - KAFKA_ENTITYCHANGE_JSON_TOPIC=${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
-      - KAFKA_ENTITY_DIFF_TOPIC=${KAFKA_ENTITY_DIFF_TOPIC:-entity_diff}
-      - KAFKA_USERCHANGE_JSON_TOPIC=user_change
-      - KAFKA_ENDORSEMENT_TOPIC=endorsement
-      - KAFKA_THANKS_TOPIC=thanks
-      - ELASTICSEARCH_ENABLED=${ELASTICSEARCH_ENABLED:-false}
-      - MEILISEARCH_ENABLED=${MEILISEARCH_ENABLED:-false}
-      - ID_WORKER_ENABLED=${ID_WORKER_ENABLED:-true}
-      - JSON_WORKER_ENABLED=${JSON_WORKER_ENABLED:-false}
-      - TTL_WORKER_ENABLED=${TTL_WORKER_ENABLED:-false}
-      - STATS_WORKER_ENABLED=${STATS_WORKER_ENABLED:-false}
-      - PURGE_WORKER_ENABLED=${PURGE_WORKER_ENABLED:-false}
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_ENTITY_CHANGE_TOPIC=${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       minio:
         condition: service_healthy
       mysql:
         condition: service_healthy
-    command: python -m models.rest_api.main
     # Long start_period needed to initialize redpanda producers when STREAMING_ENABLED=true
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/health"]
@@ -176,33 +163,6 @@ services:
       start_period: 30s
     mem_limit: 512m
     cpus: 0.5
-    networks:
-      - entitybase-network
-
-  orchestrator-frontend:
-    container_name: orchestrator-frontend
-    image: entitybase-orchestrator-frontend:latest
-    ports:
-      - "8080:8083"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      redpanda:
-        condition: service_healthy
-      entitybase-api:
-        condition: service_started
-      kafka2sse-backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8083/health.html"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    mem_limit: 256m
-    cpus: 0.25
     networks:
       - entitybase-network
 
