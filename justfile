@@ -92,6 +92,10 @@ down:
 down-v:
     docker compose down -v
 
+# Show health of all docker services
+health:
+    ./scripts/health/check.sh
+
 # Follow logs from all services
 logs:
     docker compose logs -f --tail=100
