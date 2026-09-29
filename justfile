@@ -20,7 +20,7 @@ e2e:
 e2e-mock:
     just -f {{justfile()}} mock-api-up
     just -f {{justfile()}} mock-stream-up
-    just -f {{justfile()}} e2e
+    cd e2e-ui && API_URL={{API_URL}} E2E_MOCK=1 npx playwright test
 
 # Stop the mock backends
 mock-api-down:
@@ -29,6 +29,7 @@ mock-api-down:
 
 # Start the mock stream backend in the background
 mock-stream-up:
+    -pkill -f entitybase-mock-stream || true
     @cp -f scripts/dev/mock-stream-api.mjs /tmp/entitybase-mock-stream.mjs
     @nohup node /tmp/entitybase-mock-stream.mjs > /tmp/entitybase-mock-stream.log 2>&1 & disown
     @sleep 1

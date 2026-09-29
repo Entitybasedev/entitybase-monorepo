@@ -10,26 +10,37 @@ import http from 'node:http'
 const MOCK_API = process.env.MOCK_API_URL || 'http://localhost:8083'
 
 const TOPICS = ['entity_change']
-let lastEventIndex = -1
 
-const clients = new Set()
+// Full event history; each client replays from the start on connect
+// (mirrors the real backend's offset=0 replay)
+const eventLog = []
+const clients = new Map() // res -> cursor into eventLog
+let lastPolled = -1
+
+function flush() {
+  for (const [res, startCursor] of clients) {
+    let i = startCursor
+    while (i < eventLog.length) {
+      const sseEvent = {
+        event_type: 'entity_change',
+        id: String(i),
+        data: eventLog[i],
+      }
+      res.write(`data: ${JSON.stringify(sseEvent)}\n\n`)
+      i++
+    }
+    clients.set(res, i)
+  }
+}
 
 async function pollEvents() {
   try {
-    const res = await fetch(`${MOCK_API}/__mock/events?since=${lastEventIndex}`)
+    const res = await fetch(`${MOCK_API}/__mock/events?since=${lastPolled}`)
     if (!res.ok) return
     const { events, last } = await res.json()
-    for (const event of events) {
-      const sseEvent = {
-        event_type: 'entity_change',
-        id: String(++lastEventIndex),
-        data: event,
-      }
-      for (const client of clients) {
-        client.write(`data: ${JSON.stringify(sseEvent)}\n\n`)
-      }
-    }
-    lastEventIndex = Math.max(lastEventIndex, last)
+    eventLog.push(...events)
+    lastPolled = Math.max(lastPolled, last)
+    flush()
   } catch {
     // mock api not up yet; retry on next tick
   }
@@ -55,7 +66,8 @@ const server = http.createServer((req, res) => {
       Connection: 'keep-alive',
     })
     res.write(': connected\n\n')
-    clients.add(res)
+    clients.set(res, -1)
+    flush()
     req.on('close', () => clients.delete(res))
     return
   }

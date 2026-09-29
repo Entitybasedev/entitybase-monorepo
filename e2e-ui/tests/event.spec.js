@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID } from './helpers.js'
+import { USER_ID, API_URL } from './helpers.js'
 
 const COMPOSE = 'docker compose -f entitybase-backend/docker-compose.ci.yml'
 
@@ -13,6 +13,15 @@ async function produceEntityChange(entityId, revisionId) {
     summary: 'e2e stream test',
     user: '90001',
   })
+  if (process.env.E2E_MOCK === '1') {
+    // Local mock: append straight to the mock api's event log
+    await fetch(`${API_URL}/__mock/produce`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    })
+    return
+  }
   const { execSync } = await import('node:child_process')
   // rpk reads the record value from stdin; it requires a trailing newline
   execSync(`${COMPOSE} exec -T redpanda rpk topic produce entity_change`, {
@@ -73,10 +82,15 @@ test('creating an item produces a change event with the same QID', async ({
   const itemId = permalink.split('entity=')[1]
   expect(itemId).toMatch(/^Q\d+$/)
 
-  // Switch to the change stream and expect the item's creation event
+  // Switch to the change stream and expect the item's creation event.
+  // The consumer subscribes at the latest offset, so replay from the
+  // earliest offset to see the event published before connecting.
   await page.getByTestId('nav-stream').click()
   const topicSelect = page.getByTestId('stream-topic-select')
   await expect(topicSelect).toHaveValue('entity_change', { timeout: 15000 })
+
+  await page.getByTestId('stream-offset-input').fill('0')
+  await page.getByTestId('stream-reconnect').click()
 
   const feed = page.getByTestId('stream-feed')
   await expect(feed).toContainText(itemId, { timeout: 15000 })

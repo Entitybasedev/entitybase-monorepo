@@ -47,6 +47,14 @@ const server = http.createServer((req, res) => {
       const since = Number(url.searchParams.get('since') ?? -1)
       return json(200, { events: events.slice(since + 1), last: events.length - 1 })
     }
+    if (url.pathname === '/__mock/produce' && req.method === 'POST') {
+      const event = jsonBody
+      if (!event.id || !event.rev || !event.type) {
+        return json(400, { message: 'event needs id, rev and type' })
+      }
+      events.push(event)
+      return json(200, { accepted: true, last: events.length - 1 })
+    }
     if (req.method === 'POST' && url.pathname === '/v1/entities/items') {
       const id = `Q${counter++}`
       db.set(id, { id, type: 'item', labels: {}, hashes: { statements: [] } })
