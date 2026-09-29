@@ -314,11 +314,14 @@ async def stream(
             logger.info(f"[{log_prefix}] Consumer started")
             
             if offset is not None:
-                # Use assign() for precise offset seeking  
+                # Use assign() for precise offset seeking.
+                # assign() and seek() are synchronous in aiokafka; awaiting
+                # them raises TypeError and silently degraded to subscribe()
+                # (which starts at the latest offset).
                 try:
                     tp = TopicPartition(topic, 0)
-                    await consumer.assign([tp])
-                    await consumer.seek(tp, offset)
+                    consumer.assign([tp])
+                    consumer.seek(tp, offset)
                     logger.info(f"[{log_prefix}] Assigned partition {tp} and seeked to offset {offset}")
                 except Exception as e:
                     logger.warning(f"[{log_prefix}] Failed to seek to offset {offset}: {e}, falling back to subscribe")
