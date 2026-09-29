@@ -204,13 +204,7 @@ jobs:
           if-no-files-found: ignore
   e2e-ui:
     # Playwright e2e against the REAL backend stack (never the mock API).
-    # Only runs once all other test jobs are green.
-    needs:
-      - entitybase-backend-lint
-      - entitybase-backend-test
-      - entitybase-frontend
-      - kafka2sse-backend
-      - kafka2sse-frontend
+    # Runs unconditionally, in parallel with the other test jobs.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
