@@ -25,4 +25,6 @@ class TestSettings:
     def test_defaults_when_env_not_set(self):
         """Test that defaults are used when env vars not set."""
         settings_instance = Settings()
-        assert settings_instance.s3_endpoint == "http://minio:9000"
+        # S3 is disabled by default (everything is stored in mysql)
+        assert settings_instance.s3_endpoint == ""
+        assert settings_instance.s3_enabled is False

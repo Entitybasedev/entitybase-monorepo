@@ -90,6 +90,7 @@ async def lifespan(app_: FastAPI) -> AsyncGenerator[None, None]:
     try:
         state_handler = await _initialize_state_handler()
         state_handler.health_check()
+        await _ensure_stream_producer(state_handler)
         await _create_database_tables(state_handler)
         await _initialize_app_state(app_, state_handler)
         yield
@@ -107,6 +108,24 @@ async def _initialize_state_handler() -> StateHandler:
     state_handler = StateHandler(settings=settings)
     state_handler.start()
     return state_handler
+
+
+async def _ensure_stream_producer(state_handler: StateHandler) -> None:
+    """Start the stream producer so the configured topics exist."""
+    if not state_handler.settings.streaming_enabled:
+        logger.debug("Streaming disabled, skipping stream producer startup")
+        return
+    producer = state_handler.entity_change_stream_producer
+    if producer is None:
+        logger.warning("Stream producer not configured, skipping topic creation")
+        return
+    try:
+        await producer.start()
+        logger.info("Stream producer started; topics ensured")
+    except Exception as e:
+        logger.warning(
+            f"Could not start stream producer at startup: {type(e).__name__}: {e}"
+        )
 
 
 async def _create_database_tables(state_handler: StateHandler) -> None:

@@ -4,6 +4,8 @@ import logging
 from typing import Any
 
 from aiokafka import AIOKafkaProducer  # type: ignore[import-untyped]
+from aiokafka.admin import AIOKafkaAdminClient, NewTopic
+from aiokafka.errors import TopicAlreadyExistsError
 
 from models.data.config.stream import StreamConfig
 from models.infrastructure.client import Client
@@ -33,7 +35,31 @@ class StreamProducerClient(Client):
             value_serializer=lambda v: v.model_dump_json(by_alias=True).encode("utf-8"),
         )
         await self.producer.start()
+        await self.ensure_topic()
         logger.info(f"Started Kafka producer for topic {self.config.topic}")
+
+    async def ensure_topic(self) -> None:
+        """Create the configured topic if it does not exist."""
+        admin = AIOKafkaAdminClient(bootstrap_servers=self.config.bootstrap_servers)
+        try:
+            await admin.start()
+            try:
+                await admin.create_topics(
+                    [
+                        NewTopic(
+                            name=self.config.topic,
+                            num_partitions=1,
+                            replication_factor=1,
+                        )
+                    ]
+                )
+                logger.info(f"Created missing topic {self.config.topic}")
+            except TopicAlreadyExistsError:
+                logger.debug(f"Topic {self.config.topic} already exists")
+        except Exception as e:
+            logger.warning(f"Could not ensure topic {self.config.topic}: {e}")
+        finally:
+            await admin.close()
 
     async def stop(self) -> None:
         """Stop the Kafka producer."""
