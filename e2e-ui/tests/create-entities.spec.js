@@ -85,11 +85,15 @@ test('create a lexeme and add a statement via the UI', async ({ page, request })
 
   const statement = page.getByTestId('statement').first()
   await expect(statement).toBeVisible()
+  await expect(statement.getByTestId('statement-property')).toHaveText(propertyId)
   await expect(statement.getByTestId('statement-value')).toHaveText('Q5')
+  await expect(statement.getByTestId('statement-value')).toBeVisible()
 
   // Reload to prove it persisted server-side
   await page.reload()
   await expect(itemSection).toBeVisible()
   await expect(page.getByTestId('statement')).toHaveCount(1)
-  await expect(page.getByTestId('statement').first().getByTestId('statement-value')).toHaveText('Q5')
+  const reloaded = page.getByTestId('statement').first()
+  await expect(reloaded.getByTestId('statement-property')).toHaveText(propertyId)
+  await expect(reloaded.getByTestId('statement-value')).toHaveText('Q5')
 })

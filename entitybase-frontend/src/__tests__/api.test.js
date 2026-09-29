@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getItem,
   getLabel,
+  getSnak,
   getStatement,
   postItem,
   postLexeme,
@@ -195,5 +196,25 @@ describe('int64-safe JSON parsing', () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: 'Q1', rev_id: 7, data: { revision: {} } }))
     const item = await getItem('Q1')
     expect(item.rev_id).toBe(7)
+  })
+})
+
+describe('getSnak', () => {
+  it('resolves a snak hash and returns the snak object', async () => {
+    const snak = { property: 'P31', datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' } }
+    fetchMock.mockResolvedValue(
+      jsonResponse([{ snak, hash: 555, created_at: '2025-01-01T00:00:00Z' }])
+    )
+
+    const result = await getSnak(555)
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/resolve/snaks/555')
+    expect(result.property).toBe('P31')
+    expect(result.datavalue.value.id).toBe('Q5')
+  })
+
+  it('returns null when the snak is missing', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([null]))
+    expect(await getSnak(999)).toBeNull()
   })
 })

@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 const apiMocks = vi.hoisted(() => ({
   getItem: vi.fn(),
   getLabel: vi.fn(),
+  getSnak: vi.fn(),
   getStatement: vi.fn(),
   postItem: vi.fn(),
   postProperty: vi.fn(),
@@ -106,14 +107,15 @@ describe('App', () => {
       hash: 777,
       statement: {
         id: 'S1',
-        mainsnak: {
-          snaktype: 'value',
-          property: 'P31',
-          datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
-        },
+        mainsnak: 555,
         type: 'statement',
         rank: 'normal',
       },
+    })
+    apiMocks.getSnak.mockResolvedValue({
+      snaktype: 'value',
+      property: 'P31',
+      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
     })
     apiMocks.postStatement.mockResolvedValue({ success: true })
 
@@ -127,6 +129,7 @@ describe('App', () => {
     await flushPromises()
 
     expect(apiMocks.postStatement).toHaveBeenCalledTimes(1)
+    expect(apiMocks.getSnak).toHaveBeenCalledWith(555)
     const [, body, userId] = apiMocks.postStatement.mock.calls[0]
     expect(body.claim.mainsnak.property).toBe('P31')
     expect(body.claim.mainsnak.datavalue).toEqual({
@@ -138,6 +141,7 @@ describe('App', () => {
 
     const statement = wrapper.find('[data-testid="statement"]')
     expect(statement.exists()).toBe(true)
+    expect(wrapper.find('[data-testid="statement-property"]').text()).toBe('P31')
     expect(wrapper.find('[data-testid="statement-value"]').text()).toBe('Q5')
   })
 

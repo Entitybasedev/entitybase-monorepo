@@ -84,3 +84,9 @@ export async function getStatement(contentHash) {
   const res = await fetch(`${BASE}/v1/statements/${encodeURIComponent(contentHash)}`)
   return unwrap(res, `GET statement ${contentHash}`)
 }
+
+export async function getSnak(snakHash) {
+  const res = await fetch(`${BASE}/v1/resolve/snaks/${encodeURIComponent(snakHash)}`)
+  const json = await unwrap(res, `GET snak ${snakHash}`)
+  return json[0]?.snak ?? null
+}

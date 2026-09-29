@@ -104,7 +104,7 @@
 
       <ul data-testid="statement-list">
         <li v-for="s in statements" :key="s.id" data-testid="statement">
-          <span class="field-name">{{ s.property }}</span>
+          <span class="field-name" data-testid="statement-property">{{ s.property }}</span>
           <span data-testid="statement-value">{{ s.value }}</span>
         </li>
         <li v-if="!statements.length" data-testid="no-statements">No statements yet.</li>
@@ -118,6 +118,7 @@ import { computed, onMounted, ref } from 'vue'
 import {
   getItem,
   getLabel,
+  getSnak,
   getStatement,
   postStatement,
   postItem,
@@ -166,19 +167,32 @@ async function loadItem(id) {
     // Label values are stored hash-referenced; fetch via the labels endpoint
     label.value = (await getLabel(id, 'en')) ?? ''
 
-    // Statement values are resolved per content hash
+    // Statement values are resolved per content hash; mainsnak is stored
+    // as a snak hash and resolved via the snaks endpoint
     const hashes = entityData.value.hashes?.statements ?? []
     const fetched = await Promise.all(hashes.map((h) => getStatement(h)))
-    statements.value = fetched
-      .map((res) => res.statement)
-      .filter((stmt) => stmt && stmt.mainsnak)
-      .map((stmt) => {
-        const dv = stmt.mainsnak.datavalue
+    const withSnaks = await Promise.all(
+      fetched
+        .map((res) => res.statement)
+        .filter((stmt) => stmt && stmt.mainsnak)
+        .map(async (stmt) => {
+          const mainsnak =
+            typeof stmt.mainsnak === 'object'
+              ? stmt.mainsnak
+              : await getSnak(stmt.mainsnak)
+          if (!mainsnak) return null
+          return { stmt, mainsnak }
+        })
+    )
+    statements.value = withSnaks
+      .filter(Boolean)
+      .map(({ stmt, mainsnak }) => {
+        const dv = mainsnak.datavalue
         const value =
           dv?.type === 'wikibase-item' ? (dv.value?.id ?? '?') : String(dv?.value ?? '?')
         return {
-          id: stmt.id ?? stmt.mainsnak.hash ?? String(stmt.mainsnak.property),
-          property: stmt.mainsnak.property,
+          id: stmt.id ?? mainsnak.hash ?? String(mainsnak.property),
+          property: mainsnak.property,
           value,
         }
       })
