@@ -1,29 +1,41 @@
 import { test, expect } from '@playwright/test'
+import { USER_ID, API_URL, createPropertyViaApi } from './helpers.js'
 
-const USER_ID = process.env.E2E_USER_ID || '90001'
-const API_URL = process.env.API_URL || 'http://localhost:8083'
+test('create a property via the UI', async ({ page }) => {
+  const label = `E2E Property ${Date.now()}`
 
-test('create item, add statement, see both in the UI', async ({ page, request }) => {
+  await page.goto('/')
+
+  await page.getByTestId('property-label-input').fill(label)
+  await page.getByTestId('create-property-button').click()
+
+  const itemSection = page.getByTestId('item-section')
+  await expect(itemSection).toBeVisible()
+  await expect(page.getByTestId('item-label')).toHaveText(label)
+
+  // Property IDs are P-prefixed and persisted server-side
+  const permalink = await page.getByTestId('item-permalink').getAttribute('href')
+  expect(permalink).toMatch(/\?entity=P\d+$/)
+})
+
+test('create an item via the UI and see its label', async ({ page }) => {
   const label = `E2E Item ${Date.now()}`
 
-  // The statement add validates that the property entity exists, so create
-  // one first via the API (property IDs are auto-enumerated, e.g. P30000).
-  const propRes = await request.post(`${API_URL}/v1/entities/properties`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-User-ID': USER_ID,
-      'X-Edit-Summary': 'e2e setup property',
-    },
-    data: {
-      type: 'property',
-      datatype: 'wikibase-item',
-      labels: { en: { language: 'en', value: 'instance of' } },
-    },
-  })
-  expect(propRes.ok()).toBeTruthy()
-  const propBody = await propRes.json()
-  const propertyId = propBody.data?.entity_id ?? propBody.entity_id
-  expect(propertyId).toMatch(/^P\d+$/)
+  await page.goto('/')
+
+  await page.getByTestId('item-label-input').fill(label)
+  await page.getByTestId('user-id-input').fill(USER_ID)
+  await page.getByTestId('create-item-button').click()
+
+  const itemSection = page.getByTestId('item-section')
+  await expect(itemSection).toBeVisible()
+  await expect(page.getByTestId('item-label')).toHaveText(label)
+})
+
+test('create an item and add a statement via the UI', async ({ page, request }) => {
+  const label = `E2E Item ${Date.now()}`
+
+  const propertyId = await createPropertyViaApi(request)
 
   await page.goto('/')
 
@@ -48,7 +60,7 @@ test('create item, add statement, see both in the UI', async ({ page, request })
   await expect(statement.getByTestId('statement-value')).toBeVisible()
 })
 
-test('backend reflects the created entity via API', async ({ request }) => {
+test('backend reflects the created item via API', async ({ request }) => {
   // Create via API to cross-check GET persistence
   const res = await request.post(`${API_URL}/v1/entities/items`, {
     headers: {
