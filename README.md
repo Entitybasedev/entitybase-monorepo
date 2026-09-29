@@ -1,6 +1,7 @@
-# Entitybase Orchestrator
+# Entitybase
 
-Docker orchestration for Entitybase services.
+Monorepo for Entitybase services: the REST API backend, a Vue frontend
+(entities + live change stream), and the SSE change-stream backend.
 
 ## Architecture
 
@@ -8,116 +9,123 @@ Docker orchestration for Entitybase services.
 flowchart TB
     subgraph Infrastructure
         MySQL[(MySQL<br/>3306)]
-        Minio[MinIO<br/>9000/9001]
         Redpanda[Redpanda<br/>9092]
     end
 
     subgraph Backend
-        API[entitybase-backend<br/>8080]
-        ID[idworker<br/>8001]
-        Workers[Workers<br/>8002-8006]
+        API[entitybase-api<br/>8083]
+    end
+
+    subgraph Stream
+        SSE_BE[kafka2sse-backend<br/>8888]
     end
 
     subgraph Frontend
-        Orch[orchestrator-frontend<br/>8080]
-    end
-
-    subgraph SSE
-        SSE_BE[entitybase-sse-backend<br/>8888]
-        SSE_FE[entitybase-sse-frontend<br/>8889]
+        UI[entitybase-frontend<br/>8080]
     end
 
     Users((Users))
 
-    Users -->|HTTP| Orch
+    Users -->|HTTP| UI
     Users -->|HTTP| API
-    Users -->|HTTP| SSE_BE
-    Users -->|HTTP| SSE_FE
+    Users -->|SSE| UI
 
-    Orch --> API
+    UI -->|/v1, /health| API
+    UI -->|/v1/streams, /v1/topics| SSE_BE
 
     API --> MySQL
-    API --> Minio
     API --> Redpanda
-    API --> ID
-
-    ID --> MySQL
-
-    Workers --> MySQL
-    Workers --> Minio
 
     SSE_BE --> Redpanda
-    SSE_FE --> Redpanda
 ```
+
+Everything the API persists lives in MySQL (entities, revisions,
+statements, metadata). Change events flow through Redpanda: the API
+publishes `entity_change` events, and the stream backend fans them out
+as Server-Sent Events to the frontend's **Change stream** tab.
+
+## Repository Layout
+
+| Directory | Description |
+|-----------|-------------|
+| `entitybase-backend/` | REST API (FastAPI, MySQL) |
+| `entitybase-frontend/` | Vue SPA: entities + change stream tabs |
+| `kafka2sse-backend/` | SSE change-stream backend (Kafka → SSE) |
+| `orchestrator-frontend/` | Health dashboard |
+| `e2e-ui/` | Playwright e2e tests |
+| `scripts/` | Build, health check and dev mock helpers |
 
 ## Quick Start
 
 ```bash
-# Copy environment template
-cp .env.example .env
+# Build Docker images and start the whole stack
+just up
 
-# Build Docker images and start services
-make run
+# Check the health of all services
+just health
+
+# Service URLs
+just docker-help
 ```
 
-## Dependencies
+`just up` creates `.env` from `env.example` on first run, builds the
+images, starts the stack and waits for the API to become healthy.
 
-See [INSTALL.md](INSTALL.md) for installation instructions.
+## Development
 
-## Makefile Commands
+The frontend runs as a vite dev server outside docker during
+development:
+
+```bash
+cd entitybase-frontend
+npm install
+npm run dev        # http://localhost:8085 (proxies to the docker API)
+```
+
+Backend and frontend unit tests, plus mock-based e2e tests without
+docker:
+
+```bash
+cd entitybase-backend && just lint-test-all   # via the backend justfile
+cd entitybase-frontend && npm test
+just e2e-mock        # Playwright e2e against mock backends (no docker)
+just e2e             # Playwright e2e against the running docker stack
+```
+
+## Just Commands
 
 | Command | Description |
 |---------|-------------|
-| `make build` | Build all Docker images |
-| `make run` | Build images and start all services |
-| `make stop` | Stop all running services |
-| `make remove` | Stop services and remove containers/volumes |
-| `make clean` | Prune Docker system (containers, images, networks, build cache) |
-| `make reset` | Reset entitybase data (runs reset.sh) |
+| `just up` | Build images and start the whole stack |
+| `just down` | Stop the stack |
+| `just down-v` | Stop the stack and remove volumes (fresh database) |
+| `just logs` | Follow logs from all services |
+| `just health` | Health table for all services (exit 1 on failure) |
+| `just docker-help` | Print the service URLs |
+| `just e2e` | Playwright e2e against the running stack |
+| `just e2e-mock` | Playwright e2e against mock backends (no docker) |
+| `just frontend` | Run the frontend dev server |
 
-## Manual Commands
-
-```bash
-# Build images
-./build-images.sh
-
-# Start services
-docker compose up -d
-
-# View logs
-docker compose logs -f
-
-# Stop services
-docker compose stop
-```
-
-## Services
+## Services (docker compose)
 
 | Service | Port | Description |
 |---------|------|-------------|
-| mysql | 3306 | Database |
-| minio | 9000, 9001 | S3 storage (API + console) |
-| redpanda | 9092, 9644 | Kafka broker |
-| redpanda-console | 8084 | Redpanda Console (Kafka UI) |
-| entitybase-backend | 8080 | REST API |
-| entitybase-sse-backend | 8888 | SSE API |
-| entitybase-sse-frontend | 8889 | SSE Frontend |
-| idworker | 8001 | ID generation |
+| entitybase-frontend | 8080 | UI: entities + change stream (nginx) |
+| entitybase-api | 8083 | REST API |
+| kafka2sse-backend | 8888 | Change events as SSE |
+| mysql | 3306 | Database (entities, revisions, statements, metadata) |
+| redpanda | 9092 | Kafka broker (change events) |
+| valkey | 6379 (internal) | Cache used by the stream backend |
 
-## Profiles
+The API creates its Kafka topics (`entity_change`) automatically at
+startup, so a fresh cluster works out of the box.
 
-- `core` - Infrastructure + main services (default)
-- `workers` - Background job workers
+## Continuous Integration
 
-```bash
-# Start with workers
-docker compose --profile workers up -d
-```
+GitHub Actions run lint + unit/contract/integration tests per backend,
+frontend unit tests, and the Playwright e2e suite against the real
+docker stack. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## License
 
 This project is licensed under the [GNU General Public License v3.0 or later](LICENSE).
-
-## Environment Variables
-
-See [INSTALL.md](INSTALL.md) for full list.
