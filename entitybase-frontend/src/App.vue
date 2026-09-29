@@ -140,6 +140,7 @@ async function addStatement() {
       item.value.id,
       {
         claim: {
+          id: crypto.randomUUID(),
           mainsnak: {
             snaktype: 'value',
             property: stmtProperty.value,
