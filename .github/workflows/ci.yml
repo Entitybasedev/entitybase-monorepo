@@ -314,6 +314,14 @@ jobs:
           done
           echo "kafka2sse backend did not become healthy"; cat /tmp/k2s.log; exit 1
 
+      - name: Create entity_change topic
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker compose -f entitybase-backend/docker-compose.ci.yml exec -T redpanda \
+            rpk topic create entity_change 2>/dev/null || echo "topic exists"
+          docker compose -f entitybase-backend/docker-compose.ci.yml exec -T redpanda \
+            rpk topic list
+
       - name: Install e2e + frontend deps
         run: |
           npm install --silent
