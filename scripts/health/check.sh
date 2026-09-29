@@ -52,7 +52,7 @@ fail() {
 start_check "mysql"
 if is_running mysql; then
     ANY_RUNNING=1
-    if timeout 10 docker compose exec -T mysql mysqladmin ping -h localhost --silent > /dev/null 2>&1; then
+    if timeout 10 docker exec mysql mysqladmin ping -h localhost --silent > /dev/null 2>&1; then
         report healthy
     else
         fail "mysql" "mysqladmin ping failed"
@@ -66,7 +66,7 @@ fi
 start_check "valkey"
 if is_running valkey; then
     ANY_RUNNING=1
-    if timeout 10 docker compose exec -T valkey valkey-cli ping 2>/dev/null | grep -q PONG; then
+    if timeout 10 docker exec valkey valkey-cli ping 2>/dev/null | grep -q PONG; then
         report healthy
     else
         fail "valkey" "valkey-cli ping failed"
@@ -80,7 +80,7 @@ fi
 start_check "redpanda"
 if is_running redpanda; then
     ANY_RUNNING=1
-    if timeout 10 docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q Healthy; then
+    if timeout 10 docker exec redpanda rpk cluster health 2>/dev/null | grep -q Healthy; then
         report healthy
     else
         fail "redpanda" "cluster not healthy"
