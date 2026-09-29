@@ -9,6 +9,7 @@ on:
 jobs:
   entitybase-backend-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     defaults:
       run:
         working-directory: entitybase-backend
@@ -47,7 +48,7 @@ jobs:
 
   entitybase-backend-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 5
     needs: entitybase-backend-lint
     defaults:
       run:
@@ -206,7 +207,7 @@ jobs:
     # Playwright e2e against the REAL backend stack (never the mock API).
     # Runs unconditionally, in parallel with the other test jobs.
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
     env:
       API_URL: http://localhost:8000
       API_TARGET: http://localhost:8000
