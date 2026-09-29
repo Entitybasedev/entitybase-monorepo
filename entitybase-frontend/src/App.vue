@@ -134,6 +134,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import StreamView from './components/stream/StreamView.vue'
 import {
   getItem,
   getLabel,
