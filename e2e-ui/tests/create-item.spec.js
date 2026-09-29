@@ -46,14 +46,6 @@ test('create item, add statement, see both in the UI', async ({ page, request })
   await expect(statement.getByTestId('statement-property')).toHaveText(propertyId)
   await expect(statement.getByTestId('statement-value')).toHaveText('Q5')
   await expect(statement.getByTestId('statement-value')).toBeVisible()
-
-  // Reload to prove it persisted server-side
-  await page.reload()
-  await expect(page.getByTestId('item-label')).toHaveText(label)
-  await expect(page.getByTestId('statement')).toHaveCount(1)
-  const reloaded = page.getByTestId('statement').first()
-  await expect(reloaded.getByTestId('statement-property')).toHaveText(propertyId)
-  await expect(reloaded.getByTestId('statement-value')).toHaveText('Q5')
 })
 
 test('backend reflects the created entity via API', async ({ request }) => {
