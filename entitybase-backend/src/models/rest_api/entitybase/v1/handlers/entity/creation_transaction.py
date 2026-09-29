@@ -183,7 +183,16 @@ class CreationTransaction(EntityTransaction):
                 summary=edit_context.edit_summary,
             )
             if self.state.settings.streaming_enabled:
-                await self.state.entity_change_stream_producer.publish(event)
+                try:
+                    await self.state.entity_change_stream_producer.publish(event)
+                except Exception as e:
+                    # Events are fire-and-forget; storage failures must not
+                    # fail the entity write itself
+                    logger.error(
+                        f"Failed to publish entity_change event for "
+                        f"{event.entity_id}: {type(e).__name__}: {e}",
+                        exc_info=True,
+                    )
             else:
                 logger.debug("Streaming disabled, skipping event publish")
         # Events are fire-and-forget, no rollback needed

@@ -304,7 +304,7 @@ jobs:
         working-directory: ${{ github.workspace }}/kafka2sse-backend
         run: |
           # Reuses the redpanda already running from the backend stack on localhost:9092
-          VALKEY_HOST=localhost VALKEY_PORT=6379 KAFKA_BROKERS=localhost:9092 \
+          VALKEY_HOST=localhost VALKEY_PORT=6379 KAFKA_BROKERS=localhost:9094 \
             nohup uv run uvicorn src.main:app --host 0.0.0.0 --port 8888 > /tmp/k2s.log 2>&1 &
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8888/health > /dev/null; then
