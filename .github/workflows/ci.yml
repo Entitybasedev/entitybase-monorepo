@@ -333,7 +333,21 @@ jobs:
 
       - name: Show API logs on failure
         if: failure()
-        run: docker compose -f ../entitybase-backend/docker-compose.ci.yml logs --tail=100 api
+        run: |
+          docker compose -f ../entitybase-backend/docker-compose.ci.yml logs --tail=500 api | \
+            grep -iE "producer|publish|kafka|Sending event|entity_change|Q300000000" || true
+          docker compose -f ../entitybase-backend/docker-compose.ci.yml logs --tail=500 api > /tmp/api-full.log || true
+      - name: Consume entity_change topic on failure
+        if: failure()
+        run: |
+          echo "=== topic description ==="
+          docker compose -f ../entitybase-backend/docker-compose.ci.yml exec -T redpanda \
+            rpk topic describe entity_change || true
+          echo "=== all messages in entity_change ==="
+          timeout 30 docker compose -f ../entitybase-backend/docker-compose.ci.yml exec -T redpanda \
+            rpk topic consume entity_change --offset-start 0 2>/dev/null || \
+          timeout 30 docker compose -f ../entitybase-backend/docker-compose.ci.yml exec -T redpanda \
+            rpk topic consume entity_change -o 0 || true
       - name: Down containers
         if: always()
         run: docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
