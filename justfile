@@ -16,14 +16,23 @@ e2e:
     just -f {{justfile()}} e2e-install
     cd e2e-ui && API_URL={{API_URL}} npx playwright test
 
-# Run e2e tests against a throwaway mock API (no docker/backend needed)
+# Run e2e tests against throwaway mock backends (no docker/backend needed)
 e2e-mock:
     just -f {{justfile()}} mock-api-up
+    just -f {{justfile()}} mock-stream-up
     just -f {{justfile()}} e2e
 
-# Stop the mock API
+# Stop the mock backends
 mock-api-down:
     -pkill -f entitybase-mock-api || true
+    -pkill -f entitybase-mock-stream || true
+
+# Start the mock stream backend in the background
+mock-stream-up:
+    @cp -f scripts/dev/mock-stream-api.mjs /tmp/entitybase-mock-stream.mjs
+    @nohup node /tmp/entitybase-mock-stream.mjs > /tmp/entitybase-mock-stream.log 2>&1 & disown
+    @sleep 1
+    @curl -sf http://localhost:8888/health > /dev/null && echo "mock stream backend up on :8888" || (echo "mock stream backend failed:" && cat /tmp/entitybase-mock-stream.log && exit 1)
 
 # Start the mock API in the background
 mock-api-up:

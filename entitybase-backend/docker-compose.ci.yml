@@ -277,9 +277,9 @@ services:
       STREAMING_ENTITY_CHANGE_VERSION: "1.0.0"
       STREAMING_ENTITY_DIFF_VERSION: "2.0.0"
 
-      STREAMING_ENABLED: "false"
+      STREAMING_ENABLED: "true"
       KAFKA_BROKERS: redpanda:9092
-      KAFKA_ENTITY_CHANGE_TOPIC: entitybase.entity_change
+      KAFKA_ENTITY_CHANGE_TOPIC: entity_change
       KAFKA_ENTITY_DIFF_TOPIC: entitybase.entity_diff
       LOG_LEVEL: "DEBUG"
       ENVIRONMENT: "dev"

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { USER_ID } from './helpers.js'
 
 const COMPOSE = 'docker compose -f entitybase-backend/docker-compose.ci.yml'
 
@@ -53,4 +54,30 @@ test('stream tab is reachable from the entities view via the menu', async ({
 
   await expect(page.getByTestId('stream-view')).toBeVisible()
   expect(new URL(page.url()).searchParams.get('tab')).toBe('stream')
+})
+
+test('creating an item produces a change event with the same QID', async ({
+  page,
+}) => {
+  const label = `E2E Stream Item ${Date.now()}`
+
+  // Create an item through the UI
+  await page.goto('/')
+  await page.getByTestId('item-label-input').fill(label)
+  await page.getByTestId('user-id-input').fill(USER_ID)
+  await page.getByTestId('create-item-button').click()
+
+  const itemSection = page.getByTestId('item-section')
+  await expect(itemSection).toBeVisible()
+  const permalink = await page.getByTestId('item-permalink').getAttribute('href')
+  const itemId = permalink.split('entity=')[1]
+  expect(itemId).toMatch(/^Q\d+$/)
+
+  // Switch to the change stream and expect the item's creation event
+  await page.getByTestId('nav-stream').click()
+  const topicSelect = page.getByTestId('stream-topic-select')
+  await expect(topicSelect).toHaveValue('entity_change', { timeout: 15000 })
+
+  const feed = page.getByTestId('stream-feed')
+  await expect(feed).toContainText(itemId, { timeout: 15000 })
 })

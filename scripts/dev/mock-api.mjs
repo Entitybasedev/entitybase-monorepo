@@ -10,7 +10,20 @@ import http from 'node:http'
 
 const db = new Map()
 const statementsByHash = new Map()
+const events = []
 let counter = 1000
+
+function recordEvent(entityId, type) {
+  events.push({
+    id: entityId,
+    rev: 1,
+    type,
+    from_rev: 0,
+    at: new Date().toISOString(),
+    summary: 'mock event',
+    user: '90001',
+  })
+}
 
 const server = http.createServer((req, res) => {
   let body = ''
@@ -30,14 +43,20 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && url.pathname === '/v1/users') {
       return json(200, { user_id: jsonBody.user_id })
     }
+    if (url.pathname === '/__mock/events') {
+      const since = Number(url.searchParams.get('since') ?? -1)
+      return json(200, { events: events.slice(since + 1), last: events.length - 1 })
+    }
     if (req.method === 'POST' && url.pathname === '/v1/entities/items') {
       const id = `Q${counter++}`
       db.set(id, { id, type: 'item', labels: {}, hashes: { statements: [] } })
+      recordEvent(id, 'creation')
       return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
     }
     if (req.method === 'POST' && url.pathname === '/v1/entities/properties') {
       const id = `P${counter++}`
       db.set(id, { id, type: 'property', labels: {}, hashes: { statements: [] } })
+      recordEvent(id, 'creation')
       return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
     }
     if (req.method === 'POST' && url.pathname === '/v1/entities/lexemes') {
@@ -50,6 +69,7 @@ const server = http.createServer((req, res) => {
         labels: {},
         hashes: { statements: [] },
       })
+      recordEvent(id, 'creation')
       return json(200, { id, rev_id: 1, data: { revision: {} } })
     }
     const sm = url.pathname.match(/^\/v1\/statements\/(\d+)$/)
