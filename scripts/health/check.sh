@@ -91,6 +91,7 @@ else
 fi
 
 # --- entitybase-api ---
+start_check "entitybase-api"
 if is_running entitybase-api; then
     ANY_RUNNING=1
     api_health=$(timeout 10 curl -sf http://localhost:8083/health 2>/dev/null)
@@ -108,6 +109,7 @@ else
 fi
 
 # --- kafka2sse-backend ---
+start_check "kafka2sse-backend"
 if is_running kafka2sse-backend; then
     ANY_RUNNING=1
     k2s_health=$(timeout 10 curl -sf http://localhost:8888/health 2>/dev/null)
@@ -124,6 +126,7 @@ else
 fi
 
 # --- entitybase-frontend ---
+start_check "entitybase-frontend"
 if is_running entitybase-frontend; then
     ANY_RUNNING=1
     if timeout 10 curl -sf http://localhost:8080/ > /dev/null 2>&1; then
