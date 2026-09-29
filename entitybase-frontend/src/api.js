@@ -90,3 +90,16 @@ export async function getSnak(snakHash) {
   const json = await unwrap(res, `GET snak ${snakHash}`)
   return json[0]?.snak ?? null
 }
+
+// --- Change stream (kafka2sse backend) ---
+
+export async function getStreamTopics() {
+  const res = await fetch(`${BASE}/v1/topics`)
+  const json = await unwrap(res, 'GET topics')
+  return json.topics ?? []
+}
+
+export async function getStreamHealth() {
+  const res = await fetch(`${BASE}/k2s/health`)
+  return unwrap(res, 'GET stream health')
+}

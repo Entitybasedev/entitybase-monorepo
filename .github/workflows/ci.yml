@@ -284,6 +284,36 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Setup Python + uv for stream backend
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Start valkey for stream backend
+        run: |
+          docker run -d --name valkey -p 6379:6379 valkey/valkey:latest
+          for i in $(seq 1 15); do
+            if docker exec valkey valkey-cli ping 2>/dev/null | grep -q PONG; then
+              echo "valkey ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "valkey did not become ready"; exit 1
+
+      - name: Start kafka2sse backend
+        working-directory: ${{ github.workspace }}/kafka2sse-backend
+        run: |
+          # Reuses the redpanda already running from the backend stack on localhost:9092
+          VALKEY_HOST=localhost VALKEY_PORT=6379 KAFKA_BROKERS=localhost:9092 \
+            nohup uv run uvicorn src.main:app --host 0.0.0.0 --port 8888 > /tmp/k2s.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8888/health > /dev/null; then
+              echo "kafka2sse backend ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "kafka2sse backend did not become healthy"; cat /tmp/k2s.log; exit 1
+
       - name: Install e2e + frontend deps
         run: |
           npm install --silent

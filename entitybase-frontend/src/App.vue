@@ -1,7 +1,24 @@
 <template>
   <main class="app">
     <h1>Entitybase</h1>
+    <nav class="tabs" data-testid="nav">
+      <button
+        data-testid="nav-entities"
+        :class="{ active: activeTab === 'entities' }"
+        @click="showTab('entities')"
+      >
+        Entities
+      </button>
+      <button
+        data-testid="nav-stream"
+        :class="{ active: activeTab === 'stream' }"
+        @click="showTab('stream')"
+      >
+        Change stream
+      </button>
+    </nav>
 
+    <template v-if="activeTab === 'entities'">
     <section class="panel" data-testid="create-item-section">
       <h2>Create item</h2>
       <div class="row">
@@ -110,6 +127,8 @@
         <li v-if="!statements.length" data-testid="no-statements">No statements yet.</li>
       </ul>
     </section>
+    </template>
+    <StreamView v-if="activeTab === 'stream'" />
   </main>
 </template>
 
@@ -126,6 +145,13 @@ import {
   postLexeme,
   putLabel,
 } from './api.js'
+
+const activeTab = ref('entities')
+
+function showTab(tab) {
+  activeTab.value = tab
+  window.history.replaceState(null, '', `/?tab=${tab}`)
+}
 
 const userId = ref(90001)
 const newLabel = ref('')
@@ -153,8 +179,18 @@ const entityData = computed(
 )
 
 function loadFromQuery() {
-  const id = new URLSearchParams(window.location.search).get('entity')
-  if (id) loadItem(id)
+  const params = new URLSearchParams(window.location.search)
+  const tab = params.get('tab')
+  if (tab === 'stream') {
+    activeTab.value = 'stream'
+  } else if (tab === 'entities') {
+    activeTab.value = 'entities'
+  }
+  const id = params.get('entity')
+  if (id) {
+    activeTab.value = 'entities'
+    loadItem(id)
+  }
 }
 
 async function loadItem(id) {
@@ -207,7 +243,7 @@ async function createItem() {
   try {
     const entityId = await postItem({}, userId.value)
     await putLabel(entityId, 'en', newLabel.value, userId.value)
-    window.history.replaceState(null, '', `/?entity=${encodeURIComponent(entityId)}`)
+    window.history.replaceState(null, '', `/?tab=entities&entity=${encodeURIComponent(entityId)}`)
     await loadItem(entityId)
   } catch (e) {
     error.value = String(e.message || e)
@@ -222,7 +258,7 @@ async function createProperty() {
   try {
     const entityId = await postProperty({}, userId.value)
     await putLabel(entityId, 'en', propertyLabel.value, userId.value)
-    window.history.replaceState(null, '', `/?entity=${encodeURIComponent(entityId)}`)
+    window.history.replaceState(null, '', `/?tab=entities&entity=${encodeURIComponent(entityId)}`)
     await loadItem(entityId)
   } catch (e) {
     error.value = String(e.message || e)
@@ -244,7 +280,7 @@ async function createLexeme() {
       },
       userId.value
     )
-    window.history.replaceState(null, '', `/?entity=${encodeURIComponent(entityId)}`)
+    window.history.replaceState(null, '', `/?tab=entities&entity=${encodeURIComponent(entityId)}`)
     await loadItem(entityId)
   } catch (e) {
     error.value = String(e.message || e)
@@ -290,6 +326,9 @@ onMounted(loadFromQuery)
 </script>
 
 <style>
+.tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.tabs button { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer; }
+.tabs button.active { background: #007bff; color: white; border-color: #007bff; }
 body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 40rem; }
 .panel { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
 .row { display: flex; gap: .5rem; margin: .5rem 0; align-items: center; }

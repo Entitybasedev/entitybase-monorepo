@@ -6,6 +6,8 @@ const apiMocks = vi.hoisted(() => ({
   getLabel: vi.fn(),
   getSnak: vi.fn(),
   getStatement: vi.fn(),
+  getStreamTopics: vi.fn(),
+  getStreamHealth: vi.fn(),
   postItem: vi.fn(),
   postProperty: vi.fn(),
   postLexeme: vi.fn(),
@@ -168,7 +170,7 @@ describe('App', () => {
     await wrapper.find('[data-testid="create-item-button"]').trigger('click')
     await flushPromises()
 
-    expect(window.location.search).toBe('?entity=Q1234')
+    expect(window.location.search).toBe('?tab=entities&entity=Q1234')
   })
 })
 
@@ -188,7 +190,7 @@ describe('App > create property', () => {
     expect(apiMocks.putLabel).toHaveBeenCalledWith('P30000', 'en', 'instance of', 90001)
     expect(apiMocks.getItem).toHaveBeenCalledWith('P30000')
     expect(wrapper.find('[data-testid="item-label"]').text()).toBe('instance of')
-    expect(window.location.search).toBe('?entity=P30000')
+    expect(window.location.search).toBe('?tab=entities&entity=P30000')
   })
 })
 
@@ -216,6 +218,6 @@ describe('App > create lexeme', () => {
     )
     expect(apiMocks.getItem).toHaveBeenCalledWith('L77')
     expect(wrapper.find('[data-testid="item-section"]').exists()).toBe(true)
-    expect(window.location.search).toBe('?entity=L77')
+    expect(window.location.search).toBe('?tab=entities&entity=L77')
   })
 })
