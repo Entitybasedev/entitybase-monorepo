@@ -8,12 +8,18 @@ function editHeaders(userId) {
   }
 }
 
+function safeJsonParse(text) {
+  // Quote integer literals >= 15 digits so int64 hashes survive JS parsing
+  // (Number.MAX_SAFE_INTEGER is ~9e15; rounding makes them unusable).
+  return JSON.parse(text.replace(/([:[,\[]\s*)(\d{15,})(\s*[,\]}])/g, '$1"$2"$3'))
+}
+
 async function unwrap(res, what) {
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`${what} failed: ${res.status} ${text}`)
   }
-  return res.json()
+  return safeJsonParse(await res.text())
 }
 
 export async function postItem(_body, userId) {

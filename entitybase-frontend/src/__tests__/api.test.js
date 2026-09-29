@@ -174,3 +174,26 @@ describe('postLexeme', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(body)
   })
 })
+
+describe('int64-safe JSON parsing', () => {
+  it('preserves large statement hashes as strings', async () => {
+    const bigHash = '11653253820340142024'
+    const raw = `{"id":"Q1","rev_id":1,"data":{"revision":{"hashes":{"statements":[${bigHash}]}}}}`
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(raw),
+      json: () => Promise.resolve(JSON.parse(raw)),
+    })
+
+    const item = await getItem('Q1')
+
+    expect(item.data.revision.hashes.statements[0]).toBe(bigHash)
+  })
+
+  it('keeps small numbers as numbers', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: 'Q1', rev_id: 7, data: { revision: {} } }))
+    const item = await getItem('Q1')
+    expect(item.rev_id).toBe(7)
+  })
+})
