@@ -186,6 +186,18 @@ class Settings(BaseModel):
         self.streaming_user_change_version = os.getenv(
             "STREAMING_USER_CHANGE_VERSION", self.streaming_user_change_version
         )
+        self.kafka_bootstrap_servers = os.getenv(
+            "KAFKA_BROKERS", self.kafka_bootstrap_servers
+        )
+        self.kafka_entitychange_json_topic = os.getenv(
+            "KAFKA_ENTITY_CHANGE_TOPIC", self.kafka_entitychange_json_topic
+        )
+        self.kafka_entity_diff_topic = os.getenv(
+            "KAFKA_ENTITY_DIFF_TOPIC", self.kafka_entity_diff_topic
+        )
+        self.kafka_userchange_json_topic = os.getenv(
+            "KAFKA_USER_CHANGE_TOPIC", self.kafka_userchange_json_topic
+        )
 
     @property
     def streaming_enabled(self) -> bool:
