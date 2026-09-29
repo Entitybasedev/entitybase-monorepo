@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getItem, getLabel, getStatement, postItem, postStatement, putLabel } from '../api.js'
+import {
+  getItem,
+  getLabel,
+  getStatement,
+  postItem,
+  postLexeme,
+  postProperty,
+  postStatement,
+  putLabel,
+} from '../api.js'
 
 const fetchMock = vi.fn()
 
@@ -128,5 +137,40 @@ describe('getStatement', () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe('/v1/statements/123')
     expect(res.hash).toBe(123)
+  })
+})
+
+describe('postProperty', () => {
+  it('posts to /v1/entities/properties and unwraps the id', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, data: { entity_id: 'P30000', revision_id: 1 } })
+    )
+
+    const propertyId = await postProperty({}, 42)
+
+    expect(propertyId).toBe('P30000')
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/properties')
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+    expect(fetchMock.mock.calls[0][1].headers['X-User-ID']).toBe('42')
+  })
+})
+
+describe('postLexeme', () => {
+  it('posts the lexeme payload and unwraps the id from EntityResponse', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ id: 'L77', rev_id: 1, data: { revision: {} } })
+    )
+
+    const body = {
+      type: 'lexeme',
+      lemmas: { en: { language: 'en', value: 'answer' } },
+      language: 'Q1860',
+      lexical_category: 'Q1084',
+    }
+    const lexemeId = await postLexeme(body, 42)
+
+    expect(lexemeId).toBe('L77')
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/lexemes')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(body)
   })
 })

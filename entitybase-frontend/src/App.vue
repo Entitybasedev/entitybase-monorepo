@@ -22,10 +22,63 @@
       </button>
     </section>
 
+    <section class="panel" data-testid="create-property-section">
+      <h2>Create property</h2>
+      <div class="row">
+        <label for="property-label-input">Label (en)</label>
+        <input
+          id="property-label-input"
+          v-model="propertyLabel"
+          data-testid="property-label-input"
+          placeholder="instance of"
+        />
+      </div>
+      <button
+        :disabled="!propertyLabel || creatingProperty"
+        data-testid="create-property-button"
+        @click="createProperty"
+      >
+        {{ creatingProperty ? 'Creating…' : 'Create property' }}
+      </button>
+    </section>
+
+    <section class="panel" data-testid="create-lexeme-section">
+      <h2>Create lexeme</h2>
+      <div class="row">
+        <label for="lemma-input">Lemma (en)</label>
+        <input id="lemma-input" v-model="lemma" data-testid="lemma-input" placeholder="answer" />
+      </div>
+      <div class="row">
+        <label for="lexeme-language-input">Language QID</label>
+        <input
+          id="lexeme-language-input"
+          v-model="lexemeLanguage"
+          data-testid="lexeme-language-input"
+          placeholder="Q1860"
+        />
+      </div>
+      <div class="row">
+        <label for="lexeme-category-input">Lexical category QID</label>
+        <input
+          id="lexeme-category-input"
+          v-model="lexemeCategory"
+          data-testid="lexeme-category-input"
+          placeholder="Q1084"
+        />
+      </div>
+      <button
+        :disabled="!lemma || creatingLexeme"
+        data-testid="create-lexeme-button"
+        @click="createLexeme"
+      >
+        {{ creatingLexeme ? 'Creating…' : 'Create lexeme' }}
+      </button>
+    </section>
+
     <section v-if="error" class="error" data-testid="error-banner">{{ error }}</section>
 
     <section v-if="item" class="panel" data-testid="item-section">
-      <h2>Item {{ item.id }}</h2>
+      <h2>Entity {{ item.id }}</h2>
       <div class="row">
         <span class="field-name">Label</span>
         <span data-testid="item-label">{{ label }}</span>
@@ -62,7 +115,16 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { getItem, getLabel, getStatement, postStatement, postItem, putLabel } from './api.js'
+import {
+  getItem,
+  getLabel,
+  getStatement,
+  postStatement,
+  postItem,
+  postProperty,
+  postLexeme,
+  putLabel,
+} from './api.js'
 
 const userId = ref(90001)
 const newLabel = ref('')
@@ -73,6 +135,14 @@ const item = ref(null)
 
 const stmtProperty = ref('')
 const stmtValue = ref('')
+
+const propertyLabel = ref('')
+const creatingProperty = ref(false)
+
+const lemma = ref('')
+const lexemeLanguage = ref('Q1860')
+const lexemeCategory = ref('Q1084')
+const creatingLexeme = ref(false)
 
 const label = ref('')
 const statements = ref([])
@@ -129,6 +199,43 @@ async function createItem() {
     error.value = String(e.message || e)
   } finally {
     creating.value = false
+  }
+}
+
+async function createProperty() {
+  creatingProperty.value = true
+  error.value = ''
+  try {
+    const entityId = await postProperty({}, userId.value)
+    await putLabel(entityId, 'en', propertyLabel.value, userId.value)
+    window.history.replaceState(null, '', `/?entity=${encodeURIComponent(entityId)}`)
+    await loadItem(entityId)
+  } catch (e) {
+    error.value = String(e.message || e)
+  } finally {
+    creatingProperty.value = false
+  }
+}
+
+async function createLexeme() {
+  creatingLexeme.value = true
+  error.value = ''
+  try {
+    const entityId = await postLexeme(
+      {
+        type: 'lexeme',
+        lemmas: { en: { language: 'en', value: lemma.value } },
+        language: lexemeLanguage.value,
+        lexical_category: lexemeCategory.value,
+      },
+      userId.value
+    )
+    window.history.replaceState(null, '', `/?entity=${encodeURIComponent(entityId)}`)
+    await loadItem(entityId)
+  } catch (e) {
+    error.value = String(e.message || e)
+  } finally {
+    creatingLexeme.value = false
   }
 }
 

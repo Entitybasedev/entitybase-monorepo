@@ -9,6 +9,7 @@
 import http from 'node:http'
 
 const db = new Map()
+const statementsByHash = new Map()
 let counter = 1000
 
 const server = http.createServer((req, res) => {
@@ -31,8 +32,32 @@ const server = http.createServer((req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/v1/entities/items') {
       const id = `Q${counter++}`
-      db.set(id, { id, type: 'item', labels: {}, statements: {} })
+      db.set(id, { id, type: 'item', labels: {}, hashes: { statements: [] } })
       return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/entities/properties') {
+      const id = `P${counter++}`
+      db.set(id, { id, type: 'property', labels: {}, hashes: { statements: [] } })
+      return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/entities/lexemes') {
+      const id = `L${counter++}`
+      const body = jsonBody
+      db.set(id, {
+        id,
+        type: 'lexeme',
+        lemmas: body.lemmas ?? {},
+        labels: {},
+        hashes: { statements: [] },
+      })
+      return json(200, { id, rev_id: 1, data: { revision: {} } })
+    }
+    const sm = url.pathname.match(/^\/v1\/statements\/(\d+)$/)
+    if (req.method === 'GET' && sm) {
+      const hash = Number(sm[1])
+      const claim = statementsByHash.get(hash)
+      if (!claim) return json(404, { message: 'statement not found' })
+      return json(200, { schema: '1.0', hash, statement: claim })
     }
     const m = url.pathname.match(/^\/v1\/entities\/([^/]+)(\/.*)?$/)
     if (m) {
@@ -42,9 +67,10 @@ const server = http.createServer((req, res) => {
       const rest = m[2] || ''
       if (rest === '/statements' && req.method === 'POST') {
         const claim = jsonBody.claim
-        claim.id = `S${counter++}`
-        const prop = claim.mainsnak.property
-        ;(item.statements[prop] ||= []).push(claim)
+        claim.id = claim.id ?? `S${counter++}`
+        const hash = counter++
+        statementsByHash.set(hash, claim)
+        item.hashes.statements.push(hash)
         return json(200, { success: true, data: claim })
       }
       const lm = rest.match(/^\/labels\/(\w+)$/)

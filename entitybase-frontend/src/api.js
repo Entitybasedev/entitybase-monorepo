@@ -25,6 +25,25 @@ export async function postItem(_body, userId) {
   return json.data?.entity_id ?? json.entity_id ?? json.id
 }
 
+export async function postProperty(_body, userId) {
+  const res = await fetch(`${BASE}/v1/entities/properties`, {
+    method: 'POST',
+    headers: editHeaders(userId),
+  })
+  const json = await unwrap(res, 'POST property')
+  return json.data?.entity_id ?? json.entity_id ?? json.id
+}
+
+export async function postLexeme(body, userId) {
+  const res = await fetch(`${BASE}/v1/entities/lexemes`, {
+    method: 'POST',
+    headers: editHeaders(userId),
+    body: JSON.stringify(body),
+  })
+  const json = await unwrap(res, 'POST lexeme')
+  return json.data?.entity_id ?? json.entity_id ?? json.id
+}
+
 export async function putLabel(entityId, language, value, userId) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/labels/${encodeURIComponent(language)}`,

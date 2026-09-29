@@ -6,6 +6,8 @@ const apiMocks = vi.hoisted(() => ({
   getLabel: vi.fn(),
   getStatement: vi.fn(),
   postItem: vi.fn(),
+  postProperty: vi.fn(),
+  postLexeme: vi.fn(),
   postStatement: vi.fn(),
   putLabel: vi.fn(),
 }))
@@ -163,5 +165,53 @@ describe('App', () => {
     await flushPromises()
 
     expect(window.location.search).toBe('?entity=Q1234')
+  })
+})
+
+describe('App > create property', () => {
+  it('posts a property, sets its label, and loads it', async () => {
+    apiMocks.postProperty.mockResolvedValue('P30000')
+    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
+    apiMocks.getItem.mockResolvedValue(itemPayload('P30000', 'instance of'))
+    apiMocks.getLabel.mockResolvedValue('instance of')
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="property-label-input"]').setValue('instance of')
+    await wrapper.find('[data-testid="create-property-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.postProperty).toHaveBeenCalledWith({}, 90001)
+    expect(apiMocks.putLabel).toHaveBeenCalledWith('P30000', 'en', 'instance of', 90001)
+    expect(apiMocks.getItem).toHaveBeenCalledWith('P30000')
+    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('instance of')
+    expect(window.location.search).toBe('?entity=P30000')
+  })
+})
+
+describe('App > create lexeme', () => {
+  it('posts a lexeme with lemmas and loads it', async () => {
+    apiMocks.postLexeme.mockResolvedValue('L77')
+    apiMocks.getItem.mockResolvedValue(itemPayload('L77', 'answer'))
+    apiMocks.getLabel.mockResolvedValue('')
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="lemma-input"]').setValue('answer')
+    await wrapper.find('[data-testid="lexeme-language-input"]').setValue('Q1860')
+    await wrapper.find('[data-testid="lexeme-category-input"]').setValue('Q1084')
+    await wrapper.find('[data-testid="create-lexeme-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.postLexeme).toHaveBeenCalledWith(
+      {
+        type: 'lexeme',
+        lemmas: { en: { language: 'en', value: 'answer' } },
+        language: 'Q1860',
+        lexical_category: 'Q1084',
+      },
+      90001
+    )
+    expect(apiMocks.getItem).toHaveBeenCalledWith('L77')
+    expect(wrapper.find('[data-testid="item-section"]').exists()).toBe(true)
+    expect(window.location.search).toBe('?entity=L77')
   })
 })
