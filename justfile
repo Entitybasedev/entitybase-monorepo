@@ -95,7 +95,7 @@ down-v:
 
 # Show health of all docker services
 health:
-    ./scripts/health/check.sh
+    timeout 120 ./scripts/health/check.sh
 
 # Show the URLs of the running docker services
 docker-help:
@@ -104,7 +104,6 @@ docker-help:
     @echo "  API:             http://localhost:8083"
     @echo "  API docs:        http://localhost:8083/docs"
     @echo "  Stream backend:  http://localhost:8888/v1/topics"
-    @echo "  MinIO console:   http://localhost:9001"
     @echo "  Health check:    just health"
 
 # Follow logs from all services

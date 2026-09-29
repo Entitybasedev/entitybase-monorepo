@@ -21,7 +21,9 @@ class S3ConnectionManager(ConnectionManager):
     boto_client: Any = Field(default=None, exclude=True)
 
     def connect(self) -> None:
-        """Establish S3 client connection."""
+        """Establish S3 client connection (no-op when S3 is not configured)."""
+        if not self.config.endpoint_url:
+            return
         if self.boto_client is None:
             self.boto_client = boto3.client(
                 "s3",
@@ -40,8 +42,10 @@ class S3ConnectionManager(ConnectionManager):
         """Check if S3 connection is healthy.
 
         Returns:
-            True if connection is healthy, False otherwise.
+            True if connection is healthy or S3 is disabled, False otherwise.
         """
+        if not self.config.endpoint_url:
+            return True  # S3 is disabled; nothing to check
         # noinspection PyBroadException
         logger.debug("Checking if S3 connection is healthy")
         logger.debug(self.config.model_dump(mode="json"))

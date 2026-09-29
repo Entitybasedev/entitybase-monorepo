@@ -8,6 +8,7 @@ from fastapi import APIRouter, Response
 from starlette import status
 from starlette.requests import Request
 
+from models.config.settings import settings
 from models.data.rest_api.v1.entitybase.response import HealthCheckResponse
 
 logger = logging.getLogger(__name__)
@@ -61,9 +62,11 @@ def health_check_endpoint(response: Response, req: Request) -> HealthCheckRespon
 
     mysql_status = _check_client_status(state.db_client, "MySQL")
 
+    s3_status = "connected" if settings.s3_enabled else "disabled"
+
     return HealthCheckResponse(
         status="ok",
-        s3="connected",
+        s3=s3_status,
         mysql=mysql_status,
         timestamp=timestamp,
     )

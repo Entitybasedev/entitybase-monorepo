@@ -26,13 +26,18 @@ else
     GREEN=""; RED=""; YELLOW=""; DIM=""; RESET=""
 fi
 
+start_check() {
+    # Progress: print the service name before running its check
+    printf "%-22s " "$1"
+}
+
 report() {
-    local name="$1" status="$2" detail="$3"
+    local status="$1" detail="$2"
     case "$status" in
-        healthy)     printf "%-22s ${GREEN}✓ healthy${RESET}" "$name" ;;
-        running)     printf "%-22s ${GREEN}✓ running${RESET}" "$name" ;;
-        not-running) printf "%-22s ${RED}✗ not running${RESET}" "$name" ;;
-        *)           printf "%-22s ${RED}✗ unhealthy${RESET}" "$name" ;;
+        healthy)     printf "${GREEN}✓ healthy${RESET}" ;;
+        running)     printf "${GREEN}✓ running${RESET}" ;;
+        not-running) printf "${RED}✗ not running${RESET}" ;;
+        *)           printf "${RED}✗ unhealthy${RESET}" ;;
     esac
     [ -n "$detail" ] && printf "  ${DIM}%s${RESET}" "$detail"
     printf "\n"
@@ -44,10 +49,11 @@ fail() {
 }
 
 # --- mysql ---
+start_check "mysql"
 if is_running mysql; then
     ANY_RUNNING=1
     if timeout 10 docker compose exec -T mysql mysqladmin ping -h localhost --silent > /dev/null 2>&1; then
-        report "mysql" healthy
+        report healthy
     else
         fail "mysql" "mysqladmin ping failed"
     fi
@@ -56,24 +62,12 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
-# --- minio ---
-if is_running minio; then
-    ANY_RUNNING=1
-    if timeout 10 curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
-        report "minio" healthy
-    else
-        fail "minio" "health endpoint not responding on :9000"
-    fi
-else
-    report "minio" not-running
-    FAILURES=$((FAILURES + 1))
-fi
-
 # --- valkey ---
+start_check "valkey"
 if is_running valkey; then
     ANY_RUNNING=1
     if timeout 10 docker compose exec -T valkey valkey-cli ping 2>/dev/null | grep -q PONG; then
-        report "valkey" healthy
+        report healthy
     else
         fail "valkey" "valkey-cli ping failed"
     fi
@@ -83,10 +77,11 @@ else
 fi
 
 # --- redpanda ---
+start_check "redpanda"
 if is_running redpanda; then
     ANY_RUNNING=1
     if timeout 10 docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q Healthy; then
-        report "redpanda" healthy
+        report healthy
     else
         fail "redpanda" "cluster not healthy"
     fi
@@ -103,7 +98,7 @@ if is_running entitybase-api; then
         status=$(echo "$api_health" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
         s3=$(echo "$api_health" | grep -o '"s3":"[^"]*"' | cut -d'"' -f4)
         db=$(echo "$api_health" | grep -o '"vitess":"[^"]*"' | cut -d'"' -f4)
-        report "entitybase-api" healthy "status=$status db=$db s3=$s3"
+        report healthy "status=$status db=$db s3=$s3"
     else
         fail "entitybase-api" "health endpoint not responding on :8083"
     fi
@@ -119,7 +114,7 @@ if is_running kafka2sse-backend; then
     if [ -n "$k2s_health" ]; then
         kstatus=$(echo "$k2s_health" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
         kkafka=$(echo "$k2s_health" | grep -o '"kafka":"[^"]*"' | cut -d'"' -f4)
-        report "kafka2sse-backend" healthy "status=$kstatus kafka=$kkafka"
+        report healthy "status=$kstatus kafka=$kkafka"
     else
         fail "kafka2sse-backend" "health endpoint not responding on :8888"
     fi
@@ -132,7 +127,7 @@ fi
 if is_running entitybase-frontend; then
     ANY_RUNNING=1
     if timeout 10 curl -sf http://localhost:8080/ > /dev/null 2>&1; then
-        report "entitybase-frontend" running
+        report running
     else
         fail "entitybase-frontend" "not responding on :8080"
     fi
@@ -142,7 +137,7 @@ else
 fi
 
 echo ""
-TOTAL=7
+TOTAL=6
 HEALTHY=$((TOTAL - FAILURES))
 if [ "$FAILURES" -eq 0 ]; then
     echo "${GREEN}${HEALTHY}/${TOTAL} healthy${RESET}"

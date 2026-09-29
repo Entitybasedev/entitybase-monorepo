@@ -24,9 +24,9 @@ class Settings(BaseModel):
     model_config = {"extra": "ignore"}
 
     # s3 (for dump uploads only)
-    s3_endpoint: str = "http://minio:9000"
-    s3_access_key: str = "fakekey"
-    s3_secret_key: str = "fakesecret"
+    s3_endpoint: str = ""  # empty disables S3 (everything is stored in mysql)
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
 
     # S3 versions (statement/metadata schema versions)
     s3_statement_version: str = "1.0.0"
@@ -203,6 +203,11 @@ class Settings(BaseModel):
     def streaming_enabled(self) -> bool:
         """Check if streaming is enabled via environment variable."""
         return os.getenv("STREAMING_ENABLED", "false").lower() == "true"
+
+    @property
+    def s3_enabled(self) -> bool:
+        """Check if S3 is configured (everything is stored in mysql otherwise)."""
+        return bool(self.s3_endpoint)
 
     def _load_other_config(self) -> None:
         """Load other configuration from environment variables."""
