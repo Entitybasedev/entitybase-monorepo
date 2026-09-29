@@ -57,3 +57,41 @@ frontend:
 # Build the frontend
 frontend-build:
     cd entitybase-frontend && npm install --silent && npm run build
+
+# --- Full docker stack ---
+
+# Build images and start the whole stack (infra + api + stream backend + orchestrator)
+up:
+    #!/usr/bin/env bash
+    set -e
+    [ -f .env ] || (cp env.example .env && echo "Created .env from env.example")
+    ./scripts/build-images.sh
+    docker compose up -d
+    echo "Waiting for the api to become healthy..."
+    for i in $$(seq 1 60); do
+        if curl -sf http://localhost:8083/health > /dev/null; then
+            echo ""
+            echo "Entitybase is running:"
+            echo "  API:            http://localhost:8083"
+            echo "  UI (dev):       cd entitybase-frontend && npm run dev  # http://localhost:8085"
+            echo "  Orchestrator:   http://localhost:8080"
+            echo "  Stream backend: http://localhost:8888/v1/topics"
+            exit 0
+        fi
+        sleep 3
+    done
+    echo "api did not become healthy; recent logs:"
+    docker compose logs --tail=50 entitybase-api
+    exit 1
+
+# Stop the stack
+down:
+    docker compose down
+
+# Stop the stack and remove volumes (fresh database)
+down-v:
+    docker compose down -v
+
+# Follow logs from all services
+logs:
+    docker compose logs -f --tail=100

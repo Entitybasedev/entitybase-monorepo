@@ -1,21 +1,18 @@
 # Entitybase Docker Orchestration
 #
 # Ports:
-#   mysql:     3306
-#   minio:     9000 (API), 9001 (console)
-#   redpanda:  9092 (Kafka), 9644 (admin)
-#   backend:   8080
-#   kafka2sse-be:  8888
-#   kafka2sse-fe:  8889
-#   orchestrator-fe: 8080
-#   backend: 8083
+#   mysql:            3306
+#   minio:            9000 (API), 9001 (console)
+#   redpanda:         9092 (Kafka), 9644 (admin)
+#   entitybase-api:   8083
+#   kafka2sse-be:     8888
+#   orchestrator-fe:  8080
 #
 # Usage:
-#   docker compose up -d              # Core services only
-#   docker compose --profile workers up -d  # Include workers
+#   just up           # build images and start everything
+#   docker compose up -d
 
 services:
-  # Infrastructure
   mysql:
     image: mysql:8.0
     container_name: mysql
@@ -33,28 +30,6 @@ services:
     cpus: 0.5
     networks:
       - entitybase-network
-    profiles:
-      - core
-      - workers
-
-  mysql-health:
-    image: python:3.13-alpine
-    container_name: mysql-health
-    volumes:
-      - ./scripts/health/mysql-health.sh:/mysql-health.sh:ro
-    command: ["/bin/sh", "/mysql-health.sh"]
-    ports:
-      - "3307:8080"
-    environment:
-      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - entitybase-network
-    profiles:
-      - core
-      - workers
 
   minio:
     image: minio/minio:latest
@@ -78,9 +53,6 @@ services:
     cpus: 0.5
     networks:
       - entitybase-network
-    profiles:
-      - core
-      - workers
 
   valkey:
     image: valkey/valkey:latest
@@ -94,26 +66,6 @@ services:
       retries: 5
     networks:
       - entitybase-network
-    profiles:
-      - core
-      - workers
-
-  valkey-health:
-    image: python:3.13-alpine
-    container_name: valkey-health
-    volumes:
-      - ./scripts/health/valkey-health.sh:/valkey-health.sh:ro
-    command: ["/bin/sh", "/valkey-health.sh"]
-    ports:
-      - "6378:8080"
-    depends_on:
-      valkey:
-        condition: service_healthy
-    networks:
-      - entitybase-network
-    profiles:
-      - core
-      - workers
 
   redpanda:
     image: redpandadata/redpanda:v25.3.6
@@ -149,135 +101,6 @@ services:
     user: ${REDPANDA_USER}
     volumes:
       - ${VOLUMES_PATH}/redpanda-data:/var/lib/redpanda/data
-    profiles:
-      - core
-      - workers
-
-  redpanda-console:
-    image: redpandadata/console:latest
-    container_name: redpanda-console
-    ports:
-      - "8084:8080"
-    environment:
-      KAFKA_BROKERS: redpanda:9092
-    depends_on:
-      - redpanda
-    networks:
-      - entitybase-network
-    profiles:
-      - core
-      - workers
-
-  redpanda-health:
-    image: python:3.13-alpine
-    container_name: redpanda-health
-    volumes:
-      - ./scripts/health/redpanda-health.sh:/redpanda-health.sh:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: ["/bin/sh", "/redpanda-health.sh"]
-    ports:
-      - "9645:8080"
-    depends_on:
-      redpanda:
-        condition: service_healthy
-    networks:
-      - entitybase-network
-    profiles:
-      - core
-      - workers
-
-  # Setup jobs (run once, then exit)
-  create-buckets:
-    container_name: create-buckets
-    image: entitybase-backend-create-buckets:latest
-    environment:
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-    depends_on:
-      minio:
-        condition: service_healthy
-    command: python -m models.workers.create buckets setup
-    profiles:
-      - core
-      - workers
-    mem_limit: 512m
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  create-tables:
-    container_name: create-tables
-    image: entitybase-backend-create-tables:latest
-    depends_on:
-      mysql:
-        condition: service_healthy
-    command: sh -c "sleep 20 && python -m models.workers.create tables setup"
-    environment:
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-    profiles:
-      - core
-      - workers
-    mem_limit: 512m
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  create-topics:
-    container_name: create-topics
-    image: entitybase-backend-create-topics:latest
-    depends_on:
-      redpanda:
-        condition: service_healthy
-    command: python -m models.workers.create topics setup
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      KAFKA_ENTITY_CHANGE_TOPIC: ${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
-      KAFKA_INCREMENTAL_RDF_TOPIC: ${KAFKA_INCREMENTAL_RDF_TOPIC:-incremental_rdf_diff}
-    profiles:
-      - core
-      - workers
-    mem_limit: 512m
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  idworker:
-    container_name: idworker
-    image: entitybase-backend-idworker:latest
-    ports:
-      - "8001:8001"
-    environment:
-      WORKER_ID: id_worker_1
-      WORKER_COUNT: 1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-topics:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - core
-      - workers
-    mem_limit: 512m
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
 
   entitybase-api:
     container_name: entitybase-api
@@ -312,15 +135,9 @@ services:
       - PURGE_WORKER_ENABLED=${PURGE_WORKER_ENABLED:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-topics:
-        condition: service_completed_successfully
       minio:
         condition: service_healthy
       mysql:
-        condition: service_healthy
-      idworker:
         condition: service_healthy
     command: python -m models.rest_api.main
     # Long start_period needed to initialize redpanda producers when STREAMING_ENABLED=true
@@ -330,9 +147,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 100s
-    profiles:
-      - core
-      - workers
     mem_limit: 1g
     cpus: 1.0
     networks:
@@ -360,33 +174,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 30s
-    profiles:
-      - core
-      - workers
-    mem_limit: 512m
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  kafka2sse-frontend:
-    container_name: kafka2sse-frontend
-    image: kafka2sse-frontend:latest
-    ports:
-      - "8889:8889"
-    environment:
-      - KAFKA2SSE_BACKEND_URL=${KAFKA2SSE_BACKEND_URL}
-    depends_on:
-      redpanda:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8889/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    profiles:
-      - core
-      - workers
     mem_limit: 512m
     cpus: 0.5
     networks:
@@ -397,9 +184,6 @@ services:
     image: entitybase-orchestrator-frontend:latest
     ports:
       - "8080:8083"
-    profiles:
-      - core
-      - workers
     depends_on:
       mysql:
         condition: service_healthy
@@ -407,13 +191,9 @@ services:
         condition: service_healthy
       redpanda:
         condition: service_healthy
-      idworker:
-        condition: service_healthy
       entitybase-api:
         condition: service_started
       kafka2sse-backend:
-        condition: service_healthy
-      kafka2sse-frontend:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8083/health.html"]
@@ -425,479 +205,6 @@ services:
     cpus: 0.25
     networks:
       - entitybase-network
-
-  meilisearch:
-    image: getmeili/meilisearch:latest
-    container_name: meilisearch
-    environment:
-      MEILI_ENV: development
-      MEILI_MASTER_KEY: "${MEILISEARCH_MASTER_KEY:-}"
-    ports:
-      - "7700:7700"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:7700/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    mem_limit: 256m
-    cpus: 0.25
-    networks:
-      - entitybase-network
-    volumes:
-      - ${VOLUMES_PATH}/meilisearch-data:/meili_data
-    profiles:
-      - meilisearch
-
-  meilisearch-health:
-    image: python:3.13-alpine
-    container_name: meilisearch-health
-    volumes:
-      - ./scripts/health/meilisearch-health.sh:/meilisearch-health.sh:ro
-    command: ["/bin/sh", "/meilisearch-health.sh"]
-    ports:
-      - "7701:8080"
-    environment:
-      MEILISEARCH_HOST: meilisearch
-      MEILISEARCH_PORT: 7700
-    depends_on:
-      meilisearch:
-        condition: service_healthy
-    networks:
-      - entitybase-network
-    profiles:
-      - meilisearch
-
-  # Workers (optional)
-  json-dump-worker:
-    container_name: json-dump-worker
-    image: entitybase-backend-json-worker:latest
-    ports:
-      - "8002:8002"
-    environment:
-      WORKER_ID: json_dump_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-      S3_DUMP_BUCKET: wikibase-dumps
-      JSON_DUMP_ENABLED: "true"
-      JSON_DUMP_SCHEDULE: "0 2 * * 0"
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-buckets:
-        condition: service_completed_successfully
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - workers
-    command: ["python", "-m", "models.workers.json_dumps.json_dump_worker"]
-    mem_limit: 1g
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  ttl-dump-worker:
-    container_name: ttl-dump-worker
-    image: entitybase-backend-ttl-worker:latest
-    ports:
-      - "8003:8003"
-    environment:
-      WORKER_ID: ttl_dump_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-      S3_DUMP_BUCKET: wikibase-dumps
-      TTL_DUMP_ENABLED: "true"
-      TTL_DUMP_SCHEDULE: "0 3 * * 0"
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-buckets:
-        condition: service_completed_successfully
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8003/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - workers
-    command: ["python", "-m", "models.workers.ttl_dumps.ttl_dump_worker"]
-    mem_limit: 1g
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  backlink-stats-worker:
-    container_name: backlink-stats-worker
-    image: entitybase-backend-stats-worker:latest
-    ports:
-      - "8004:8004"
-    environment:
-      WORKER_ID: backlink_stats_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      BACKLINK_STATS_ENABLED: "true"
-      BACKLINK_STATS_SCHEDULE: "0 2 * * *"
-      BACKLINK_STATS_TOP_LIMIT: "100"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      create-tables:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8004/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - workers
-    command: ["python", "-m", "models.workers.backlink_statistics"]
-    mem_limit: 512m
-    cpus: 0.25
-    networks:
-      - entitybase-network
-
-  general-stats-worker:
-    container_name: general-stats-worker
-    image: entitybase-backend-stats-worker:latest
-    ports:
-      - "8005:8005"
-    environment:
-      WORKER_ID: general_stats_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      GENERAL_STATS_ENABLED: "true"
-      GENERAL_STATS_SCHEDULE: "0 2 * * *"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      create-tables:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8005/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - workers
-    command: ["python", "-m", "models.workers.general_stats"]
-    mem_limit: 512m
-    cpus: 0.25
-    networks:
-      - entitybase-network
-
-  user-stats-worker:
-    container_name: user-stats-worker
-    image: entitybase-backend-stats-worker:latest
-    ports:
-      - "8006:8006"
-    environment:
-      WORKER_ID: user_stats_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      USER_STATS_ENABLED: "true"
-      USER_STATS_SCHEDULE: "0 2 * * *"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      create-tables:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8006/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - workers
-    command: ["python", "-m", "models.workers.user_stats"]
-    mem_limit: 512m
-    cpus: 0.25
-    networks:
-      - entitybase-network
-
-  # Search workers
-  elasticsearch-indexer-worker:
-    container_name: elasticsearch-indexer-worker
-    image: entitybase-backend-elasticsearch-worker:latest
-    ports:
-      - "8007:8007"
-    environment:
-      WORKER_ID: elasticsearch_indexer_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-      ELASTICSEARCH_ENABLED: "${ELASTICSEARCH_ENABLED:-false}"
-      ELASTICSEARCH_HOST: elasticsearch
-      ELASTICSEARCH_PORT: 9200
-      ELASTICSEARCH_INDEX: entitybase
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      KAFKA_ENTITYCHANGE_JSON_TOPIC: ${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
-      ELASTICSEARCH_CONSUMER_GROUP: entitybase-elasticsearch-indexer
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-topics:
-        condition: service_completed_successfully
-      minio:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8007/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - elastic
-
-    command: ["python", "-m", "models.workers.elasticsearch_indexer"]
-    mem_limit: 1g
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  meilisearch-indexer-worker:
-    container_name: meilisearch-indexer-worker
-    image: entitybase-backend-meilisearch-worker:latest
-    ports:
-      - "8009:8009"
-    environment:
-      WORKER_ID: meilisearch_indexer_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-      MEILISEARCH_ENABLED: "${MEILISEARCH_ENABLED:-false}"
-      MEILISEARCH_HOST: meilisearch
-      MEILISEARCH_PORT: 7700
-      MEILISEARCH_INDEX: entitybase
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      KAFKA_ENTITYCHANGE_JSON_TOPIC: ${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
-      MEILISEARCH_CONSUMER_GROUP: entitybase-meilisearch-indexer
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-topics:
-        condition: service_completed_successfully
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8009/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - meilisearch
-
-    command: ["python", "-m", "models.workers.meilisearch_indexer"]
-    mem_limit: 1g
-    cpus: 0.5
-    networks:
-      - entitybase-network
-
-  # Search services - Elastic
-  elasticsearch:
-    container_name: elasticsearch
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    mem_limit: 1g
-    cpus: 1.0
-    networks:
-      - entitybase-network
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    profiles:
-      - elastic
-
-  elasticsearch-health:
-    image: python:3.13-alpine
-    container_name: elasticsearch-health
-    volumes:
-      - ./scripts/health/elasticsearch-health.sh:/elasticsearch-health.sh:ro
-    command: ["/bin/sh", "/elasticsearch-health.sh"]
-    ports:
-      - "9201:8080"
-    environment:
-      ELASTICSEARCH_HOST: elasticsearch
-      ELASTICSEARCH_PORT: 9200
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - entitybase-network
-    profiles:
-      - elastic
-
-  purge-worker:
-    container_name: purge-worker
-    image: entitybase-backend-purge-worker:latest
-    ports:
-      - "8008:8008"
-    environment:
-      WORKER_ID: purge_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-      PURGE_ENABLED: "true"
-      PURGE_SCHEDULE: "0 0 * * *"
-      LOG_LEVEL: INFO
-    depends_on:
-      mysql:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8008/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    command: ["python", "-m", "models.workers.purge.purge_worker"]
-    mem_limit: 512m
-    cpus: 0.25
-    networks:
-      - entitybase-network
-    profiles:
-      - workers
-
-  incremental-rdf-worker:
-    container_name: incremental-rdf-worker
-    image: entitybase-backend-incremental-rdf-worker:latest
-    ports:
-      - "8010:8010"
-    environment:
-      WORKER_ID: incremental_rdf_worker_1
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: "${MYSQL_ROOT_PASSWORD:-}"
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-      INCREMENTAL_RDF_ENABLED: "${INCREMENTAL_RDF_ENABLED:-false}"
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      KAFKA_ENTITYCHANGE_JSON_TOPIC: ${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
-      KAFKA_INCREMENTAL_RDF_TOPIC: ${KAFKA_INCREMENTAL_RDF_TOPIC:-incremental_rdf_diff}
-    depends_on:
-      entitybase-api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8010/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    command: ["python", "-m", "models.workers.incremental_rdf"]
-    mem_limit: 1g
-    cpus: 0.5
-    networks:
-      - entitybase-network
-    profiles:
-      - workers
-
-  test-runner:
-    build:
-      context: libs/entitybase-backend
-      dockerfile: docker/containers/Dockerfile.tests
-    container_name: test-runner
-    depends_on:
-      mysql:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      meilisearch:
-        condition: service_healthy
-      redpanda:
-        condition: service_healthy
-      create-tables:
-        condition: service_completed_successfully
-      create-buckets:
-        condition: service_completed_successfully
-      create-topics:
-        condition: service_completed_successfully
-    environment:
-      VITESS_HOST: mysql
-      VITESS_PORT: 3306
-      VITESS_DATABASE: entitybase
-      VITESS_USER: root
-      VITESS_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-fakekey}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-fakesecret}
-      MEILISEARCH_HOST: meilisearch
-      MEILISEARCH_PORT: 7700
-      MEILISEARCH_API_KEY: ${MEILISEARCH_MASTER_KEY:-}
-      MEILISEARCH_INDEX: entitybase
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      KAFKA_ENTITYCHANGE_JSON_TOPIC: ${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
-      STREAMING_ENABLED: "true"
-    working_dir: /app
-    command: ["uv", "run", "pytest", "tests/unit/models/workers/test_meilisearch_indexer_worker.py", "-v"]
-    mem_limit: 1g
-    networks:
-      - entitybase-network
-    profiles:
-      - test
 
 networks:
   entitybase-network:
