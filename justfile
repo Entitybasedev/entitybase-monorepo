@@ -96,6 +96,7 @@ health:
 # Show the URLs of the running docker services
 docker-help:
     @echo "Entitybase docker stack:"
+    @echo "  UI:              http://localhost:8080"
     @echo "  API:             http://localhost:8083"
     @echo "  API docs:        http://localhost:8083/docs"
     @echo "  Stream backend:  http://localhost:8888/v1/topics"

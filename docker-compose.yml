@@ -136,6 +136,29 @@ services:
       start_period: 100s
     mem_limit: 1g
     cpus: 1.0
+    # The api races mysql's TCP listener on recreations; retry until it accepts
+    restart: unless-stopped
+    networks:
+      - entitybase-network
+
+  entitybase-frontend:
+    container_name: entitybase-frontend
+    image: entitybase-frontend:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      entitybase-api:
+        condition: service_started
+      kafka2sse-backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    mem_limit: 128m
+    cpus: 0.25
     networks:
       - entitybase-network
 

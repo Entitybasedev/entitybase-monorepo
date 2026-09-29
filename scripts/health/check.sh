@@ -126,8 +126,21 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# --- entitybase-frontend ---
+if check_container_running entitybase-frontend; then
+    ANY_RUNNING=1
+    if timeout 10 curl -sf http://localhost:8080/ > /dev/null 2>&1; then
+        report "entitybase-frontend" running
+    else
+        fail "entitybase-frontend" "not responding on :8080"
+    fi
+else
+    report "entitybase-frontend" not-running
+    FAILURES=$((FAILURES + 1))
+fi
+
 echo ""
-TOTAL=6
+TOTAL=7
 HEALTHY=$((TOTAL - FAILURES))
 if [ "$FAILURES" -eq 0 ]; then
     echo "${GREEN}${HEALTHY}/${TOTAL} healthy${RESET}"
