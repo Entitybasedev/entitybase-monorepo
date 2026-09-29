@@ -4,14 +4,20 @@
 
 cd "$(dirname "$0")/../.."
 
-COMPOSE="docker compose"
 FAILURES=0
 ANY_RUNNING=0
 
-if ! docker info > /dev/null 2>&1; then
+if ! timeout 10 docker info > /dev/null 2>&1; then
     echo "✗ docker is not running"
     exit 1
 fi
+
+# Single fast snapshot of running containers (avoids compose-level locks)
+RUNNING_CONTAINERS=$(timeout 15 docker ps --filter status=running --format '{{.Names}}' 2>/dev/null)
+
+is_running() {
+    echo "$RUNNING_CONTAINERS" | grep -qx "$1"
+}
 
 # TTY-aware colors
 if [ -t 1 ]; then
@@ -19,10 +25,6 @@ if [ -t 1 ]; then
 else
     GREEN=""; RED=""; YELLOW=""; DIM=""; RESET=""
 fi
-
-check_container_running() {
-    $COMPOSE ps --status running --services 2>/dev/null | grep -qx "$1"
-}
 
 report() {
     local name="$1" status="$2" detail="$3"
@@ -42,9 +44,9 @@ fail() {
 }
 
 # --- mysql ---
-if check_container_running mysql; then
+if is_running mysql; then
     ANY_RUNNING=1
-    if timeout 10 $COMPOSE exec -T mysql mysqladmin ping -h localhost --silent > /dev/null 2>&1; then
+    if timeout 10 docker compose exec -T mysql mysqladmin ping -h localhost --silent > /dev/null 2>&1; then
         report "mysql" healthy
     else
         fail "mysql" "mysqladmin ping failed"
@@ -55,7 +57,7 @@ else
 fi
 
 # --- minio ---
-if check_container_running minio; then
+if is_running minio; then
     ANY_RUNNING=1
     if timeout 10 curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
         report "minio" healthy
@@ -68,9 +70,9 @@ else
 fi
 
 # --- valkey ---
-if check_container_running valkey; then
+if is_running valkey; then
     ANY_RUNNING=1
-    if timeout 10 $COMPOSE exec -T valkey valkey-cli ping 2>/dev/null | grep -q PONG; then
+    if timeout 10 docker compose exec -T valkey valkey-cli ping 2>/dev/null | grep -q PONG; then
         report "valkey" healthy
     else
         fail "valkey" "valkey-cli ping failed"
@@ -81,9 +83,9 @@ else
 fi
 
 # --- redpanda ---
-if check_container_running redpanda; then
+if is_running redpanda; then
     ANY_RUNNING=1
-    if timeout 10 $COMPOSE exec -T redpanda rpk cluster health 2>/dev/null | grep -q Healthy; then
+    if timeout 10 docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q Healthy; then
         report "redpanda" healthy
     else
         fail "redpanda" "cluster not healthy"
@@ -94,7 +96,7 @@ else
 fi
 
 # --- entitybase-api ---
-if check_container_running entitybase-api; then
+if is_running entitybase-api; then
     ANY_RUNNING=1
     api_health=$(timeout 10 curl -sf http://localhost:8083/health 2>/dev/null)
     if [ -n "$api_health" ]; then
@@ -111,7 +113,7 @@ else
 fi
 
 # --- kafka2sse-backend ---
-if check_container_running kafka2sse-backend; then
+if is_running kafka2sse-backend; then
     ANY_RUNNING=1
     k2s_health=$(timeout 10 curl -sf http://localhost:8888/health 2>/dev/null)
     if [ -n "$k2s_health" ]; then
@@ -127,7 +129,7 @@ else
 fi
 
 # --- entitybase-frontend ---
-if check_container_running entitybase-frontend; then
+if is_running entitybase-frontend; then
     ANY_RUNNING=1
     if timeout 10 curl -sf http://localhost:8080/ > /dev/null 2>&1; then
         report "entitybase-frontend" running

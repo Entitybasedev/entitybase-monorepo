@@ -9,6 +9,10 @@ MOCK_API_SCRIPT := "/tmp/entitybase-mock-api.mjs"
 default:
     @just --list
 
+# Show available recipes (same as running just without arguments)
+help:
+    @just --list
+
 # --- E2E (Playwright) ---
 
 # Run e2e tests against a running stack (real or mock API at :8083)
