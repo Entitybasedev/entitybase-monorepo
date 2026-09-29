@@ -13,10 +13,10 @@ async function produceEntityChange(entityId, revisionId) {
     user: '90001',
   })
   const { execSync } = await import('node:child_process')
-  // rpk reads the record value from stdin
+  // rpk reads the record value from stdin; it requires a trailing newline
   execSync(`${COMPOSE} exec -T redpanda rpk topic produce entity_change`, {
     cwd: '..',
-    input: payload,
+    input: payload + '\n',
   })
 }
 
