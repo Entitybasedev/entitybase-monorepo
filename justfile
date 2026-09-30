@@ -97,6 +97,10 @@ down-v:
 health:
     timeout 120 ./scripts/health/check.sh
 
+# Build the documentation site (docs/ from the backend + monorepo pages)
+docs:
+    ./scripts/build-docs.sh
+
 # Show the URLs of the running docker services
 docker-help:
     @echo "Entitybase docker stack:"

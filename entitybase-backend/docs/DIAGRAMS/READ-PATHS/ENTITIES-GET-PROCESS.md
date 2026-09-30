@@ -1,5 +1,7 @@
 # Entity Get Process
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 ```mermaid
 flowchart TD
     A[EntityReadHandler.get_entity] --> B[Validate Clients]

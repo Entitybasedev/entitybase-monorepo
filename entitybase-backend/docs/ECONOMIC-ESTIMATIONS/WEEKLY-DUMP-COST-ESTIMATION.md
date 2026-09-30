@@ -1,5 +1,7 @@
 # Weekly RDF Dump Cost Estimation
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 > **Note:** Dump upload costs in this document remain valid as S3 is still used for dump uploads. However, revision snapshot storage costs (referenced as the baseline from STORAGE-COST-ESTIMATIONS.md) have since moved to MariaDB. The baseline S3 storage comparison figures below are historical and no longer reflect the current architecture.
 
 ## Overview

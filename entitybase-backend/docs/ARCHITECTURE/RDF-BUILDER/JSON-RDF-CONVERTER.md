@@ -1,5 +1,7 @@
 # JSON→RDF Converter Service
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 ## Overview
 
 The JSON→RDF Converter service is responsible for converting Wikibase JSON entity snapshots to RDF (Turtle format) using streaming generation. This service is a critical component used by both the Continuous RDF Change Streamer and Weekly RDF Dump Generator.

@@ -1,5 +1,7 @@
 # Setup Guide
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 Complete environment setup for Entitybase Backend.
 
 ## Requirements

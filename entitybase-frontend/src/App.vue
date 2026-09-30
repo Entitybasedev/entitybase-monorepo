@@ -16,6 +16,15 @@
       >
         Change stream
       </button>
+      <a
+        data-testid="nav-docs"
+        class="docs-link"
+        href="https://entitybasedev.github.io/entitybase-monorepo/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Docs ↗
+      </a>
     </nav>
 
     <template v-if="activeTab === 'entities'">
@@ -330,6 +339,7 @@ onMounted(loadFromQuery)
 .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .tabs button { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer; }
 .tabs button.active { background: #007bff; color: white; border-color: #007bff; }
+.tabs .docs-link { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; text-decoration: none; color: #333; font-size: inherit; }
 body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 40rem; }
 .panel { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
 .row { display: flex; gap: .5rem; margin: .5rem 0; align-items: center; }

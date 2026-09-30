@@ -1,5 +1,7 @@
 # Configuration Overview
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 This document describes all configuration options available in wikibase-backend.
 
 Settings are managed through the `Settings` class in `src/models/config/settings.py`.

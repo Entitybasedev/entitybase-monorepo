@@ -1,5 +1,7 @@
 # Architecture Changelog
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 > **Note**: This document is historical. The entries below describe the OLD architecture
 > where S3 was the system of record. As of 2026-08-24, MariaDB is the system of record
 > for all data including revision snapshots. S3 is only used for dump file uploads.

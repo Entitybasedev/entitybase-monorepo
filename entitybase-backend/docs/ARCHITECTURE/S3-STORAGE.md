@@ -1,5 +1,7 @@
 # S3 Storage Architecture
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 S3 (rustfs/MinIO) is used exclusively for **dump file uploads**. All other data — revisions, statements, terms, sitelinks, and entity snapshots — lives in MariaDB.
 
 ## Bucket

@@ -1,5 +1,7 @@
 # Scaling Properties – Immutable Revision Wikibase Backend
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 This document explains why the immutable revision architecture
 (S3 snapshots + Vitess indexing + API-first design)
 scales to hundreds of millions or billions of entities without

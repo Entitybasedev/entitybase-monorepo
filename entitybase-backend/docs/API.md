@@ -1,4 +1,6 @@
 # Entitybase Backend API Documentation
+
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
 **Version**: v1.2026.3.2
 **Base URL**: See `/docs` for interactive API explorer
 

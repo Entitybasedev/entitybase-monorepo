@@ -1,5 +1,7 @@
 # Weekly RDF Dump Generator
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 ## Overview
 
 The Weekly RDF Dump Generator is responsible for generating weekly dumps of all entities in both JSON and RDF formats as standalone S3 files. This service provides complete snapshots of the Wikibase knowledge base for archival, distribution, and bulk import purposes.

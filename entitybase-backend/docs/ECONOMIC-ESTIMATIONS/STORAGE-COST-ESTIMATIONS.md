@@ -1,5 +1,7 @@
 # Storage Cost Estimations
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 > **Note:** This cost analysis was created when S3 was the primary storage. Revision snapshots have since been moved to MariaDB. S3 is now only used for dump uploads.
 
 ## Overview

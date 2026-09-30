@@ -1,5 +1,7 @@
 # Vitess Database Cost Estimation
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 > **Note:** This cost analysis reflects an earlier architecture where S3 was the primary storage for revision snapshots and Vitess served as the metadata/indexing layer. Revision snapshots have since been moved to MariaDB. The cost comparisons to S3 storage (referenced as the baseline) are historical and no longer reflect the current architecture.
 
 ## Overview

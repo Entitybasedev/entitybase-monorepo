@@ -1,0 +1,47 @@
+site_name: Entitybase
+site_description: Documentation for the Entitybase monorepo
+repo_url: https://github.com/Entitybasedev/entitybase-monorepo
+
+docs_dir: .docs-site/docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: amber
+
+nav:
+  - 🏠 Overview: index.md
+  - 🚀 Running the stack: services.md
+  - 🛠️ Development: development.md
+  - 📚 Backend docs:
+      - Getting Started: backend/GETTING_STARTED.md
+      - Project Structure: backend/PROJECT_STRUCTURE.md
+      - Glossary: backend/GLOSSARY.md
+      - Endpoints: backend/ENDPOINTS.md
+      - Setup: backend/SETUP.md
+      - Quick Reference: backend/QUICKREF.md
+      - FAQ: backend/FAQ.md
+      - Development: backend/DEVELOPMENT.md
+  - 🏗️ Architecture:
+      - Architecture: backend/ARCHITECTURE/ARCHITECTURE.md
+      - Storage: backend/ARCHITECTURE/STORAGE-ARCHITECTURE.md
+      - Entity Model: backend/ARCHITECTURE/ENTITY-MODEL.md
+      - Database Schema: backend/ARCHITECTURE/DATABASE_SCHEMA.md
+      - Repositories: backend/ARCHITECTURE/REPOSITORIES.md
+      - API Models: backend/ARCHITECTURE/API_MODELS.md
+      - Conceptual Model: backend/ARCHITECTURE/CONCEPTUAL-MODEL.md
+      - Concurrency Control: backend/ARCHITECTURE/CONCURRENCY-CONTROL.md
+      - Consistency Model: backend/ARCHITECTURE/CONSISTENCY-MODEL.md
+      - Caching Strategy: backend/ARCHITECTURE/CACHING-STRATEGY.md
+      - Scaling Properties: backend/ARCHITECTURE/SCALING-PROPERTIES.md
+      - Configuration: backend/ARCHITECTURE/CONFIGURATION.md
+      - Change Streaming: backend/ARCHITECTURE/CHANGE-STREAMING/CHANGE-NOTIFICATION.md
+      - Frontend Integration: backend/ARCHITECTURE/FRONTEND-INTEGRATION-GUIDE.md

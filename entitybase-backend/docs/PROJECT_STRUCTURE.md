@@ -1,5 +1,7 @@
 # Project Structure 📁
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 > Understanding how the Entitybase codebase is organized. Let's make sense of it all!
 
 ---

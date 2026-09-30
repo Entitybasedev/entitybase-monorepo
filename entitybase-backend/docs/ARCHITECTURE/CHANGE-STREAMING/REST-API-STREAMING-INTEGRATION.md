@@ -1,5 +1,7 @@
 # REST-API Streaming Integration
 
+> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
+
 ## Overview
 
 This document describes how to integrate the Python rest-api with WMF's Scala streaming-updater-producer for RDF streaming to Kafka.
