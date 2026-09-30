@@ -328,6 +328,18 @@ jobs:
           npx playwright install --with-deps chromium
           (cd ../entitybase-frontend && npm install --silent)
 
+      - name: Start frontend dev server
+        working-directory: ${{ github.workspace }}/entitybase-frontend
+        run: |
+          nohup npm run dev > /tmp/frontend.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:${{ env.FRONTEND_PORT }}/ > /dev/null; then
+              echo "frontend dev server ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "frontend dev server did not become ready"; cat /tmp/frontend.log; exit 1
+
       - name: Run Playwright e2e
         run: npx playwright test
 
