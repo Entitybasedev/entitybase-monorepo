@@ -4,13 +4,8 @@ on:
     branches:
       - main
     paths:
-      - "docs-src/**"
+      - "docs/**"
       - "mkdocs.yml"
-      - "scripts/build-docs.sh"
-      - "entitybase-backend/docs/**"
-      - "entitybase-backend/ENDPOINTS.md"
-      - "entitybase-backend/FAQ.md"
-      - "entitybase-backend/DEVELOPMENT.md"
   workflow_dispatch:
 
 permissions:
@@ -38,7 +33,7 @@ jobs:
         run: pip install mkdocs-material
 
       - name: Build documentation
-        run: ./scripts/build-docs.sh
+        run: mkdocs build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
