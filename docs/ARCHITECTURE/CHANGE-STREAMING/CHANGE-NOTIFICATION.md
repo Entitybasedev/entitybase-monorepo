@@ -16,7 +16,7 @@ Each successful revision publication emits an event:
 
 ## Event transport
 
-Kafka / PubSub / Pulsar
+Redpanda / PubSub / Pulsar
 
 At-least-once delivery
 

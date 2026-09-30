@@ -26,15 +26,15 @@ flowchart TB
     Client["Client Layer<br/>Browser, Mobile Apps, SPARQL Queries, External Systems"]
     API["REST API Layer (FastAPI)<br/>Entity CRUD endpoints<br/>Type-specific endpoints (items, properties, lexemes)<br/>Statement management<br/>User features (watchlist, thanks, endorsements)<br/>RDF export (Turtle, RDF XML, NTriples)"]
     Services["Service Layer<br/>Entity operations (create, update, delete, revert)<br/>Statement deduplication<br/>Lexeme term processing<br/>User activity tracking<br/>Statistics computation<br/>RDF generation and diffing"]
-    Repos["Repository Layer<br/>Metadata/indexing repositories<br/>Revision data repositories (immutable content)<br/>StreamRepository (Kafka events)"]
+    Repos["Repository Layer<br/>Metadata/indexing repositories<br/>Revision data repositories (immutable content)<br/>StreamRepository (Redpanda events)"]
     Infra["Infrastructure Layer"]
 
     MySQL["MySQL<br/>(Content + Metadata)"]
-    Kafka["Kafka<br/>(Streaming)"]
+    Redpanda["Redpanda<br/>(Streaming)"]
 
     Client --> API --> Services --> Repos --> Infra
     Infra --> MySQL
-    Infra --> Kafka
+    Infra --> Redpanda
 ```
 
 ## System Components
@@ -175,7 +175,7 @@ flowchart TB
 #### Stream Repositories
 - **EntityChangeStreamProducer**: Publish entity change events
 - **EntityDiffStreamProducer**: Publish RDF diff events
-- **Consumer**: Kafka event consumer for watchlist
+- **Consumer**: Redpanda event consumer for watchlist
 
 **Documentation**: See `REPOSITORIES.md` for detailed repository documentation.
 
@@ -189,7 +189,7 @@ flowchart TB
 #### Entity Diff Worker
 - **File**: `src/models/workers/entity_diff/entity_diff_worker.py`
 - **Purpose**: Computes RDF diffs between entity revisions
-- **Output**: Streams to `wikibase.entity_diff` Kafka topic
+- **Output**: Streams to `wikibase.entity_diff` Redpanda topic
 
 #### Backlink Statistics Worker
 - **File**: `src/models/workers/backlink_statistics/backlink_statistics_worker.py`
@@ -209,7 +209,7 @@ flowchart TB
 #### Watchlist Consumer Worker
 - **File**: `src/models/workers/watchlist_consumer/main.py`
 - **Purpose**: Consumes entity change events, creates watchlist notifications
-- **Consumes**: Kafka topic `entitybase.entity_change`
+- **Consumes**: Redpanda topic `entitybase.entity_change`
 
 #### Notification Cleanup Worker
 - **File**: `src/models/workers/notification_cleanup/main.py`
@@ -386,7 +386,7 @@ All settings managed via environment variables:
 #### Durability
 - MySQL: Durable relational storage
 - MySQL: Durable relational storage
-- Kafka: Durable event streaming
+- Redpanda: Durable event streaming
 
 #### Consistency
 - Eventual consistency for stats workers
@@ -396,7 +396,7 @@ All settings managed via environment variables:
 ### 10. Performance Characteristics
 
 #### Scalability
-- **Horizontal scaling**: Kafka scales horizontally; MySQL via read replicas and sharding
+- **Horizontal scaling**: Redpanda scales horizontally; MySQL via read replicas and sharding
 - **Vertical scaling**: MySQL can be sharded
 - **Throughput**: Supports thousands of operations per second
 

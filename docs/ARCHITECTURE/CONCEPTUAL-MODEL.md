@@ -25,7 +25,7 @@ A revision is a complete, immutable snapshot of an entity.
 - `entity_id`
 - `revision_id` (monotonic per entity or content-hash based)
 - `created_at`
-- `revision_data` (MariaDB entity_revisions row)
+- `revision_data` (MySQL entity_revisions row)
 
 Example:
 
@@ -43,7 +43,7 @@ A revision is a complete snapshot of an entity.
 - `entity_id`
 - `revision_id` (monotonic per entity)
 - `created_at`
-- `revision_data` (MariaDB)
+- `revision_data` (MySQL)
 - `schema_version`
 - `content_hash`
 

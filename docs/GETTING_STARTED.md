@@ -11,7 +11,7 @@ Get up and running with Entitybase Backend in 5 minutes.
 ## Option 1: Docker (Recommended)
 
 ```bash
-# Start the full stack (Vitess, API, workers)
+# Start the full stack (MySQL, API, workers)
 make api
 
 # API runs at http://localhost:8000

@@ -11,8 +11,8 @@ flowchart TD
     A[Client Request] --> B[1. Browser/Client Cache]
     B -->|cache miss| C[2. CDN Cache]
     C -->|CDN miss| D[3. Application Object Cache - Valkey/Memcached]
-    D -->|object cache miss| E[4. Vitess Database]
-    E -->|database miss| F[5. MariaDB - Revision Data]
+    D -->|object cache miss| E[4. MySQL Database]
+    E -->|database miss| F[5. MySQL - Revision Data]
 ```
 
 ## Cache Layers
@@ -204,13 +204,13 @@ Example:
 
 ---
 
-### Layer 4: Vitess Database Query Cache
+### Layer 4: MySQL Database Query Cache
 
 **Purpose:** Cache frequently executed SQL queries at database level
 
 **Configuration:**
 ```sql
--- Enable Vitess query cache
+-- Enable MySQL query cache
 SET GLOBAL query_cache_size = 256M;
 SET GLOBAL query_cache_type = ON;
 
@@ -222,7 +222,7 @@ SET GLOBAL query_cache_type = ON;
 
 ---
 
-### Layer 5: MariaDB Object Store
+### Layer 5: MySQL Object Store
 
 **Purpose:** System of record for all entity revision data
 
@@ -231,7 +231,7 @@ SET GLOBAL query_cache_type = ON;
 - **Cache-friendly**: CDN caches for 1 year
 - **Global replication**: Multi-region for low latency
 
-**No caching strategy needed** at MariaDB layer due to immutability.
+**No caching strategy needed** at MySQL layer due to immutability.
 
 ---
 
@@ -239,7 +239,7 @@ SET GLOBAL query_cache_type = ON;
 
 ### Immutable Data (No Invalidation)
 
-**MariaDB Revision Data:**
+**MySQL Revision Data:**
 - **Never invalidated** - immutable by design
 - If content is wrong, create new revision
 
@@ -275,20 +275,20 @@ class CacheInvalidator:
         valkey_client.delete(entity_meta_cache_key)
         
         # 4. Clear CDN cache (if needed)
-        # Note: MariaDB revisions are immutable, no CDN invalidation needed
+        # Note: MySQL revisions are immutable, no CDN invalidation needed
 
 # Example: Invalidate after entity update
 def update_entity(entity_data: dict):
     external_id = entity_data['external_id']
     internal_id = entity_data['internal_id']
     
-    # Write new revision to MariaDB
+    # Write new revision to MySQL
     db.execute(
         "INSERT INTO entity_revisions (entity_id, revision_id, entity_json) VALUES (%s, %s, %s)",
         (external_id, entity_data['revision_id'], json.dumps(entity_data))
     )
     
-    # Update Vitess (CAS update entity_head)
+    # Update MySQL (CAS update entity_head)
     db.update_entity_head(internal_id, entity_data['revision_id'])
     
     # Invalidate caches
@@ -310,7 +310,7 @@ def update_entity(entity_data: dict):
 | **entity_id_mapping cache** | >95% | <1ms | <5ms |
 | **entity_head cache** | 80-90% | <2ms | <10ms |
 | **Entity metadata cache** | 70-80% | <5ms | <20ms |
-| **Vitess query cache** | 30-40% | <10ms | <50ms |
+| **MySQL query cache** | 30-40% | <10ms | <50ms |
 
 ### Latency Targets
 
@@ -321,8 +321,8 @@ GET /entity/Q123 (hot entity, not in client cache)
     ↓ CDN HIT:              50ms (edge)
 GET /entity/Q123 (cold entity)
     ↓ CDN MISS → object cache HIT:  60ms
-    ↓ Object cache MISS → Vitess:     100ms
-    ↓ Vitess → MariaDB:                 200ms (total P99)
+    ↓ Object cache MISS → MySQL:     100ms
+    ↓ MySQL → MySQL:                 200ms (total P99)
 ```
 
 ---
@@ -337,13 +337,13 @@ GET /entity/Q123 (cold entity)
 
 **Cost impact:**
 - Valkey: $0.01/10,000 operations
-- Vitess: $0.10/10,000 operations
+- MySQL: $0.10/10,000 operations
 - **10x cheaper** to cache
 
 #### 2. Long TTLs for Immutable Data
 
 **Strategy:**
-- MariaDB revision data: 1 year (never invalidated)
+- MySQL revision data: 1 year (never invalidated)
 - entity_id_mapping: 1 hour (rarely changes)
 
 **Cost impact:**
@@ -587,6 +587,6 @@ def backfill_entity_id_cache():
 
 ## References
 
-- [STORAGE-ARCHITECTURE.md](DATABASE_SCHEMA.md) - MariaDB + Vitess storage design
+- [STORAGE-ARCHITECTURE.md](DATABASE_SCHEMA.md) - MySQL + MySQL storage design
 - [ENTITY-MODEL.md](ENTITY-MODEL.md) - Entity identifiers and usage patterns
 - [SCALING-PROPERTIES.md](ARCHITECTURE.md) - System scaling characteristics

@@ -49,7 +49,7 @@
 
 **Class**: `IdGeneratorWorker`
 **Location**: `models/workers/id_generation/id_generation_worker.py`
-**Purpose**: Asynchronous worker service for generating Wikibase entity IDs using range-based allocation. This worker reserves blocks (ranges) of IDs from the database to minimize contention during high-volume entity creation. It monitors range status, handles graceful shutdown, and provides health checks for monitoring. The worker initializes Vitess and Enumeration services, then runs a continuous loop checking ID range availability. IDs are allocated from pre-reserved ranges to ensure efficient, low-latency ID generation.
+**Purpose**: Asynchronous worker service for generating Wikibase entity IDs using range-based allocation. This worker reserves blocks (ranges) of IDs from the database to minimize contention during high-volume entity creation. It monitors range status, handles graceful shutdown, and provides health checks for monitoring. The worker initializes MySQL and Enumeration services, then runs a continuous loop checking ID range availability. IDs are allocated from pre-reserved ranges to ensure efficient, low-latency ID generation.
 
 **Configuration**:
 - `WORKER_ID`: Unique worker identifier (default: auto-generated)
@@ -60,7 +60,7 @@
 
 **Class**: `IncrementalRDFWorker`
 **Location**: `models/workers/incremental_rdf/incremental_rdf_worker.py`
-**Purpose**: Worker that consumes entity change events and generates incremental RDF diffs. This worker: 1. Consumes entity change events from entitybase.entity_change Kafka topic 2. Looks up revision metadata in MySQL to get content hashes 3. Fetches entity snapshots from MariaDB for both old and new revisions 4. Computes RDF diffs using IncrementalRDFUpdater 5. Publishes RDF change events to incremental_rdf_diff Kafka topic
+**Purpose**: Worker that consumes entity change events and generates incremental RDF diffs. This worker: 1. Consumes entity change events from entitybase.entity_change Redpanda topic 2. Looks up revision metadata in MySQL to get content hashes 3. Fetches entity snapshots from MySQL for both old and new revisions 4. Computes RDF diffs using IncrementalRDFUpdater 5. Publishes RDF change events to incremental_rdf_diff Redpanda topic
 
 **Health Checks**: Available via worker health endpoint
 
@@ -103,10 +103,10 @@
 **Purpose**: Worker that consumes entity change events and creates notifications for watchers.
 
 **Configuration**:
-- `kafka_bootstrap_servers`: Comma-separated list of Kafka broker addresses
-- `kafka_topic`: Kafka topic for entity changes (default: "wikibase-entity-changes")
+- `kafka_bootstrap_servers`: Comma-separated list of Redpanda broker addresses
+- `kafka_topic`: Redpanda topic for entity changes (default: "wikibase-entity-changes")
 
 **Health Checks**: Available via worker health endpoint
 
-**Dependencies**: Requires aiokafka for Kafka consumption.
+**Dependencies**: Requires aiokafka for Redpanda consumption.
 

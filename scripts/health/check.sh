@@ -98,7 +98,7 @@ if is_running entitybase-api; then
     if [ -n "$api_health" ]; then
         status=$(echo "$api_health" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
         s3=$(echo "$api_health" | grep -o '"s3":"[^"]*"' | cut -d'"' -f4)
-        db=$(echo "$api_health" | grep -o '"vitess":"[^"]*"' | cut -d'"' -f4)
+        db=$(echo "$api_health" | grep -o '"mysql":"[^"]*"' | cut -d'"' -f4)
         report healthy "status=$status db=$db s3=$s3"
     else
         fail "entitybase-api" "health endpoint not responding on :8083"

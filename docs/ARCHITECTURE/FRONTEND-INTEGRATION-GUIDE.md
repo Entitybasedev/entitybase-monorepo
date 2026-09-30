@@ -318,7 +318,7 @@ Will block ALL edits because `is_archived` takes priority.
 
 Archived items can be excluded from exports and dumps by filtering on the `is_archived` flag:
 
-**In Vitess (entity_head table):**
+**In MySQL (entity_head table):**
 ```sql
 SELECT m.external_id
 FROM entity_head h

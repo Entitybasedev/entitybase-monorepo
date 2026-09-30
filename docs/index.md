@@ -2,7 +2,7 @@
 
 Monorepo for Entitybase services: a REST API backend (FastAPI + MySQL),
 a Vue frontend (entities + live change stream), and an SSE change-stream
-backend (Kafka → SSE).
+backend (Redpanda → SSE).
 
 ## Architecture
 
@@ -11,6 +11,10 @@ flowchart TB
     subgraph Infrastructure
         MySQL[(MySQL<br/>3306)]
         Redpanda[Redpanda<br/>9092]
+    end
+
+    subgraph Import
+        IMP[entitybase-import]
     end
 
     subgraph Backend
@@ -28,8 +32,10 @@ flowchart TB
     Users((Users))
 
     Users -->|HTTP| UI
-    Users -->|HTTP| API
+    Users -->|HTTP| Import
     Users -->|SSE| UI
+
+    Import -->|HTTP| API
 
     UI -->|/v1, /health| API
     UI -->|/v1/streams, /v1/topics| SSE_BE
@@ -54,7 +60,7 @@ the frontend's **Change stream** tab.
 |-----------|-------------|
 | `entitybase-backend/` | REST API (FastAPI, MySQL) |
 | `entitybase-frontend/` | Vue SPA: entities + change stream tabs |
-| `kafka2sse-backend/` | SSE change-stream backend (Kafka → SSE) |
+| `kafka2sse-backend/` | SSE change-stream backend (Redpanda → SSE) |
 | `e2e-ui/` | Playwright e2e tests |
 | `scripts/` | Build, health check and dev mock helpers |
 
@@ -66,8 +72,8 @@ the frontend's **Change stream** tab.
 | entitybase-api | 8083 | REST API |
 | kafka2sse-backend | 8888 | Change events as SSE |
 | mysql | 3306 | Database |
-| redpanda | 9092 | Kafka broker (change events) |
+| redpanda | 9092 | Redpanda broker (change events) |
 | valkey | 6379 (internal) | Cache used by the stream backend |
 
-The API creates its Kafka topics (`entity_change`) automatically at
+The API creates its Redpanda topics (`entity_change`) automatically at
 startup, so a fresh cluster works out of the box.

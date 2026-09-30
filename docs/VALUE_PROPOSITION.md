@@ -11,7 +11,7 @@ Entitybase is a clean-room, billion-scale Wikibase-compatible backend designed t
 
 | Aspect | Wikibase (MediaWiki) | Entitybase |
 |--------|---------------------|------------|
-| Architecture | Legacy PHP + MySQL with page-based mutable state | Clean-room Python + MariaDB + Vitess with immutable snapshots |
+| Architecture | Legacy PHP + MySQL with page-based mutable state | Clean-room Python + MySQL + MySQL with immutable snapshots |
 | Data Storage | No deduplication - each revision stores full JSON | Massive content deduplication (~90% storage savings) |
 | API Compatibility | Wikibase REST API, MediaWiki APIs | Custom API - NOT drop-in compatible |
 | Scalability | Struggles beyond 7M entities; exponential storage growth | Linear scaling to 2.84B+ entities over 10 years |
@@ -26,7 +26,7 @@ Entitybase is a clean-room, billion-scale Wikibase-compatible backend designed t
 
 ### Storage Architecture:
 - **Immutable snapshots** - Every revision written once, never modified
-- **Vitess indexing** - Lightweight metadata layer (no content storage)
+- **MySQL indexing** - Lightweight metadata layer (no content storage)
 - **Hash-based deduplication** - Statements, references, qualifiers, snaks, terms, sitelinks all deduplicated across revisions
 - **93% storage cost reduction** ($2.28M → $152K over 10 years at 1B scale)
 
@@ -41,13 +41,13 @@ Entitybase is a clean-room, billion-scale Wikibase-compatible backend designed t
 ### RDF Export:
 - **Wikibase-compatible RDF generation** (Turtle, RDF XML, NTriples)
 - MediaWiki-compatible value node deduplication
-- Continuous RDF change streaming (Kafka-based)
+- Continuous RDF change streaming (Redpanda-based)
 - Weekly dump generation
 
 ### Performance & Scale:
 - **777K+ entities/day** sustained creation rate
 - Range-based ID allocation - no write hotspots
-- Sub-second read performance via MariaDB + Vitess
+- Sub-second read performance via MySQL + MySQL
 - Horizontal scaling via microservices (API, workers, dump generation)
 
 ---
@@ -55,7 +55,7 @@ Entitybase is a clean-room, billion-scale Wikibase-compatible backend designed t
 ## 4. What Makes Entitybase Unique/Special
 
 ### 🏗️ Immutable Revision Architecture
-The core innovation: "A revision is an immutable snapshot stored in MariaDB. Once written, it never changes." This eliminates:
+The core innovation: "A revision is an immutable snapshot stored in MySQL. Once written, it never changes." This eliminates:
 - Mutable state complexity
 - Revision conflict handling
 - Data corruption risks
@@ -75,8 +75,8 @@ The core innovation: "A revision is an immutable snapshot stored in MariaDB. Onc
 
 ### 🔬 Knowledge-Base First Design
 Unlike Wikibase (a MediaWiki extension), Entitybase is purpose-built for knowledge bases:
-- MariaDB as system of record - perfect for CDN distribution
-- Vitess for metadata only - lightweight indexing layer
+- MySQL as system of record - perfect for CDN distribution
+- MySQL for metadata only - lightweight indexing layer
 - Event streaming - real-time change notifications
 - RDF-first - semantic web native, not an afterthought
 
@@ -89,7 +89,7 @@ Unlike Wikibase (a MediaWiki extension), Entitybase is purpose-built for knowled
 ### 🔐 Data Integrity by Design
 - Perfect revision history (immutability guarantees)
 - Reference counting prevents orphaned content
-- ACID transactions in Vitess
+- ACID transactions in MySQL
 - Hash-based content addressing
 
 ---

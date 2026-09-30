@@ -11,7 +11,7 @@ Host Port → Container Port (Service Name)
 | Host Port | Container Port | Service | Description |
 |-----------|----------------|---------|-------------|
 | 3306 | 3306 | mysql | MySQL database |
-| 9092 | 9092 | redpanda | Kafka broker |
+| 9092 | 9092 | redpanda | Redpanda broker |
 
 ## Core Services
 

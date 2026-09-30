@@ -1,12 +1,12 @@
 # Repository Classes Overview
 
-This document describes the repository classes that handle data access to Vitess.
+This document describes the repository classes that handle data access to MySQL.
 
 ## Other
 
 ### Repository
 
-**Location**: `models/infrastructure/vitess/repository.py`
+**Location**: `models/infrastructure/MySQL/repository.py`
 **Purpose**: 
 
 ## Architecture Notes

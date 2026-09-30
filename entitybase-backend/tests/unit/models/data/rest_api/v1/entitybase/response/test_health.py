@@ -49,7 +49,7 @@ class TestHealthCheckResponse:
         )
         dumped = response.model_dump(by_alias=True)
         assert dumped["s3"] == "healthy"
-        assert dumped["vitess"] == "unhealthy"
+        assert dumped["mysql"] == "unhealthy"
 
 
 class TestWorkerHealthCheckResponse:

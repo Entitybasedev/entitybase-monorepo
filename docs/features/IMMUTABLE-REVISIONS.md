@@ -4,13 +4,13 @@ Every edit creates an immutable snapshot that can never be overwritten.
 
 ## Overview
 
-Entitybase follows an **append-only** model where every edit creates a new revision stored in MariaDB. Once written, a revision can never be modified or deleted — it's permanent.
+Entitybase follows an **append-only** model where every edit creates a new revision stored in MySQL. Once written, a revision can never be modified or deleted — it's permanent.
 
 ## How It Works
 
 1. When you create or update an entity, a new revision is created
-2. The revision is stored as an immutable object in MariaDB
-3. A "head pointer" in Vitess points to the latest revision
+2. The revision is stored as an immutable object in MySQL
+3. A "head pointer" in MySQL points to the latest revision
 4. All previous revisions remain accessible
 
 ## Benefits
@@ -37,7 +37,7 @@ graph LR
         A[Q1 current] -->|overwrites| B[(DB)]
     end
     subgraph Entitybase
-        C[Rev 1: Q1] -->|append| D[(MariaDB)]
+        C[Rev 1: Q1] -->|append| D[(MySQL)]
         E[Rev 2: Q1] -->|append| D
         F[Rev 3: Q1] -->|append| D
     end

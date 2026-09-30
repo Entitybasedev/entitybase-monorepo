@@ -18,7 +18,7 @@ The **external entity ID** (e.g., `Q123`, `P42`, `L999`, `E100`) is the permanen
 - **RDF/JSON data**: Cross-entity references in claims use Q123
 - **RDF triples**: `<http://www.wikidata.org/entity/Q42> a wikibase:Item`
 - **RDF change events**: `entity_id: "Q42"` in event schemas
-- **MariaDB records**: Human-readable inspection (e.g., `entity_revisions` table for Q123/rev42)
+- **MySQL records**: Human-readable inspection (e.g., `entity_revisions` table for Q123/rev42)
 
 **Characteristics:**
 
@@ -98,7 +98,7 @@ class EnumerationService:
 
 The current architecture uses **entity_id strings** throughout the system:
 
-### Vitess Tables
+### MySQL Tables
 
 All tables use `entity_id` as the primary key or foreign key:
 
@@ -149,12 +149,12 @@ API Layer (EntityCreateHandler)
 1. Validate JSON schema (Pydantic)
 2. Create CreationTransaction
 3. Allocate next ID via EnumerationService (returns "Q123")
-4. Register entity in Vitess (entity_head)
-5. Process statements: hash, deduplicate, store in MariaDB (increment ref_counts)
-6. Create revision: store in MariaDB (entity_revisions)
+4. Register entity in MySQL (entity_head)
+5. Process statements: hash, deduplicate, store in MySQL (increment ref_counts)
+6. Create revision: store in MySQL (entity_revisions)
 7. Publish change event (optional)
 8. Commit transaction (confirm ID usage to worker)
-9. On failure: Rollback all operations (delete from MariaDB, decrement ref_counts)
+9. On failure: Rollback all operations (delete from MySQL, decrement ref_counts)
 ↓
 Client Response
 {
@@ -175,9 +175,9 @@ API Layer
    SELECT head_revision_id, updated_at FROM entity_head WHERE entity_id = "Q123"
 2. Query entity_revisions for content_hash:
    SELECT content_hash FROM entity_revisions WHERE entity_id = "Q123" AND revision_id = ?
-3. Fetch MariaDB snapshot:
+3. Fetch MySQL snapshot:
     SELECT * FROM entity_revisions WHERE entity_id = "Q123" AND revision_id = ?
-4. Reconstruct entity from MariaDB data + hash references
+4. Reconstruct entity from MySQL data + hash references
 ↓
 Client Response
 {
@@ -201,7 +201,7 @@ POST /entities/properties
 API Layer (PropertyCreateHandler)
 1. Validate request
 2. Allocate property ID via EnumerationService (returns "P42")
-3. Register property in Vitess
+3. Register property in MySQL
 4. Process statements (no claims for properties)
 5. Create revision
 6. Commit transaction
@@ -217,7 +217,7 @@ Client Response
 ## Storage Example
 
 ```text
-MariaDB Tables:
+MySQL Tables:
   entity_revisions:
     entity_id: "Q123"
     revision_id: 42
@@ -265,6 +265,6 @@ Previous documentation described a hybrid ID strategy with `ulid-flake` internal
 
 ## References
 
-- [STORAGE-ARCHITECTURE.md](DATABASE_SCHEMA.md) - MariaDB storage design
+- [STORAGE-ARCHITECTURE.md](DATABASE_SCHEMA.md) - MySQL storage design
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Overall system architecture
 - [WORKERS.md](./WORKERS.md) - Worker architecture including IdGenerationWorker

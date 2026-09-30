@@ -8,7 +8,7 @@ Response model for cleanup orphaned statements.
 
 **Fields**:
 
-- `cleaned_count` (int): Number of statements cleaned up from MariaDB and Vitess
+- `cleaned_count` (int): Number of statements cleaned up from MySQL and MySQL
 - `failed_count` (int): Number of statements that failed to clean up
 - `errors` (list[str]): List of error messages for failed cleanups
 
@@ -475,8 +475,8 @@ Detailed response model for health check.
 **Fields**:
 
 - `status` (str): Overall health status
-- `mariadb` (str): MariaDB service health status. Example: 'healthy'.
-- `vitess` (str): Vitess service health status. Example: 'healthy'.
+- `mariadb` (str): MySQL service health status. Example: 'healthy'.
+- `MySQL` (str): MySQL service health status. Example: 'healthy'.
 - `timestamp` (str): Timestamp of health check
 
 ### HealthResponse
