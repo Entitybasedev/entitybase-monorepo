@@ -51,7 +51,6 @@ as Server-Sent Events to the frontend's **Change stream** tab.
 | `entitybase-backend/` | REST API (FastAPI, MySQL) |
 | `entitybase-frontend/` | Vue SPA: entities + change stream tabs |
 | `kafka2sse-backend/` | SSE change-stream backend (Kafka → SSE) |
-| `orchestrator-frontend/` | Health dashboard |
 | `e2e-ui/` | Playwright e2e tests |
 | `scripts/` | Build, health check and dev mock helpers |
 

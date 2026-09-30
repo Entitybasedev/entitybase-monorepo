@@ -1,6 +1,6 @@
 # Port Reference
 
-This document lists all exposed ports in the Entitybase orchestrator.
+This document lists all exposed ports in the Entitybase stack.
 
 ## Format
 
@@ -26,7 +26,6 @@ Host Port → Container Port (Service Name)
 | 8001 | 8001 | idworker | ID generation service |
 | 8888 | 8888 | kafka2sse-backend | SSE API |
 | 8889 | 8889 | kafka2sse-frontend | SSE UI |
-| 8080 | 8083 | entitybase-orchestrator-frontend | Orchestrator UI |
 
 ## Workers
 

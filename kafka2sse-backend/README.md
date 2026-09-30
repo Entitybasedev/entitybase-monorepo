@@ -170,7 +170,7 @@ uv run uvicorn src.main:app --reload
 # Build Docker image
 docker build -t kafka2sse-backend .
 
-# Run with docker-compose (see entitybase-orchestrator)
+# Run via the monorepo docker-compose stack
 ```
 
 ## Related

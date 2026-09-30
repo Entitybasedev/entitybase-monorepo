@@ -68,12 +68,6 @@ CONTAINER_MAP = {
         "dockerfile": "libs/entitybase-backend/docker/containers/Dockerfile.incremental-rdf-worker",
         "context": "libs/entitybase-backend/",
     },
-    "orchestrator-frontend": {
-        "image": "entitybase-orchestrator-frontend:latest",
-        "dockerfile": "frontend/Dockerfile",
-        "context": "frontend/",
-        "service": "orchestrator-frontend",
-    },
     "kafka2sse-backend": {
         "image": "kafka2sse-backend:latest",
         "dockerfile": "libs/kafka2sse-backend/Dockerfile",

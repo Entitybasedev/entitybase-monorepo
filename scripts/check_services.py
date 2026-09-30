@@ -149,7 +149,6 @@ def main():
     if not check_running_service("idworker"): overall_status = 1
     if not check_running_service("kafka2sse-backend"): overall_status = 1
     if not check_running_service("kafka2sse-frontend"): overall_status = 1
-    if not check_running_service("orchestrator-frontend"): overall_status = 1
     
     print("\n=== Workers ===")
     if not check_running_service("json-dump-worker"): overall_status = 1
