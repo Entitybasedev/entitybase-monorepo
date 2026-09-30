@@ -252,8 +252,8 @@ class StateHandler(BaseModel):
     def enumeration_service(self) -> EnumerationService:
         if self.cached_enumeration_service is None:
             self.cached_enumeration_service = EnumerationService(
-                worker_id="rest-api", db_client=self.db_client
-            )
+                    db_client=self.db_client
+                )
         return self.cached_enumeration_service
 
     def disconnect(self) -> None:

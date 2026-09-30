@@ -15,22 +15,6 @@ class WatchCounts(BaseModel):
     property_count: int = Field(..., description="Number of properties watched")
 
 
-class RangeStatus(BaseModel):
-    """Model for ID range status."""
-
-    current_start: int = Field(..., description="Current range start ID")
-    current_end: int = Field(..., description="Current range end ID")
-    next_id: int = Field(..., description="Next available ID")
-    ids_used: int = Field(..., description="Number of IDs used")
-    utilization: float = Field(..., description="Utilization percentage")
-
-
-class RangeStatuses(BaseModel):
-    """Model for all ID range statuses."""
-
-    ranges: dict[str, RangeStatus] = Field(
-        ..., description="Range statuses by entity type"
-    )
 
 
 class GeneralStatsResponse(BaseModel):

@@ -20,7 +20,7 @@ class TestCreateTables:
             assert "entity_revisions" in worker.required_tables
             assert "entity_head" in worker.required_tables
             assert "users" in worker.required_tables
-            assert "id_ranges" in worker.required_tables
+            assert "id_ranges" not in worker.required_tables
             assert len(worker.required_tables) > 10
 
     def test_required_tables_count(self):

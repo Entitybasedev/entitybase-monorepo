@@ -72,8 +72,6 @@ from .stats import (
     DeduplicationStatsByType,
     GeneralStatsData,
     GeneralStatsResponse,
-    RangeStatus,
-    RangeStatuses,
     WatchCounts,
 )
 from .terms import (
@@ -210,8 +208,6 @@ __all__ = [
     "QualifierResponse",
     "RDFChangeEvent",
     "ReconstructedSnakValue",
-    "RangeStatus",
-    "RangeStatuses",
     "RedirectBatchResponse",
     "ReferenceResponse",
     "RevisionIdResult",

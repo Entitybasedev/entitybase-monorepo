@@ -16,9 +16,7 @@ from models.data.rest_api.v1.entitybase.response.metadata import (
 from models.data.rest_api.v1.entitybase.response.sitelinks import SitelinksResponse
 from models.data.rest_api.v1.entitybase.response.stats import (
     GeneralStatsResponse,
-    RangeStatus,
-    RangeStatuses,
-    WatchCounts,
+            WatchCounts,
 )
 from models.data.rest_api.v1.entitybase.response.terms import (
     AliasesResponse,
@@ -109,32 +107,6 @@ class TestWatchCounts:
         assert r.entity_count == 100
 
 
-class TestRangeStatus:
-    def test_basic(self):
-        r = RangeStatus(
-            current_start=1000,
-            current_end=2000,
-            next_id=1500,
-            ids_used=500,
-            utilization=50.0,
-        )
-        assert r.current_start == 1000
-
-
-class TestRangeStatuses:
-    def test_basic(self):
-        rs = RangeStatuses(
-            ranges={
-                "item": RangeStatus(
-                    current_start=1000,
-                    current_end=2000,
-                    next_id=1500,
-                    ids_used=500,
-                    utilization=50.0,
-                )
-            }
-        )
-        assert "item" in rs.ranges
 
 
 class TestTermsPerLanguage:

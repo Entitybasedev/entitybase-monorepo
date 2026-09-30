@@ -203,6 +203,19 @@ class MysqlClient(Client):
             list[Any], self.revision_repository.get_history(entity_id, limit, offset)
         )
 
+    def get_max_numeric_entity_id(self, prefix: str) -> int:
+        """Get the highest numeric ID in use for an entity ID prefix."""
+        with self.cursor as cursor:
+            cursor.execute(
+                "SELECT MAX(CAST(SUBSTRING(entity_id, 2) AS UNSIGNED)) "
+                "FROM entity_id_mapping WHERE entity_id LIKE %s",
+                (prefix + "%",),
+            )
+            row = cursor.fetchone()
+            if row and row[0] is not None:
+                return int(row[0])
+            return 0
+
     def register_entity(self, entity_id: str) -> None:
         self.id_resolver.register_entity(entity_id)  # type: ignore[union-attr]
 

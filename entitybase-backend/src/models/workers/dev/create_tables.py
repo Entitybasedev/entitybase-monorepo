@@ -59,7 +59,6 @@ class CreateTables(BaseModel):
         "user_thanks",
         "user_statement_endorsements",
         "entity_terms",
-        "id_ranges",
     ]
 
     @property
