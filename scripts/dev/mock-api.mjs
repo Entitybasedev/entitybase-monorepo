@@ -13,6 +13,20 @@ const statementsByHash = new Map()
 const events = []
 let counter = 1000
 
+function recordRevision(entityId, summary) {
+  const item = db.get(entityId)
+  if (!item) return
+  item.revisions ||= []
+  const rev = {
+    revision_id: item.revisions.length + 1,
+    created_at: new Date().toISOString(),
+    user_id: 90001,
+    summary,
+  }
+  item.revisions.push(rev)
+  item.rev_id = rev.revision_id
+}
+
 function recordEvent(entityId, type) {
   events.push({
     id: entityId,
@@ -59,12 +73,14 @@ const server = http.createServer((req, res) => {
       const id = `Q${counter++}`
       db.set(id, { id, type: 'item', labels: {}, hashes: { statements: [] } })
       recordEvent(id, 'creation')
+      recordRevision(id, 'Created item')
       return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
     }
     if (req.method === 'POST' && url.pathname === '/v1/entities/properties') {
       const id = `P${counter++}`
       db.set(id, { id, type: 'property', labels: {}, hashes: { statements: [] } })
       recordEvent(id, 'creation')
+      recordRevision(id, 'Created property')
       return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
     }
     if (req.method === 'POST' && url.pathname === '/v1/entities/lexemes') {
@@ -78,6 +94,7 @@ const server = http.createServer((req, res) => {
         hashes: { statements: [] },
       })
       recordEvent(id, 'creation')
+      recordRevision(id, 'Created lexeme')
       return json(200, { id, rev_id: 1, data: { revision: {} } })
     }
     const sm = url.pathname.match(/^\/v1\/statements\/(\d+)$/)
@@ -99,6 +116,7 @@ const server = http.createServer((req, res) => {
         const hash = counter++
         statementsByHash.set(hash, claim)
         item.hashes.statements.push(hash)
+        recordRevision(id, 'Add statement')
         return json(200, { success: true, data: claim })
       }
       const lm = rest.match(/^\/labels\/(\w+)$/)
@@ -106,11 +124,19 @@ const server = http.createServer((req, res) => {
         const lang = lm[1]
         if (req.method === 'PUT' || req.method === 'POST') {
           item.labels[lang] = { language: lang, value: jsonBody.value }
+          recordRevision(id, 'Set label')
           return json(200, { hash: 'mock' })
         }
         return json(200, { value: item.labels[lang]?.value ?? '' })
       }
-      if (req.method === 'GET') return json(200, { id, rev_id: 1, data: item })
+      if (rest === '/revisions' && req.method === 'GET') {
+        return json(200, item.revisions ?? [])
+      }
+      const rm = rest.match(/^\/revision\/(\d+)$/)
+      if (rm && req.method === 'GET') {
+        return json(200, { id, rev_id: Number(rm[1]), data: item })
+      }
+      if (req.method === 'GET') return json(200, { id, rev_id: item.rev_id ?? 1, data: item })
     }
     json(404, { message: `no route: ${req.method} ${url.pathname}` })
   })

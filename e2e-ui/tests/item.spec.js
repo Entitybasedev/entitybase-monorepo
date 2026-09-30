@@ -82,3 +82,41 @@ test('backend reflects the created item via API', async ({ request }) => {
   const body = await get.json()
   expect(body.id ?? body.data?.id ?? entity_id).toBeTruthy()
 })
+
+test('item history shows revisions, views an old revision and diffs it', async ({
+  page,
+  request,
+}) => {
+  const propertyId = await createPropertyViaApi(request)
+
+  // Create item + statement through the UI (multiple revisions)
+  const label = `E2E History ${Date.now()}`
+  await page.goto('/')
+  await page.getByTestId('item-label-input').fill(label)
+  await page.getByTestId('create-item-button').click()
+  await expect(page.getByTestId('item-section')).toBeVisible()
+
+  await page.getByTestId('statement-property-input').fill(propertyId)
+  await page.getByTestId('statement-value-input').fill('Q5')
+  await page.getByTestId('add-statement-button').click()
+  await expect(page.getByTestId('statement').first()).toBeVisible()
+
+  // History shows at least two revisions
+  const rows = page.getByTestId('history-row')
+  await expect(rows.first()).toBeVisible()
+  expect(await rows.count()).toBeGreaterThanOrEqual(2)
+
+  // View an old revision
+  await page.getByTestId('history-view').first().click()
+  await expect(page.getByTestId('revision-banner')).toBeVisible()
+  await page.getByTestId('back-to-current').click()
+  await expect(page.getByTestId('revision-banner')).toHaveCount(0)
+
+  // Diff the newest revision against the previous one
+  await page.getByTestId('history-diff').first().click()
+  const diffView = page.getByTestId('diff-view')
+  await expect(diffView).toBeVisible()
+  await expect(diffView.locator('[data-testid="diff-added"]').first()).toContainText(
+    propertyId
+  )
+})
