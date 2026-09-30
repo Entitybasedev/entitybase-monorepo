@@ -228,6 +228,44 @@ class UserRepository(Repository):
         except Exception as e:
             return OperationResult(success=False, error=str(e))
 
+    def get_ui_preferences(self, user_id: int) -> dict | None:
+        """Get the stored UI preferences JSON for a user."""
+        if user_id <= 0:
+            return None
+        try:
+            with self.db_client.cursor as cursor:
+                cursor.execute(
+                    "SELECT preferences FROM users WHERE user_id = %s",
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    import json
+
+                    parsed = json.loads(row[0])
+                    return parsed if isinstance(parsed, dict) else None
+                return None
+        except Exception as e:
+            logger.error(f"Failed to get UI preferences for {user_id}: {e}")
+            return None
+
+    def set_ui_preferences(self, user_id: int, preferences: dict) -> bool:
+        """Store the UI preferences JSON for a user."""
+        if user_id <= 0:
+            return False
+        try:
+            import json
+
+            with self.db_client.cursor as cursor:
+                cursor.execute(
+                    "UPDATE users SET preferences = %s WHERE user_id = %s",
+                    (json.dumps(preferences), user_id),
+                )
+                return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Failed to set UI preferences for {user_id}: {e}")
+            return False
+
     def update_user_preferences(
         self,
         notification_limit: int,

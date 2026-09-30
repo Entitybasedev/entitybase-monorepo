@@ -76,6 +76,29 @@ def get_user_stats(req: Request) -> UserStatsResponse:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@users_router.get("/users/{user_id}/settings")
+def get_user_settings(user_id: int, req: Request) -> dict:
+    """Get the UI settings stored for a user."""
+    state = req.app.state.state_handler
+    if not state.db_client.user_repository.user_exists(user_id):  # type: ignore[union-attr]
+        raise HTTPException(status_code=404, detail=f"User {user_id} not found")
+    return state.db_client.user_repository.get_ui_preferences(user_id) or {}
+
+
+@users_router.put("/users/{user_id}/settings")
+def set_user_settings(user_id: int, request: dict, req: Request) -> dict:
+    """Store UI settings for a user (arbitrary JSON, e.g. language chain)."""
+    if not isinstance(request, dict):
+        raise HTTPException(status_code=400, detail="Settings must be a JSON object")
+    state = req.app.state.state_handler
+    if not state.db_client.user_repository.user_exists(user_id):  # type: ignore[union-attr]
+        raise HTTPException(status_code=404, detail=f"User {user_id} not found")
+    ok = state.db_client.user_repository.set_ui_preferences(user_id, request)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to store settings")
+    return {"stored": True}
+
+
 @users_router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, req: Request) -> UserResponse:
     """Get user information by MediaWiki user ID."""
