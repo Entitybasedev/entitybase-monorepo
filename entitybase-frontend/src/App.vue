@@ -162,6 +162,78 @@
         </li>
         <li v-if="!statements.length" data-testid="no-statements">No statements yet.</li>
       </ul>
+
+      <h3>History</h3>
+      <div v-if="viewingRevision" class="revision-banner" data-testid="revision-banner">
+        Viewing revision {{ viewingRevision }} —
+        <a href="#" data-testid="back-to-current" @click.prevent="backToCurrent">back to current</a>
+      </div>
+      <table class="history" data-testid="history-list">
+        <tbody>
+          <tr v-for="entry in history" :key="entry.revision_id" data-testid="history-row">
+            <td data-testid="history-revision">{{ entry.revision_id }}</td>
+            <td data-testid="history-timestamp">{{ entry.created_at }}</td>
+            <td data-testid="history-user">{{ entry.user_id }}</td>
+            <td data-testid="history-summary">{{ entry.edit_summary || '—' }}</td>
+            <td>
+              <button data-testid="history-view" @click="viewRevision(entry.revision_id)">View</button>
+              <button
+                v-if="canDiff(entry.revision_id)"
+                data-testid="history-diff"
+                @click="diffWithPrevious(entry.revision_id)"
+              >Diff vs previous</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <button
+        v-if="history.length >= historyOffset"
+        data-testid="history-more"
+        @click="loadMoreHistory"
+      >Load more</button>
+
+      <div v-if="diff" class="panel" data-testid="diff-view">
+        <h3>Diff: revision {{ diff.newRev }} vs {{ diff.oldRev }}</h3>
+        <p v-if="!diff.hasChanges" data-testid="diff-no-changes">No changes between these revisions.</p>
+        <template v-else>
+          <h4>Labels</h4>
+          <ul>
+            <li v-for="d in diff.labels" :key="'l' + d.lang" :data-testid="'diff-' + d.status">
+              {{ d.lang }}: <span class="diff-old">{{ d.old ?? '—' }}</span> →
+              <span class="diff-new">{{ d.new ?? '—' }}</span>
+            </li>
+          </ul>
+          <h4>Descriptions</h4>
+          <ul>
+            <li v-for="d in diff.descriptions" :key="'d' + d.lang" :data-testid="'diff-' + d.status">
+              {{ d.lang }}: <span class="diff-old">{{ d.old ?? '—' }}</span> →
+              <span class="diff-new">{{ d.new ?? '—' }}</span>
+            </li>
+          </ul>
+          <h4>Aliases</h4>
+          <ul>
+            <li v-for="a in diff.aliases" :key="'a' + a.lang">
+              {{ a.lang }}:
+              <span v-for="added in a.added" :key="added" class="diff-new" data-testid="diff-added">
+                +{{ added }}
+              </span>
+              <span v-for="removed in a.removed" :key="removed" class="diff-old" data-testid="diff-removed">
+                −{{ removed }}
+              </span>
+            </li>
+          </ul>
+          <h4>Statements</h4>
+          <ul>
+            <li v-for="st in diff.statements.added" :key="'sa' + st.property + st.value">
+              <span class="diff-new" data-testid="diff-added">+ {{ st.property }}: {{ st.value }}</span>
+            </li>
+            <li v-for="st in diff.statements.removed" :key="'sr' + st.property + st.value">
+              <span class="diff-old" data-testid="diff-removed">− {{ st.property }}: {{ st.value }}</span>
+            </li>
+          </ul>
+        </template>
+        <button data-testid="diff-close" @click="diff = null">Close diff</button>
+      </div>
     </section>
     </template>
     <StreamView v-if="activeTab === 'stream'" />
@@ -176,14 +248,20 @@ import {
   getLabel,
   getDescription,
   getAliases,
+  getEntityHistory,
+  getEntityRevision,
   getSnak,
   getStatement,
+  resolveAliases as resolveAliasHashes,
+  resolveDescriptions as resolveDescriptionHashes,
+  resolveLabels as resolveLabelHashes,
   postStatement,
   postItem,
   postProperty,
   postLexeme,
   putLabel,
 } from './api.js'
+import { computeEntityDiff } from './entityDiff.js'
 
 const activeTab = ref('entities')
 const docsOpen = ref(false)
@@ -216,6 +294,12 @@ const description = ref('')
 const aliases = ref([])
 const statements = ref([])
 
+const history = ref([])
+const historyOffset = ref(0)
+const viewingRevision = ref(null)
+const diff = ref(null)
+const HISTORY_PAGE = 20
+
 const entityData = computed(
   () => item.value?.data?.revision ?? item.value?.data ?? item.value ?? {}
 )
@@ -238,12 +322,21 @@ function loadFromQuery() {
 async function loadItem(id) {
   error.value = ''
   label.value = ''
+  description.value = ''
+  aliases.value = []
   statements.value = []
+  history.value = []
+  historyOffset.value = 0
+  viewingRevision.value = null
+  diff.value = null
   try {
     item.value = await getItem(id)
 
     // Label values are stored hash-referenced; fetch via the terms endpoints
     label.value = (await getLabel(id, 'en')) ?? ''
+    description.value = (await getDescription(id, 'en')) ?? ''
+    aliases.value = (await getAliases(id, 'en')) ?? []
+    await loadHistory(id)
     description.value = (await getDescription(id, 'en')) ?? ''
     aliases.value = (await getAliases(id, 'en')) ?? []
 
@@ -366,6 +459,68 @@ async function addStatement() {
   }
 }
 
+async function loadHistory(id, offset = 0) {
+  const entries = (await getEntityHistory(id, HISTORY_PAGE, offset)) ?? []
+  if (offset === 0) {
+    history.value = entries
+  } else {
+    history.value = [...history.value, ...entries]
+  }
+  historyOffset.value = offset + entries.length
+}
+
+async function loadMoreHistory() {
+  if (!item.value) return
+  await loadHistory(item.value.id, historyOffset.value)
+}
+
+function canDiff(revisionId) {
+  const idx = history.value.findIndex((e) => e.revision_id === revisionId)
+  return idx >= 0 && idx + 1 < history.value.length
+}
+
+async function viewRevision(revisionId) {
+  error.value = ''
+  try {
+    item.value = await getEntityRevision(item.value.id, revisionId)
+    viewingRevision.value = revisionId
+    label.value = (await getLabel(item.value.id, 'en')) ?? ''
+    description.value = (await getDescription(item.value.id, 'en')) ?? ''
+    aliases.value = (await getAliases(item.value.id, 'en')) ?? []
+    statements.value = []
+  } catch (e) {
+    error.value = String(e.message || e)
+  }
+}
+
+async function backToCurrent() {
+  viewingRevision.value = null
+  await loadItem(item.value.id)
+}
+
+async function diffWithPrevious(revisionId) {
+  error.value = ''
+  diff.value = null
+  try {
+    const idx = history.value.findIndex((e) => e.revision_id === revisionId)
+    const older = history.value[idx + 1]
+    const [newRev, oldRev] = await Promise.all([
+      getEntityRevision(item.value.id, revisionId),
+      getEntityRevision(item.value.id, older.revision_id),
+    ])
+    const result = await computeEntityDiff(oldRev, newRev, {
+      resolveLabels: resolveLabelHashes,
+      resolveDescriptions: resolveDescriptionHashes,
+      resolveAliases: resolveAliasHashes,
+      getStatement,
+      getSnak,
+    })
+    diff.value = { ...result, oldRev: older.revision_id, newRev: revisionId }
+  } catch (e) {
+    error.value = String(e.message || e)
+  }
+}
+
 onMounted(loadFromQuery)
 </script>
 
@@ -389,4 +544,9 @@ button { padding: .35rem .8rem; cursor: pointer; }
 ul { list-style: none; padding-left: 0; }
 li { padding: .25rem 0; }
 .alias-chip { display: inline-block; background: #eef6ff; border: 1px solid #b6d4fe; border-radius: 999px; padding: .1rem .6rem; margin-right: .35rem; }
+.history { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.history td { border-top: 1px solid #eee; padding: .3rem .4rem; }
+.revision-banner { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: .4rem .8rem; margin: .5rem 0; }
+.diff-old { background: #fdecea; color: #b71c1c; text-decoration: line-through; padding: 0 .25rem; }
+.diff-new { background: #e8f5e9; color: #1b5e20; padding: 0 .25rem; }
 </style>

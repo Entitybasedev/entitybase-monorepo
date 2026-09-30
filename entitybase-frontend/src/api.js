@@ -121,3 +121,47 @@ export async function getStreamHealth() {
   const res = await fetch(`${BASE}/k2s/health`)
   return unwrap(res, 'GET stream health')
 }
+
+// --- Entity history ---
+
+export async function getEntityHistory(entityId, limit = 20, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/revisions?${params}`
+  )
+  return unwrap(res, `GET history ${entityId}`)
+}
+
+export async function getEntityRevision(entityId, revisionId) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/revision/${encodeURIComponent(revisionId)}`
+  )
+  return unwrap(res, `GET revision ${entityId}/${revisionId}`)
+}
+
+// --- Hash-resolve helpers (terms are stored hash-referenced) ---
+
+async function resolveBatch(kind, hashes) {
+  const hashesList = hashes.filter(Boolean).map(String)
+  if (!hashesList.length) return {}
+  const out = {}
+  for (let i = 0; i < hashesList.length; i += 20) {
+    const chunk = hashesList.slice(i, i + 20).join(',')
+    const res = await fetch(`${BASE}/v1/resolve/${kind}/${encodeURIComponent(chunk)}`)
+    const json = await unwrap(res, `GET ${kind} ${chunk}`)
+    Object.assign(out, json)
+  }
+  return out
+}
+
+export function resolveLabels(hashes) {
+  return resolveBatch('labels', hashes).then((r) => r.labels ?? r)
+}
+
+export function resolveDescriptions(hashes) {
+  return resolveBatch('descriptions', hashes).then((r) => r.descriptions ?? r)
+}
+
+export function resolveAliases(hashes) {
+  return resolveBatch('aliases', hashes).then((r) => r.aliases ?? r)
+}

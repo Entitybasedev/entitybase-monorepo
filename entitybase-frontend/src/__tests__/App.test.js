@@ -8,8 +8,13 @@ const apiMocks = vi.hoisted(() => ({
   getAliases: vi.fn(),
   getSnak: vi.fn(),
   getStatement: vi.fn(),
+  getEntityHistory: vi.fn(),
+  getEntityRevision: vi.fn(),
   getStreamTopics: vi.fn(),
   getStreamHealth: vi.fn(),
+  resolveLabels: vi.fn(),
+  resolveDescriptions: vi.fn(),
+  resolveAliases: vi.fn(),
   postItem: vi.fn(),
   postProperty: vi.fn(),
   postLexeme: vi.fn(),
@@ -227,5 +232,86 @@ describe('App > create lexeme', () => {
     expect(apiMocks.getItem).toHaveBeenCalledWith('L77')
     expect(wrapper.find('[data-testid="item-section"]').exists()).toBe(true)
     expect(window.location.search).toBe('?tab=entities&entity=L77')
+  })
+})
+
+describe('App > entity history', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/?entity=Q1')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test', []))
+    apiMocks.getLabel.mockResolvedValue('Test')
+    apiMocks.getDescription.mockResolvedValue(null)
+    apiMocks.getAliases.mockResolvedValue([])
+  })
+
+  it('loads and renders the revision history', async () => {
+    apiMocks.getEntityHistory.mockResolvedValue([
+      { revision_id: 2, created_at: '2026-01-02T00:00:00Z', user_id: 90001, edit_summary: 'Added label' },
+      { revision_id: 1, created_at: '2026-01-01T00:00:00Z', user_id: 90001, edit_summary: '' },
+    ])
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-testid="history-row"]')
+    expect(rows).toHaveLength(2)
+    expect(wrapper.find('[data-testid="history-revision"]').text()).toBe('2')
+    expect(wrapper.find('[data-testid="history-summary"]').text()).toBe('Added label')
+  })
+
+  it('views an old revision and goes back to current', async () => {
+    apiMocks.getEntityHistory.mockResolvedValue([
+      { revision_id: 2, created_at: '', user_id: 1, edit_summary: 'edit' },
+      { revision_id: 1, created_at: '', user_id: 1, edit_summary: 'create' },
+    ])
+    apiMocks.getEntityRevision.mockResolvedValue(itemPayload('Q1', 'Old label'))
+
+    const wrapper = await mountApp()
+    await flushPromises()
+    await wrapper.find('[data-testid="history-view"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.getEntityRevision).toHaveBeenCalledWith('Q1', 2)
+    expect(wrapper.find('[data-testid="revision-banner"]').text()).toContain('Viewing revision 2')
+
+    await wrapper.find('[data-testid="back-to-current"]').trigger('click')
+    await flushPromises()
+    expect(apiMocks.getItem).toHaveBeenCalledWith('Q1')
+    expect(wrapper.find('[data-testid="revision-banner"]').exists()).toBe(false)
+  })
+
+  it('shows a diff against the previous revision', async () => {
+    apiMocks.getEntityHistory.mockResolvedValue([
+      { revision_id: 2, created_at: '', user_id: 1, edit_summary: 'edit' },
+      { revision_id: 1, created_at: '', user_id: 1, edit_summary: 'create' },
+    ])
+    apiMocks.getEntityRevision
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [11]))
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [10]))
+    apiMocks.getStatement.mockResolvedValue({
+      schema: '1.0',
+      hash: 11,
+      statement: {
+        mainsnak: { property: 'P31', datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' } },
+        type: 'statement',
+        rank: 'normal',
+      },
+    })
+    apiMocks.getSnak.mockResolvedValue({
+      property: 'P31',
+      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+    })
+
+    const wrapper = await mountApp()
+    await flushPromises()
+    await wrapper.find('[data-testid="history-diff"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.getEntityRevision).toHaveBeenCalledWith('Q1', 2)
+    expect(apiMocks.getEntityRevision).toHaveBeenCalledWith('Q1', 1)
+    const diffView = wrapper.find('[data-testid="diff-view"]')
+    expect(diffView.exists()).toBe(true)
+    expect(wrapper.find('[data-testid="diff-added"]').text()).toContain('P31: Q5')
+    expect(wrapper.find('[data-testid="diff-removed"]').text()).toContain('− P31: Q5')
   })
 })
