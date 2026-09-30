@@ -97,9 +97,16 @@ down-v:
 health:
     timeout 120 ./scripts/health/check.sh
 
-# Build the documentation site (docs/ from the backend + monorepo pages)
+# Build the documentation site (requires mkdocs-material)
 docs:
-    ./scripts/build-docs.sh
+    #!/usr/bin/env bash
+    MKDOCS="${MKDOCS:-mkdocs}"
+    if ! command -v "$MKDOCS" > /dev/null 2>&1; then
+        if [ -x entitybase-backend/.venv/bin/mkdocs ]; then
+            MKDOCS="entitybase-backend/.venv/bin/mkdocs"
+        fi
+    fi
+    "$MKDOCS" build
 
 # Show the URLs of the running docker services
 docker-help:

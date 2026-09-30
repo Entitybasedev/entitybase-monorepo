@@ -2,7 +2,6 @@ site_name: Entitybase
 site_description: Documentation for the Entitybase monorepo
 repo_url: https://github.com/Entitybasedev/entitybase-monorepo
 
-docs_dir: .docs-site/docs
 site_dir: site
 
 theme:
@@ -21,27 +20,33 @@ nav:
   - 🏠 Overview: index.md
   - 🚀 Running the stack: services.md
   - 🛠️ Development: development.md
-  - 📚 Backend docs:
-      - Getting Started: backend/GETTING_STARTED.md
-      - Project Structure: backend/PROJECT_STRUCTURE.md
-      - Glossary: backend/GLOSSARY.md
-      - Endpoints: backend/ENDPOINTS.md
-      - Setup: backend/SETUP.md
-      - Quick Reference: backend/QUICKREF.md
-      - FAQ: backend/FAQ.md
-      - Development: backend/DEVELOPMENT.md
+  - 📚 System docs:
+      - Backend Overview: backend-overview.md
+      - Getting Started: GETTING_STARTED.md
+      - Tutorial: TUTORIAL.md
+      - Glossary: GLOSSARY.md
+      - Endpoints: ENDPOINTS.md
+      - FAQ: FAQ.md
+      - Backend Development: DEVELOPMENT-backend.md
+      - Value Proposition: VALUE_PROPOSITION.md
   - 🏗️ Architecture:
-      - Architecture: backend/ARCHITECTURE/ARCHITECTURE.md
-      - Storage: backend/ARCHITECTURE/STORAGE-ARCHITECTURE.md
-      - Entity Model: backend/ARCHITECTURE/ENTITY-MODEL.md
-      - Database Schema: backend/ARCHITECTURE/DATABASE_SCHEMA.md
-      - Repositories: backend/ARCHITECTURE/REPOSITORIES.md
-      - API Models: backend/ARCHITECTURE/API_MODELS.md
-      - Conceptual Model: backend/ARCHITECTURE/CONCEPTUAL-MODEL.md
-      - Concurrency Control: backend/ARCHITECTURE/CONCURRENCY-CONTROL.md
-      - Consistency Model: backend/ARCHITECTURE/CONSISTENCY-MODEL.md
-      - Caching Strategy: backend/ARCHITECTURE/CACHING-STRATEGY.md
-      - Scaling Properties: backend/ARCHITECTURE/SCALING-PROPERTIES.md
-      - Configuration: backend/ARCHITECTURE/CONFIGURATION.md
-      - Change Streaming: backend/ARCHITECTURE/CHANGE-STREAMING/CHANGE-NOTIFICATION.md
-      - Frontend Integration: backend/ARCHITECTURE/FRONTEND-INTEGRATION-GUIDE.md
+      - Architecture: ARCHITECTURE/ARCHITECTURE.md
+      - Entity Model: ARCHITECTURE/ENTITY-MODEL.md
+      - Database Schema: ARCHITECTURE/DATABASE_SCHEMA.md
+      - Repositories: ARCHITECTURE/REPOSITORIES.md
+      - API Models: ARCHITECTURE/API_MODELS.md
+      - Conceptual Model: ARCHITECTURE/CONCEPTUAL-MODEL.md
+      - Concurrency Control: ARCHITECTURE/CONCURRENCY-CONTROL.md
+      - Caching Strategy: ARCHITECTURE/CACHING-STRATEGY.md
+      - Change Streaming: ARCHITECTURE/CHANGE-STREAMING/CHANGE-NOTIFICATION.md
+      - Frontend Integration: ARCHITECTURE/FRONTEND-INTEGRATION-GUIDE.md
+      - Services: ARCHITECTURE/SERVICES.md
+      - Workers: ARCHITECTURE/WORKERS.md
+      - Parser: ARCHITECTURE/PARSER/INTERNAL-REPRESENTATION.md
+  - ⚙️ Features:
+      - Endorsements: features/ENDORSEMENTS.md
+      - Endpoints: features/ENDPOINTS.md
+      - Entity Protection: features/ENTITY-PROTECTION.md
+      - Immutable Revisions: features/IMMUTABLE-REVISIONS.md
+      - Lexeme Support: features/LEXEME-SUPPORT.md
+      - Thanks: features/THANKS.md

@@ -3,5 +3,4 @@ dist/
 test-results/
 playwright-report/
 .e2e-user-id
-.docs-site/
 site/
