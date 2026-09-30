@@ -348,6 +348,9 @@ jobs:
             rpk topic consume entity_change --offset-start 0 2>/dev/null || \
           timeout 30 docker compose -f ../entitybase-backend/docker-compose.ci.yml exec -T redpanda \
             rpk topic consume entity_change -o 0 || true
+      - name: Check frontend links
+        if: always()
+        run: ./scripts/check-links.sh frontend
       - name: Down containers
         if: always()
         run: docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
