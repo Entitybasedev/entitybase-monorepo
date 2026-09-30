@@ -350,6 +350,7 @@ jobs:
             rpk topic consume entity_change -o 0 || true
       - name: Check frontend links
         if: always()
+        working-directory: ${{ github.workspace }}
         run: ./scripts/check-links.sh frontend
       - name: Down containers
         if: always()
