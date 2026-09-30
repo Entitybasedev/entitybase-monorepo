@@ -16,15 +16,26 @@
       >
         Change stream
       </button>
-      <a
-        data-testid="nav-docs"
-        class="docs-link"
-        href="https://entitybasedev.github.io/entitybase-monorepo/"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Docs ↗
-      </a>
+      <div class="docs-menu">
+        <button data-testid="nav-docs" @click="docsOpen = !docsOpen">
+          Docs ▾
+        </button>
+        <div v-if="docsOpen" class="docs-dropdown" data-testid="docs-dropdown">
+          <a
+            href="https://entitybasedev.github.io/entitybase-monorepo/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Documentation ↗
+          </a>
+          <a href="/docs" target="_blank" rel="noopener noreferrer">
+            API docs (entitybase) ↗
+          </a>
+          <a href="/k2s/docs" target="_blank" rel="noopener noreferrer">
+            API docs (change stream) ↗
+          </a>
+        </div>
+      </div>
     </nav>
 
     <template v-if="activeTab === 'entities'">
@@ -157,6 +168,7 @@ import {
 } from './api.js'
 
 const activeTab = ref('entities')
+const docsOpen = ref(false)
 
 function showTab(tab) {
   activeTab.value = tab
@@ -339,7 +351,11 @@ onMounted(loadFromQuery)
 .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .tabs button { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer; }
 .tabs button.active { background: #007bff; color: white; border-color: #007bff; }
-.tabs .docs-link { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; text-decoration: none; color: #333; font-size: inherit; }
+.tabs .docs-menu { position: relative; }
+.tabs .docs-menu button { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer; }
+.tabs .docs-dropdown { position: absolute; top: 110%; left: 0; background: white; border: 1px solid #ddd; border-radius: 6px; min-width: 16rem; box-shadow: 0 4px 12px rgba(0,0,0,.08); z-index: 10; display: flex; flex-direction: column; }
+.tabs .docs-dropdown a { padding: .5rem .9rem; text-decoration: none; color: #333; }
+.tabs .docs-dropdown a:hover { background: #f0f6ff; }
 body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 40rem; }
 .panel { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
 .row { display: flex; gap: .5rem; margin: .5rem 0; align-items: center; }

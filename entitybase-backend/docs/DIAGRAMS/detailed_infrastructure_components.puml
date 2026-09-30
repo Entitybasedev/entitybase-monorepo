@@ -1,8 +1,0 @@
-@startuml Detailed Infrastructure Components
-
-title Wikibase Backend - Detailed Infrastructure Components
-
-package "Repositories" as Repositories #LightGray {
-}
-
-@enduml

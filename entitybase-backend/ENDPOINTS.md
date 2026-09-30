@@ -1,1 +1,0 @@
-docs/features/ENDPOINTS.md
