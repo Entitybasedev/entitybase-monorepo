@@ -1,16 +1,14 @@
 # Entitybase Backend Architecture
 
-> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
-
-Immutable Revision Architecture (Vitess + S3)
+Immutable Revision Architecture (MySQL)
 
 This document describes a clean-room, billion-scale Entitybase
-architecture based on immutable S3 snapshots, Vitess indexing, and a
+architecture based on immutable snapshots and indexes stored in MySQL, with a
 well-defined API boundary.
 
 ## Core invariant
 
-**A revision is an immutable snapshot stored in S3.**
+**A revision is an immutable snapshot stored in MySQL.**
 Once written, it never changes.
 
 There are:
@@ -23,45 +21,20 @@ Everything else in the system derives from this rule.
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client Layer                             │
-│  (Browser, Mobile Apps, SPARQL Queries, External Systems)        │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    REST API Layer (FastAPI)                     │
-│  - Entity CRUD endpoints                                        │
-│  - Type-specific endpoints (items, properties, lexemes)        │
-│  - Statement management                                          │
-│  - User features (watchlist, thanks, endorsements)              │
-│  - RDF export (Turtle, RDF XML, NTriples)                      │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                     Service Layer                               │
-│  - Entity operations (create, update, delete, revert)        │
-│  - Statement deduplication                                      │
-│  - Lexeme term processing                                       │
-│  - User activity tracking                                       │
-│  - Statistics computation                                        │
-│  - RDF generation and diffing                                   │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                   Repository Layer                             │
-│  - VitessRepository (metadata, indexing)                       │
-│  - S3Repository (immutable content)                             │
-│  - StreamRepository (Kafka events)                             │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│              Infrastructure Layer                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │    S3        │  │   Vitess     │  │   Kafka      │         │
-│  │  (Content)   │  │ (Metadata)   │  │ (Streaming)  │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    Client["Client Layer<br/>Browser, Mobile Apps, SPARQL Queries, External Systems"]
+    API["REST API Layer (FastAPI)<br/>Entity CRUD endpoints<br/>Type-specific endpoints (items, properties, lexemes)<br/>Statement management<br/>User features (watchlist, thanks, endorsements)<br/>RDF export (Turtle, RDF XML, NTriples)"]
+    Services["Service Layer<br/>Entity operations (create, update, delete, revert)<br/>Statement deduplication<br/>Lexeme term processing<br/>User activity tracking<br/>Statistics computation<br/>RDF generation and diffing"]
+    Repos["Repository Layer<br/>Metadata/indexing repositories<br/>Revision data repositories (immutable content)<br/>StreamRepository (Kafka events)"]
+    Infra["Infrastructure Layer"]
+
+    MySQL["MySQL<br/>(Content + Metadata)"]
+    Kafka["Kafka<br/>(Streaming)"]
+
+    Client --> API --> Services --> Repos --> Infra
+    Infra --> MySQL
+    Infra --> Kafka
 ```
 
 ## System Components
@@ -174,7 +147,7 @@ Everything else in the system derives from this rule.
 
 ### 3. Repository Layer
 
-#### Vitess Repositories
+#### Metadata and Indexing Repositories
 - **EntityRepository**: Entity metadata
 - **HeadRepository**: Head revision tracking
 - **RevisionRepository**: Revision metadata
@@ -190,7 +163,7 @@ Everything else in the system derives from this rule.
 - **LexemeRepository**: Lexeme-specific operations
 - **MetadataRepository**: Entity metadata (flags)
 
-#### S3 Repositories
+#### Content Repositories (MySQL)
 - **RevisionStorage**: Revision snapshots
 - **StatementStorage**: Statement content
 - **ReferenceStorage**: Reference content
@@ -261,11 +234,11 @@ API Handler (EntityCreateHandler)
 EnumerationService
   ↓ Allocate next Q-ID (e.g., Q123)
 CreationTransaction
-  ↓ Process statements (hash, deduplicate, store to S3)
-  ↓ Store terms (hash, store to S3)
-  ↓ Store sitelinks (hash, store to S3)
-  ↓ Create revision snapshot (hash, store to S3)
-Vitess (within transaction)
+  ↓ Process statements (hash, deduplicate, store to MySQL)
+  ↓ Store terms (hash, store to MySQL)
+  ↓ Store sitelinks (hash, store to MySQL)
+  ↓ Create revision snapshot (hash, store to MySQL)
+MySQL (within transaction)
   ↓ Insert entity_revisions record
   ↓ Update entity_head
   ↓ Update statement_content ref_counts
@@ -281,9 +254,9 @@ Client
   ↓ GET /entities/Q123
 API Handler
   ↓ Query entity_head for head_revision_id
-Vitess
+MySQL
   ↓ Get revision metadata (including content_hash)
-S3
+MySQL
   ↓ Load revision by content_hash
   ↓ Load hash-referenced content:
     - Terms (labels, descriptions, aliases)
@@ -302,7 +275,7 @@ StatementService.deduplicate_and_store_statements
   ↓ For each statement:
     - Hash statement content (mainsnak + qualifiers + references)
     - Check if exists in statement_content table
-    - If new: store to S3, insert record (ref_count=1)
+    - If new: store to MySQL, insert record (ref_count=1)
     - If exists: increment ref_count
   ↓ Replace statement with hash reference in entity
 Revision Storage
@@ -311,7 +284,7 @@ Revision Storage
 
 ### 6. Storage Architecture
 
-#### S3 Storage
+#### MySQL Storage
 - **Revisions**: Immutable snapshots stored by content_hash
 - **Statements**: Deduplicated, stored by hash
 - **References**: Deduplicated, stored by hash
@@ -329,7 +302,7 @@ Revision Storage
 
 **Documentation**: See `STORAGE-ARCHITECTURE.md` for complete storage architecture.
 
-#### Vitess Storage
+#### MySQL Storage
 - **Entity metadata**: entity_head, entity_revisions, metadata
 - **Statement tracking**: statement_content (hash + ref_count)
 - **ID allocation**: id_ranges
@@ -337,7 +310,7 @@ Revision Storage
 - **Statistics**: user_daily_stats, general_daily_stats, backlink_statistics
 - **Other**: entity_redirects, entity_backlinks, lexeme_terms
 
-**Documentation**: See `STORAGE-ARCHITECTURE.md` for complete Vitess schema.
+**Documentation**: See `DATABASE_SCHEMA.md` for the complete MySQL schema.
 
 ### 7. Key Features
 
@@ -402,8 +375,8 @@ All settings managed via environment variables:
 ### 9. Transaction Model
 
 #### Atomicity
-- All Vitess operations wrapped in database transactions
-- S3 operations tracked for rollback
+- All storage operations wrapped in database transactions
+- Storage operations tracked for rollback
 - Ref counts ensure consistency
 
 #### Isolation
@@ -411,8 +384,8 @@ All settings managed via environment variables:
 - No dirty reads, non-repeatable reads prevented
 
 #### Durability
-- Vitess: Durable storage (MySQL)
-- S3: Durable object storage
+- MySQL: Durable relational storage
+- MySQL: Durable relational storage
 - Kafka: Durable event streaming
 
 #### Consistency
@@ -423,19 +396,18 @@ All settings managed via environment variables:
 ### 10. Performance Characteristics
 
 #### Scalability
-- **Horizontal scaling**: S3 and Kafka scale horizontally
-- **Vertical scaling**: Vitess can be sharded
+- **Horizontal scaling**: Kafka scales horizontally; MySQL via read replicas and sharding
+- **Vertical scaling**: MySQL can be sharded
 - **Throughput**: Supports thousands of operations per second
 
 #### Latency
 - **Entity read**: ~200-500ms (including hash content loading)
-- **Entity create**: ~300-600ms (including S3 writes)
+- **Entity create**: ~300-600ms (including MySQL writes)
 - **Statement read**: ~50-150ms
 - **RDF export**: ~500-1000ms per entity
 
 #### Storage Efficiency
 - **Deduplication**: ~90% storage savings
-- **Compression**: Optional for S3 objects
 - **CDN caching**: Enabled for public buckets
 
 ### 11. Security Considerations
@@ -451,7 +423,6 @@ All settings managed via environment variables:
 #### Data Protection
 - No sensitive data in logs
 - Secure credential management via environment variables
-- S3 bucket access control
 
 ### 12. Monitoring and Observability
 
@@ -459,7 +430,7 @@ All settings managed via environment variables:
 - `GET /health` - API health check
 - Worker health endpoints
 - Database connection monitoring
-- S3 connectivity monitoring
+- MySQL connectivity monitoring
 
 #### Logging
 - Structured logging with request IDs

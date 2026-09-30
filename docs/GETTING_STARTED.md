@@ -51,6 +51,6 @@ curl -X PUT http://localhost:8000/v1/entitybase/entities/Q1/labels/en \
 
 ## Next Steps
 
-- [Setup Guide](SETUP.md) - Full environment configuration
-- [Project Structure](PROJECT_STRUCTURE.md) - Understanding the codebase
+- [Setup Guide](services.md) - Full environment configuration
+- [Project Structure](development.md) - Understanding the codebase
 - [API Endpoints](ENDPOINTS.md) - Explore the REST API

@@ -265,6 +265,6 @@ Previous documentation described a hybrid ID strategy with `ulid-flake` internal
 
 ## References
 
-- [STORAGE-ARCHITECTURE.md](./STORAGE-ARCHITECTURE.md) - MariaDB storage design
+- [STORAGE-ARCHITECTURE.md](DATABASE_SCHEMA.md) - MariaDB storage design
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Overall system architecture
 - [WORKERS.md](./WORKERS.md) - Worker architecture including IdGenerationWorker

@@ -24,7 +24,6 @@ images, starts the stack and waits for the API to become healthy.
 | API | http://localhost:8083 |
 | API docs (OpenAPI) | http://localhost:8083/docs |
 | Stream backend topics | http://localhost:8888/v1/topics |
-| MinIO console | removed — MinIO is no longer part of the stack |
 
 ## Just Commands
 

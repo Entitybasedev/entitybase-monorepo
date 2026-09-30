@@ -1,7 +1,5 @@
 # Frontend Integration Guide
 
-> **⚠️ Status note (2026-09):** S3/MinIO storage has been removed from the stack. Everything — entities, revisions, statements, qualifiers, references, snaks and metadata — is stored in MySQL. This document is kept for historical context; sections describing S3/MinIO no longer apply.
-
 ## Status Flags
 
 This guide explains how to work with item status flags for decentralized WikiProject governance.
@@ -328,7 +326,7 @@ JOIN entity_id_mapping m ON h.entity_id = m.internal_id
 WHERE h.is_archived = FALSE;
 ```
 
-**In S3 (revision metadata):**
+**In MySQL (revision metadata):**
 ```json
 {
   "is_archived": false,

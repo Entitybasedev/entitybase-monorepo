@@ -587,6 +587,6 @@ def backfill_entity_id_cache():
 
 ## References
 
-- [STORAGE-ARCHITECTURE.md](STORAGE-ARCHITECTURE.md) - MariaDB + Vitess storage design
+- [STORAGE-ARCHITECTURE.md](DATABASE_SCHEMA.md) - MariaDB + Vitess storage design
 - [ENTITY-MODEL.md](ENTITY-MODEL.md) - Entity identifiers and usage patterns
-- [SCALING-PROPERTIES.md](SCALING-PROPERTIES.md) - System scaling characteristics
+- [SCALING-PROPERTIES.md](ARCHITECTURE.md) - System scaling characteristics

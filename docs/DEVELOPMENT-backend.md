@@ -102,7 +102,7 @@ If pytest is not found, install it via `pip install pytest` or activate your vir
 
 ### Integration Tests
 
-Integration tests need docker to be able to access minio and mysql.
+Integration tests need docker to be able to access mysql.
 The database is reset between tests, providing a clean state for each test run.
 
    ```bash
@@ -111,7 +111,7 @@ The database is reset between tests, providing a clean state for each test run.
 
 ### End-to-end (E2E) Tests
 
-E2E tests need docker to be able to access minio and mysql.
+E2E tests need docker to be able to access mysql.
 The database is reset between tests, providing a clean state for each test run.
 
    ```bash
@@ -126,7 +126,7 @@ This project uses a Makefile for common development tasks. Run `make help` to se
 
 | Command | Description |
 |---------|-------------|
-| `make api` | Start the API locally using uvicorn with reload enabled (requires Docker for MySQL and MinIO) |
+| `make api` | Start the API locally using uvicorn with reload enabled (requires Docker for MySQL) |
 | `make api-vps` | Simplified API startup for VPS environments (no docs generation, no rebuild) |
 
 ### Linting and Code Quality

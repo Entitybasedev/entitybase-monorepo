@@ -267,7 +267,7 @@ And every step was saved as an immutable revision!
 
 Now that you've got the basics, explore:
 
-- [⚡ Quick Reference](QUICKREF.md) — Common commands at a glance
+- [⚡ Quick Reference](ENDPOINTS.md) — Common commands at a glance
 - [🔍 Glossary](GLOSSARY.md) — Learn the domain terms
 - [🏗️ Architecture](ARCHITECTURE/ARCHITECTURE.md) — Deep dive into how it works
 - [✨ Features](features/ENDPOINTS.md) — All the API endpoints
@@ -302,4 +302,4 @@ if __name__ == "__main__":
 
 ---
 
-**Happy hacking!** 🎉 If you get stuck, check the [FAQ](../../FAQ.md) or open an issue on GitHub.
+**Happy hacking!** 🎉 If you get stuck, check the [FAQ](FAQ.md) or open an issue on GitHub.

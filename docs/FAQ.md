@@ -29,7 +29,7 @@ The system outputs RDF change events using the same schema as WMF (`rdf_change/2
 You can use [KafkaSSE](https://github.com/wikimedia/KafkaSSE/) to expose these events 
 as a standard SSE API that QLever can ingest for real-time updates.
 
-See [docs/ARCHITECTURE/CHANGE-STREAMING/CONTINUOUS-RDF-CHANGE-STREAMER.md](docs/ARCHITECTURE/CHANGE-STREAMING/CONTINUOUS-RDF-CHANGE-STREAMER.md)
+See [Change Streaming](ARCHITECTURE/CHANGE-STREAMING/CHANGE-NOTIFICATION.md)
 
 ## How can Entitybase scale better than Wikibase Suite?
 A few design choices of the Wikibase system make it unsuitable for storing 1 trillion statements. 
@@ -84,17 +84,17 @@ First the architecture documents were written and discussed with the community i
 Some parts have been fixed manually when GLM did not get the job done.
 
 ## Are there tests that verify the features work as expected?
-Yes! See [STATISTICS.md](STATISTICS.md)
+Yes! See the [API endpoints](ENDPOINTS.md) and [architecture](ARCHITECTURE/ARCHITECTURE.md) docs
 
 ## What license is this project under?
 GPLv3+. See the LICENSE file for details.
 
 ## How do I install and run Entitybase?
-See [README.md](README.md) for getting started instructions. The quick start is:
+See [Running the stack](services.md) for getting started instructions. The quick start is:
 ```bash
 docker-compose up -d
 ```
 The API will be available at http://localhost:8000.
 
 ## What are the system requirements?
-System requirements depend on the number of entities and statements you plan to store. For development, Docker and ~8GB RAM are sufficient. For production with billions of entities, you will need scalable S3-compatible storage and Vitess database infrastructure. See [README.md](README.md) for scaling characteristics.
+System requirements depend on the number of entities and statements you plan to store. For development, Docker and ~8GB RAM are sufficient. For production with billions of entities, you will need a sharded MySQL deployment. See the [Architecture](ARCHITECTURE/ARCHITECTURE.md) docs for scaling characteristics.

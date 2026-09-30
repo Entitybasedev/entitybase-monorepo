@@ -16,6 +16,14 @@ theme:
       primary: deep orange
       accent: amber
 
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
 nav:
   - 🏠 Overview: index.md
   - 🚀 Running the stack: services.md
@@ -26,6 +34,7 @@ nav:
       - Tutorial: TUTORIAL.md
       - Glossary: GLOSSARY.md
       - Endpoints: ENDPOINTS.md
+      - Port Reference: PORTS.md
       - FAQ: FAQ.md
       - Backend Development: DEVELOPMENT-backend.md
       - Value Proposition: VALUE_PROPOSITION.md
