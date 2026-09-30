@@ -31,7 +31,7 @@
           <a href="/docs" target="_blank" rel="noopener noreferrer">
             API docs (entitybase) ↗
           </a>
-          <a href="/k2s/docs" target="_blank" rel="noopener noreferrer">
+          <a href="http://localhost:8888/docs" target="_blank" rel="noopener noreferrer">
             API docs (change stream) ↗
           </a>
         </div>
