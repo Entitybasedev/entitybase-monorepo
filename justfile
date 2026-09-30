@@ -93,6 +93,14 @@ down:
 down-v:
     docker compose down -v
 
+# Check links on the running docker stack (zero 404s = green)
+check:
+    ./scripts/check-links.sh frontend
+
+# Check all links on the deployed docs site
+check-docs:
+    ./scripts/check-links.sh docs
+
 # Show health of all docker services
 health:
     timeout 120 ./scripts/health/check.sh
