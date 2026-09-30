@@ -104,8 +104,26 @@ class MockIdResolver:
 
 
 class MockUserRepository:
+    def __init__(self) -> None:
+        self._registered: set[int] = set()
+        self._ui_preferences: dict[int, dict] = {}
+
     def user_exists(self, user_id: int) -> bool:
-        return False
+        return user_id in self._registered
+
+    def create_user(self, user_id: int) -> Any:
+        self._registered.add(user_id)
+        result = MagicMock()
+        result.success = True
+        result.error = None
+        return result
+
+    def get_ui_preferences(self, user_id: int) -> dict | None:
+        return self._ui_preferences.get(user_id)
+
+    def set_ui_preferences(self, user_id: int, preferences: dict) -> bool:
+        self._ui_preferences[user_id] = preferences
+        return True
 
     def is_watchlist_enabled(self, user_id: int) -> bool:
         return False

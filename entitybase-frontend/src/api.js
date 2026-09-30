@@ -122,6 +122,22 @@ export async function getStreamHealth() {
   return unwrap(res, 'GET stream health')
 }
 
+// --- Per-user UI settings ---
+
+export async function getUserSettings(userId) {
+  const res = await fetch(`${BASE}/v1/users/${encodeURIComponent(userId)}/settings`)
+  if (res.status === 404) return {}
+  return unwrap(res, `GET user settings ${userId}`)
+}
+
+export async function putUserSettings(userId, settings) {
+  const res = await fetch(
+    `${BASE}/v1/users/${encodeURIComponent(userId)}/settings`,
+    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }
+  )
+  return unwrap(res, `PUT user settings ${userId}`)
+}
+
 // --- Entity history ---
 
 export async function getEntityHistory(entityId, limit = 20, offset = 0) {
@@ -164,4 +180,29 @@ export function resolveDescriptions(hashes) {
 
 export function resolveAliases(hashes) {
   return resolveBatch('aliases', hashes).then((r) => r.aliases ?? r)
+}
+
+// Fallback-aware term getters: try each language in order, first hit wins
+export async function getLabelWithFallback(entityId, chain) {
+  for (const lang of chain) {
+    const value = await getLabel(entityId, lang)
+    if (value) return value
+  }
+  return null
+}
+
+export async function getDescriptionWithFallback(entityId, chain) {
+  for (const lang of chain) {
+    const value = await getDescription(entityId, lang)
+    if (value) return value
+  }
+  return null
+}
+
+export async function getAliasesWithFallback(entityId, chain) {
+  for (const lang of chain) {
+    const aliases = await getAliases(entityId, lang)
+    if (aliases && aliases.length) return aliases
+  }
+  return []
 }

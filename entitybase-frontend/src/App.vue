@@ -16,6 +16,59 @@
       >
         Change stream
       </button>
+      <div class="header-controls">
+        <label class="control">
+          Language
+          <select
+            data-testid="language-select"
+            v-model="language"
+          >
+            <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+              {{ l.name }}
+            </option>
+          </select>
+        </label>
+        <label class="control" title="Append the entity ID to labels">
+          <input
+            type="checkbox"
+            data-testid="show-qid-toggle"
+            v-model="showQid"
+          />
+          Show IDs
+        </label>
+        <div class="control" data-testid="fallback-chain" title="Fallback languages when a term is missing in the interface language (max 5)">
+          Fallback:
+          <span
+            v-for="code in fallbackChain"
+            :key="code"
+            class="fallback-chip"
+            data-testid="fallback-chip"
+          >
+            {{ code }}
+            <button
+              class="fallback-remove"
+              :data-testid="'fallback-remove-' + code"
+              @click="removeFallbackLanguage(code)"
+            >×</button>
+          </span>
+          <select
+            data-testid="fallback-add-select"
+            :value="''"
+            :disabled="fallbackChain.length >= 5"
+            @change="addFallbackLanguage($event.target.value)"
+          >
+            <option value="" disabled>+ add</option>
+            <option
+              v-for="l in availableFallbackLanguages"
+              :key="l.code"
+              :value="l.code"
+            >{{ l.code }}</option>
+          </select>
+        </div>
+        <button class="control" data-testid="save-settings" @click="saveUserSettings">
+          Save
+        </button>
+      </div>
       <div class="docs-menu">
         <button data-testid="nav-docs" @click="docsOpen = !docsOpen">
           Docs ▾
@@ -118,7 +171,7 @@
       <h2>Entity {{ item.id }}</h2>
       <div class="row">
         <span class="field-name">Label</span>
-        <span data-testid="item-label">{{ label }}</span>
+        <span data-testid="item-label">{{ displayLabel }}</span>
       </div>
       <div class="row">
         <span class="field-name">Description</span>
@@ -241,13 +294,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import StreamView from './components/stream/StreamView.vue'
 import {
   getItem,
   getLabel,
   getDescription,
   getAliases,
+  getLabelWithFallback,
+  getDescriptionWithFallback,
+  getAliasesWithFallback,
+  getUserSettings,
+  putUserSettings,
   getEntityHistory,
   getEntityRevision,
   getSnak,
@@ -262,6 +320,12 @@ import {
   putLabel,
 } from './api.js'
 import { computeEntityDiff } from './entityDiff.js'
+import {
+  fallbackChain,
+  language,
+  showQid,
+  SUPPORTED_LANGUAGES,
+} from './settings.js'
 
 const activeTab = ref('entities')
 const docsOpen = ref(false)
@@ -300,6 +364,59 @@ const viewingRevision = ref(null)
 const diff = ref(null)
 const HISTORY_PAGE = 20
 
+const availableFallbackLanguages = computed(() =>
+  SUPPORTED_LANGUAGES.filter(
+    (l) => l.code !== language.value && !fallbackChain.value.includes(l.code)
+  )
+)
+
+const termChain = computed(() => [
+  ...new Set([language.value, ...fallbackChain.value]),
+])
+
+async function loadTerms(id) {
+  const chain = termChain.value
+  const result = (await getLabelWithFallback(id, chain)) ?? ''
+  label.value = result
+  description.value = (await getDescriptionWithFallback(id, chain)) ?? ''
+  aliases.value = (await getAliasesWithFallback(id, chain)) ?? []
+}
+
+function addFallbackLanguage(code) {
+  if (!code || fallbackChain.value.includes(code)) return
+  if (fallbackChain.value.length >= 5) return
+  fallbackChain.value = [...fallbackChain.value, code]
+}
+
+function removeFallbackLanguage(code) {
+  fallbackChain.value = fallbackChain.value.filter((c) => c !== code)
+}
+
+async function saveUserSettings() {
+  error.value = ''
+  try {
+    await putUserSettings(userId.value, {
+      ui: { language: language.value, fallbackChain: fallbackChain.value },
+    })
+  } catch (e) {
+    error.value = `Failed to save settings: ${e.message}`
+  }
+}
+
+watch(language, async () => {
+  if (item.value) await loadTerms(item.value.id)
+})
+
+watch(fallbackChain, async () => {
+  if (item.value) await loadTerms(item.value.id)
+})
+
+const displayLabel = computed(() => {
+  if (!label.value) return ''
+  const suffix = showQid.value && item.value ? ` (${item.value.id})` : ''
+  return label.value + suffix
+})
+
 const entityData = computed(
   () => item.value?.data?.revision ?? item.value?.data ?? item.value ?? {}
 )
@@ -333,12 +450,8 @@ async function loadItem(id) {
     item.value = await getItem(id)
 
     // Label values are stored hash-referenced; fetch via the terms endpoints
-    label.value = (await getLabel(id, 'en')) ?? ''
-    description.value = (await getDescription(id, 'en')) ?? ''
-    aliases.value = (await getAliases(id, 'en')) ?? []
+    await loadTerms(id)
     await loadHistory(id)
-    description.value = (await getDescription(id, 'en')) ?? ''
-    aliases.value = (await getAliases(id, 'en')) ?? []
 
     // Statement values are resolved per content hash; mainsnak is stored
     // as a snak hash and resolved via the snaks endpoint
@@ -379,7 +492,7 @@ async function createItem() {
   error.value = ''
   try {
     const entityId = await postItem({}, userId.value)
-    await putLabel(entityId, 'en', newLabel.value, userId.value)
+    await putLabel(entityId, language.value, newLabel.value, userId.value)
     window.history.replaceState(null, '', `/?tab=entities&entity=${encodeURIComponent(entityId)}`)
     await loadItem(entityId)
   } catch (e) {
@@ -394,7 +507,7 @@ async function createProperty() {
   error.value = ''
   try {
     const entityId = await postProperty({}, userId.value)
-    await putLabel(entityId, 'en', propertyLabel.value, userId.value)
+    await putLabel(entityId, language.value, propertyLabel.value, userId.value)
     window.history.replaceState(null, '', `/?tab=entities&entity=${encodeURIComponent(entityId)}`)
     await loadItem(entityId)
   } catch (e) {
@@ -484,9 +597,7 @@ async function viewRevision(revisionId) {
   try {
     item.value = await getEntityRevision(item.value.id, revisionId)
     viewingRevision.value = revisionId
-    label.value = (await getLabel(item.value.id, 'en')) ?? ''
-    description.value = (await getDescription(item.value.id, 'en')) ?? ''
-    aliases.value = (await getAliases(item.value.id, 'en')) ?? []
+    await loadTerms(item.value.id)
     statements.value = []
   } catch (e) {
     error.value = String(e.message || e)
@@ -521,13 +632,32 @@ async function diffWithPrevious(revisionId) {
   }
 }
 
-onMounted(loadFromQuery)
+onMounted(async () => {
+  loadFromQuery()
+  try {
+    const settings = await getUserSettings(userId.value)
+    const ui = settings?.ui ?? {}
+    if (Array.isArray(ui.fallbackChain)) {
+      fallbackChain.value = ui.fallbackChain.slice(0, 5)
+    }
+    if (typeof ui.language === 'string' && ui.language) {
+      language.value = ui.language
+    }
+  } catch {
+    /* settings are optional */
+  }
+})
 </script>
 
 <style>
 .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .tabs button { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer; }
 .tabs button.active { background: #007bff; color: white; border-color: #007bff; }
+.header-controls { display: flex; align-items: center; gap: 1rem; margin-left: auto; }
+.header-controls .control { display: flex; align-items: center; gap: .4rem; font-size: .9rem; }
+.header-controls select { padding: .25rem .4rem; }
+.fallback-chip { background: #eef6ff; border: 1px solid #b6d4fe; border-radius: 999px; padding: .1rem .5rem; }
+.fallback-remove { border: none; background: none; cursor: pointer; padding: 0; color: #b71c1c; }
 .tabs .docs-menu { position: relative; }
 .tabs .docs-menu button { padding: .4rem 1rem; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer; }
 .tabs .docs-dropdown { position: absolute; top: 110%; left: 0; background: white; border: 1px solid #ddd; border-radius: 6px; min-width: 16rem; box-shadow: 0 4px 12px rgba(0,0,0,.08); z-index: 10; display: flex; flex-direction: column; }

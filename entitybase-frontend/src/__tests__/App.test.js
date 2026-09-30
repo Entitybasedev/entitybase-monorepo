@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { language, showQid } from '../settings.js'
+
+enableAutoUnmount(afterEach)
 
 const apiMocks = vi.hoisted(() => ({
   getItem: vi.fn(),
@@ -15,6 +18,11 @@ const apiMocks = vi.hoisted(() => ({
   resolveLabels: vi.fn(),
   resolveDescriptions: vi.fn(),
   resolveAliases: vi.fn(),
+  getLabelWithFallback: vi.fn().mockResolvedValue(null),
+  getDescriptionWithFallback: vi.fn().mockResolvedValue(null),
+  getAliasesWithFallback: vi.fn().mockResolvedValue([]),
+  getUserSettings: vi.fn().mockResolvedValue({}),
+  putUserSettings: vi.fn().mockResolvedValue({ stored: true }),
   postItem: vi.fn(),
   postProperty: vi.fn(),
   postLexeme: vi.fn(),
@@ -74,14 +82,14 @@ describe('App', () => {
   it('loads an item from the ?entity= query param on mount', async () => {
     window.history.replaceState(null, '', '/?entity=Q42')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
-    apiMocks.getLabel.mockResolvedValue('Douglas Adams')
-    apiMocks.getDescription.mockResolvedValue('The author of the Hitchhiker trilogy')
-    apiMocks.getAliases.mockResolvedValue(['Douglas Noel Adams'])
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
+    apiMocks.getDescriptionWithFallback.mockResolvedValue('The author of the Hitchhiker trilogy')
+    apiMocks.getAliasesWithFallback.mockResolvedValue(['Douglas Noel Adams'])
 
     const wrapper = await mountApp()
 
     expect(apiMocks.getItem).toHaveBeenCalledWith('Q42')
-    expect(apiMocks.getLabel).toHaveBeenCalledWith('Q42', 'en')
+    expect(apiMocks.getLabelWithFallback).toHaveBeenCalledWith('Q42', ['en'])
     expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams')
     expect(wrapper.find('[data-testid="item-description"]').text()).toBe(
       'The author of the Hitchhiker trilogy'
@@ -93,7 +101,7 @@ describe('App', () => {
     apiMocks.postItem.mockResolvedValue('Q1000')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1000', 'E2E Item'))
-    apiMocks.getLabel.mockResolvedValue('E2E Item')
+    apiMocks.getLabelWithFallback.mockResolvedValue('E2E Item')
 
     const wrapper = await mountApp()
     await wrapper.find('[data-testid="item-label-input"]').setValue('E2E Item')
@@ -103,6 +111,9 @@ describe('App', () => {
 
     expect(apiMocks.postItem).toHaveBeenCalledWith({}, 90001)
     expect(apiMocks.putLabel).toHaveBeenCalledWith('Q1000', 'en', 'E2E Item', 90001)
+    console.log('DEBUG wfb calls:', apiMocks.getLabelWithFallback.mock.calls)
+    console.log('DEBUG wfb result:', await apiMocks.getLabelWithFallback('Q1000', ['en']))
+    console.log('DEBUG label ref text:', wrapper.find('[data-testid="item-label"]').text())
     expect(apiMocks.getItem).toHaveBeenCalledWith('Q1000')
 
     const itemSection = wrapper.find('[data-testid="item-section"]')
@@ -116,7 +127,7 @@ describe('App', () => {
     apiMocks.getItem
       .mockResolvedValueOnce(itemPayload('Q1', 'Test', []))
       .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
-    apiMocks.getLabel.mockResolvedValue('Test')
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
     apiMocks.getStatement.mockResolvedValue({
       schema: '1.0',
       hash: 777,
@@ -192,7 +203,7 @@ describe('App > create property', () => {
     apiMocks.postProperty.mockResolvedValue('P30000')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
     apiMocks.getItem.mockResolvedValue(itemPayload('P30000', 'instance of'))
-    apiMocks.getLabel.mockResolvedValue('instance of')
+    apiMocks.getLabelWithFallback.mockResolvedValue('instance of')
 
     const wrapper = await mountApp()
     await wrapper.find('[data-testid="property-label-input"]').setValue('instance of')
@@ -211,7 +222,7 @@ describe('App > create lexeme', () => {
   it('posts a lexeme with lemmas and loads it', async () => {
     apiMocks.postLexeme.mockResolvedValue('L77')
     apiMocks.getItem.mockResolvedValue(itemPayload('L77', 'answer'))
-    apiMocks.getLabel.mockResolvedValue('')
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
 
     const wrapper = await mountApp()
     await wrapper.find('[data-testid="lemma-input"]').setValue('answer')
@@ -239,7 +250,7 @@ describe('App > entity history', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '/?entity=Q1')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test', []))
-    apiMocks.getLabel.mockResolvedValue('Test')
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
     apiMocks.getDescription.mockResolvedValue(null)
     apiMocks.getAliases.mockResolvedValue([])
   })
@@ -313,5 +324,70 @@ describe('App > entity history', () => {
     expect(diffView.exists()).toBe(true)
     expect(wrapper.find('[data-testid="diff-added"]').text()).toContain('P31: Q5')
     expect(wrapper.find('[data-testid="diff-removed"]').text()).toContain('− P31: Q5')
+  })
+})
+
+describe('App > interface language', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/?entity=Q42')
+    language.value = 'en'
+    showQid.value = false
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
+    apiMocks.getDescription.mockResolvedValue(null)
+    apiMocks.getAliases.mockResolvedValue([])
+  })
+
+  it('fetches terms in the selected language and refetches on change', async () => {
+    apiMocks.getLabelWithFallback
+      .mockResolvedValueOnce('Douglas Adams')
+      .mockResolvedValueOnce('Douglas Adams (sv)')
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    expect(apiMocks.getLabelWithFallback).toHaveBeenCalledWith('Q42', ['en'])
+
+    await wrapper.find('[data-testid="language-select"]').setValue('sv')
+    await new Promise((r) => setTimeout(r, 50))
+
+    console.log('LABEL AFTER:', wrapper.find('[data-testid="item-label"]').text())
+
+    expect(apiMocks.getLabelWithFallback).toHaveBeenLastCalledWith('Q42', ['sv'])
+    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams (sv)')
+  })
+
+  it('persists the language to localStorage', async () => {
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="language-select"]').setValue('de')
+    expect(localStorage.getItem('entitybase.language')).toBe('de')
+  })
+})
+
+describe('App > show QID toggle', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/?entity=Q42')
+    language.value = 'en'
+    showQid.value = false
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
+    apiMocks.getDescription.mockResolvedValue(null)
+    apiMocks.getAliases.mockResolvedValue([])
+  })
+
+  it('appends the QID to the label when toggled on', async () => {
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams')
+
+    await wrapper.find('[data-testid="show-qid-toggle"]').setValue(true)
+    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams (Q42)')
+  })
+
+  it('persists the toggle to localStorage', async () => {
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="show-qid-toggle"]').setValue(true)
+    expect(localStorage.getItem('entitybase.showQid')).toBe('true')
   })
 })
