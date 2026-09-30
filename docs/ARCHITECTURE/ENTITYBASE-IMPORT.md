@@ -20,6 +20,27 @@ flowchart LR
     API --> Redpanda[Redpanda]
 ```
 
+## IDs: no range allocation needed for imports
+
+Imported entities **keep their original Wikidata IDs** (Q42, P31, L123).
+Range-based ID generation exists only for interactive auto-assigned IDs:
+the `EnumerationService` floor (Q300M+) is chosen so auto-assigned IDs
+never collide with imported ones.
+
+The API already supports this without any ID generation:
+
+- **`POST /v1/import`** — unified import endpoint for items, properties
+  and lexemes. The `id` field is **required**; enumeration is skipped
+  entirely and a conflicting ID returns 409.
+- All create handlers (`item`, `property`, `lexeme`) skip the
+  `EnumerationService` whenever an explicit `id` is provided
+  (`auto_assign_id=not bool(request.id)`).
+- A **JSONL dump importer** (`EntityJsonImportHandler`) exists in the
+  backend: it reads Wikidata JSONL dump files and supports
+  `start_line`/`end_line` + `worker_id` partitioning, designed for
+  importing a large dump in parallel chunks with per-line error logs.
+  It is currently an in-process handler, not yet exposed over HTTP.
+
 ## Design principles
 
 - **API-only writes.** The import service never touches MySQL or
