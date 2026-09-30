@@ -120,6 +120,22 @@
         <span class="field-name">Label</span>
         <span data-testid="item-label">{{ label }}</span>
       </div>
+      <div class="row">
+        <span class="field-name">Description</span>
+        <span data-testid="item-description">{{ description || '—' }}</span>
+      </div>
+      <div class="row">
+        <span class="field-name">Aliases</span>
+        <span v-if="aliases.length" data-testid="item-aliases">
+          <span
+            v-for="alias in aliases"
+            :key="alias"
+            data-testid="item-alias"
+            class="alias-chip"
+          >{{ alias }}</span>
+        </span>
+        <span v-else>—</span>
+      </div>
       <p>
         <a :href="`/?entity=${item.id}`" data-testid="item-permalink">Permalink</a>
       </p>
@@ -158,6 +174,8 @@ import StreamView from './components/stream/StreamView.vue'
 import {
   getItem,
   getLabel,
+  getDescription,
+  getAliases,
   getSnak,
   getStatement,
   postStatement,
@@ -194,6 +212,8 @@ const lexemeCategory = ref('Q1084')
 const creatingLexeme = ref(false)
 
 const label = ref('')
+const description = ref('')
+const aliases = ref([])
 const statements = ref([])
 
 const entityData = computed(
@@ -222,8 +242,10 @@ async function loadItem(id) {
   try {
     item.value = await getItem(id)
 
-    // Label values are stored hash-referenced; fetch via the labels endpoint
+    // Label values are stored hash-referenced; fetch via the terms endpoints
     label.value = (await getLabel(id, 'en')) ?? ''
+    description.value = (await getDescription(id, 'en')) ?? ''
+    aliases.value = (await getAliases(id, 'en')) ?? []
 
     // Statement values are resolved per content hash; mainsnak is stored
     // as a snak hash and resolved via the snaks endpoint
@@ -366,4 +388,5 @@ button { padding: .35rem .8rem; cursor: pointer; }
 .error { color: #b00020; padding: .5rem 1rem; border: 1px solid #b00020; border-radius: 8px; }
 ul { list-style: none; padding-left: 0; }
 li { padding: .25rem 0; }
+.alias-chip { display: inline-block; background: #eef6ff; border: 1px solid #b6d4fe; border-radius: 999px; padding: .1rem .6rem; margin-right: .35rem; }
 </style>

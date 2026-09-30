@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getItem,
+  getAliases,
+  getDescription,
   getLabel,
   getSnak,
   getStatement,
@@ -216,5 +218,37 @@ describe('getSnak', () => {
   it('returns null when the snak is missing', async () => {
     fetchMock.mockResolvedValue(jsonResponse([null]))
     expect(await getSnak(999)).toBeNull()
+  })
+})
+
+describe('getDescription', () => {
+  it('GETs the description endpoint and returns the value', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ value: 'A test description' }))
+
+    const value = await getDescription('Q42', 'en')
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/Q42/descriptions/en')
+    expect(value).toBe('A test description')
+  })
+
+  it('returns null on 404', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: 'not found' }, 404))
+    expect(await getDescription('Q42', 'de')).toBeNull()
+  })
+})
+
+describe('getAliases', () => {
+  it('GETs the aliases endpoint and returns the list', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ aliases: ['foo', 'bar'] }))
+
+    const aliases = await getAliases('Q42', 'en')
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/Q42/aliases/en')
+    expect(aliases).toEqual(['foo', 'bar'])
+  })
+
+  it('returns an empty list on 404', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: 'not found' }, 404))
+    expect(await getAliases('Q42', 'sv')).toEqual([])
   })
 })

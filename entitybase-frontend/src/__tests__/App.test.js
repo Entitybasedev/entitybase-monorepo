@@ -4,6 +4,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 const apiMocks = vi.hoisted(() => ({
   getItem: vi.fn(),
   getLabel: vi.fn(),
+  getDescription: vi.fn(),
+  getAliases: vi.fn(),
   getSnak: vi.fn(),
   getStatement: vi.fn(),
   getStreamTopics: vi.fn(),
@@ -68,12 +70,18 @@ describe('App', () => {
     window.history.replaceState(null, '', '/?entity=Q42')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
     apiMocks.getLabel.mockResolvedValue('Douglas Adams')
+    apiMocks.getDescription.mockResolvedValue('The author of the Hitchhiker trilogy')
+    apiMocks.getAliases.mockResolvedValue(['Douglas Noel Adams'])
 
     const wrapper = await mountApp()
 
     expect(apiMocks.getItem).toHaveBeenCalledWith('Q42')
     expect(apiMocks.getLabel).toHaveBeenCalledWith('Q42', 'en')
     expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams')
+    expect(wrapper.find('[data-testid="item-description"]').text()).toBe(
+      'The author of the Hitchhiker trilogy'
+    )
+    expect(wrapper.find('[data-testid="item-alias"]').text()).toBe('Douglas Noel Adams')
   })
 
   it('creates an item: posts item, sets label, then loads it', async () => {

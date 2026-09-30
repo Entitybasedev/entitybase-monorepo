@@ -80,6 +80,24 @@ export async function getLabel(entityId, language) {
   return json.value ?? null
 }
 
+export async function getDescription(entityId, language) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/descriptions/${encodeURIComponent(language)}`
+  )
+  if (res.status === 404) return null
+  const json = await unwrap(res, `GET description ${entityId}/${language}`)
+  return json.value ?? null
+}
+
+export async function getAliases(entityId, language) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/aliases/${encodeURIComponent(language)}`
+  )
+  if (res.status === 404) return []
+  const json = await unwrap(res, `GET aliases ${entityId}/${language}`)
+  return json.aliases ?? []
+}
+
 export async function getStatement(contentHash) {
   const res = await fetch(`${BASE}/v1/statements/${encodeURIComponent(contentHash)}`)
   return unwrap(res, `GET statement ${contentHash}`)
