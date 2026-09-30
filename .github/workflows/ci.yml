@@ -351,7 +351,7 @@ jobs:
       - name: Check frontend links
         if: always()
         working-directory: ${{ github.workspace }}
-        run: ./scripts/check-links.sh frontend
+        run: ./scripts/check-links.sh frontend http://localhost:${{ env.FRONTEND_PORT }}
       - name: Down containers
         if: always()
         run: docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
