@@ -223,6 +223,7 @@ class UserRepository(Repository):
         limit: int = 50,
         offset: int = 0,
         change_type: "EntityChangeType | None" = None,
+        exclude_imports: bool = False,
     ) -> List[dict]:
         """Get the most recent changes across all entities.
 
@@ -244,6 +245,9 @@ class UserRepository(Repository):
                 if change_type:
                     query += " WHERE change_type = %s"
                     params.append(change_type.value)
+                elif exclude_imports:
+                    query += " WHERE change_type != %s"
+                    params.append(EntityChangeType.ENTITY_IMPORT.value)
                 query += " ORDER BY id DESC LIMIT %s OFFSET %s"
                 params.extend([limit, offset])
 

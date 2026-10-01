@@ -32,7 +32,7 @@ class UserStatsService(Service):
         """Count active users (active in last 30 days)."""
         with self.state.db_client.cursor as cursor:
             cursor.execute(
-                "SELECT COUNT(*) FROM users WHERE last_activity >= DATE_SUB(NOW(), INTERVAL 30 DAY)"
+                "SELECT COUNT(*) FROM users WHERE user_id > 0 AND last_activity >= DATE_SUB(NOW(), INTERVAL 30 DAY)"
             )
             result = cursor.fetchone()
             return result[0] if result else 0

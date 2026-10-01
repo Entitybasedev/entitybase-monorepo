@@ -5,7 +5,7 @@ src/models/infrastructure/vitess/storage/base.py:46
 src/models/infrastructure/vitess/storage/base.py:65
 src/models/rest_api/entitybase/v1/endpoints/debug.py:14
 src/models/rest_api/entitybase/v1/endpoints/debug.py:43
-src/models/rest_api/main.py:294
+src/models/rest_api/main.py:323
 src/models/rest_api/entitybase/v1/handlers/entity/revert.py:83
 src/models/rest_api/entitybase/v1/handlers/entity/revert.py:91
 src/models/internal_representation/statement_backlink_extractor.py:13
@@ -18,5 +18,5 @@ src/models/infrastructure/db/storage/base.py:65
 src/models/infrastructure/db/repositories/revision_data.py:24
 # JSON preferences payloads and raw query rows; no schema model justified
 src/models/infrastructure/db/repositories/user.py:221
-src/models/infrastructure/db/repositories/user.py:297
-src/models/infrastructure/db/repositories/user.py:355
+src/models/infrastructure/db/repositories/user.py:301
+src/models/infrastructure/db/repositories/user.py:359

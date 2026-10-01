@@ -156,6 +156,7 @@ async def lifespan(app_: FastAPI) -> AsyncGenerator[None, None]:
         state_handler.health_check()
         await _ensure_stream_producer(state_handler)
         await _create_database_tables(state_handler)
+        _ensure_import_user(state_handler)
         await _initialize_app_state(app_, state_handler)
         yield
     except Exception as e:
@@ -201,6 +202,34 @@ async def _create_database_tables(state_handler: StateHandler) -> None:
     except Exception as e:
         logger.warning(f"Could not create database tables on startup: {e}")
         logger.info("Tables will be created when first accessed or in tests")
+
+
+def _ensure_import_user(state_handler: StateHandler) -> None:
+    """Ensure the reserved import system user exists (idempotent).
+
+    The import user (user_id 0, username from settings.import_username)
+    owns bulk-imported entities and cannot log in (no password hash).
+    """
+    import_user_id = 0
+    try:
+        repo = state_handler.db_client.user_repository
+        if not repo.user_exists(import_user_id):
+            created = repo.create_user(import_user_id)
+            if not getattr(created, "success", False):
+                logger.warning(f"Could not create import user: {created.error}")
+                return
+        if repo.get_credentials_by_username(settings.import_username) is None:
+            credentials = repo.create_credentials(
+                import_user_id, settings.import_username, ""
+            )
+            if not getattr(credentials, "success", False):
+                logger.warning(
+                    f"Could not label import user: {credentials.error}"
+                )
+                return
+        logger.info(f"Import user ready: {settings.import_username}")
+    except Exception as e:
+        logger.warning(f"Could not ensure import user: {e}")
 
 
 async def _initialize_app_state(app_: FastAPI, state_handler: StateHandler) -> None:

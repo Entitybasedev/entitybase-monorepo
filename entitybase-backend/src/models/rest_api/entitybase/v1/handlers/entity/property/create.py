@@ -4,7 +4,10 @@ import logging
 from typing import Any
 
 from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
-from models.data.rest_api.v1.entitybase.request import EntityCreateRequest
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    EntityCreateRequest,
+)
 from models.data.rest_api.v1.entitybase.response import EntityResponse
 from ..create import EntityCreateHandler
 
@@ -20,6 +23,7 @@ class PropertyCreateHandler(EntityCreateHandler):
         edit_headers: EditHeaders,
         validator: Any | None = None,
         auto_assign_id: bool = False,
+        change_type: EntityChangeType = EntityChangeType.ENTITY_CREATE,
     ) -> EntityResponse:
         """Create a new property with auto-assigned P ID if not provided."""
         logger.debug("Creating new property")
@@ -28,5 +32,6 @@ class PropertyCreateHandler(EntityCreateHandler):
             edit_headers,
             validator,
             auto_assign_id=not bool(request.id),
+            change_type=change_type,
         )
         return response

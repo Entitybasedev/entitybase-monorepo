@@ -132,8 +132,9 @@ export async function getStreamHealth() {
 
 // --- Recent changes ---
 
-export async function getRecentChanges(limit = 50, offset = 0) {
+export async function getRecentChanges(limit = 50, offset = 0, excludeImports = false) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  if (excludeImports) params.set('exclude_imports', 'true')
   const res = await fetch(`${BASE}/v1/recentchanges?${params}`)
   return unwrap(res, 'GET recentchanges')
 }

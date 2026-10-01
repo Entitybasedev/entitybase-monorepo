@@ -108,6 +108,7 @@ class ItemCreateHandler(EntityCreateHandler):
         edit_headers: EditHeaders,
         validator: Any | None = None,
         auto_assign_id: bool = False,
+        change_type: EntityChangeType = EntityChangeType.ENTITY_CREATE,
     ) -> EntityResponse:
         """Create a new item with auto-assigned Q ID using EntityTransaction."""
         logger.info(
@@ -133,14 +134,14 @@ class ItemCreateHandler(EntityCreateHandler):
             )
             response = await self._execute_creation_transaction(tx_ctx)
 
-            if edit_headers.x_user_id > 0:
+            if edit_headers.x_user_id > 0 or change_type == EntityChangeType.ENTITY_IMPORT:
                 activity_result = (
                     self.state.db_client.user_repository.log_user_activity(
                         user_id=edit_headers.x_user_id,
                         activity_type=UserActivityType.ENTITY_CREATE,
                         entity_id=entity_id,
                         revision_id=response.revision_id,
-                        change_type=EntityChangeType.ENTITY_CREATE,
+                        change_type=change_type,
                         edit_summary=edit_headers.x_edit_summary,
                     )
                 )

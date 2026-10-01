@@ -83,6 +83,9 @@ class Settings(BaseModel):
     auth_secret: str = ""
     auth_token_expiry_hours: int = 168  # 7 days
 
+    # import system user (created at first API start)
+    import_username: str = "import"
+
     @property
     def auth_signing_secret(self) -> str:
         """Secret used to sign and verify auth tokens.
@@ -193,6 +196,7 @@ class Settings(BaseModel):
         self.auth_token_expiry_hours = int(
             os.getenv("AUTH_TOKEN_EXPIRY_HOURS", str(self.auth_token_expiry_hours))
         )
+        self.import_username = os.getenv("IMPORT_USERNAME", self.import_username)
         self.dangling_property_id = os.getenv(
             "DANGLING_PROPERTY_ID", self.dangling_property_id
         )

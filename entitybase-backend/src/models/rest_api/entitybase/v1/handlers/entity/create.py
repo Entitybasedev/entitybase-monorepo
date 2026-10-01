@@ -34,6 +34,7 @@ class EntityCreateHandler(EntityHandler):
         edit_headers: EditHeaders,
         validator: Any | None = None,
         auto_assign_id: bool = False,
+        change_type: EntityChangeType = EntityChangeType.ENTITY_CREATE,
     ) -> EntityResponse:
         """Create a new entity. Fails if entity already exists."""
         if auto_assign_id:
@@ -99,15 +100,15 @@ class EntityCreateHandler(EntityHandler):
         )
         response = await self.process_entity_revision_new(ctx)
 
-        # Log activity
-        if edit_headers.x_user_id > 0:
+        # Log activity (imports are attributed to the import user, id 0)
+        if edit_headers.x_user_id > 0 or change_type == EntityChangeType.ENTITY_IMPORT:
             activity_result = (
                 self.state.db_client.user_repository.log_user_activity(
                     user_id=edit_headers.x_user_id,
                     activity_type=UserActivityType.ENTITY_CREATE,
                     entity_id=entity_id,
                     revision_id=response.revision_id,
-                    change_type=EntityChangeType.ENTITY_CREATE,
+                    change_type=change_type,
                     edit_summary=edit_headers.x_edit_summary,
                 )
             )

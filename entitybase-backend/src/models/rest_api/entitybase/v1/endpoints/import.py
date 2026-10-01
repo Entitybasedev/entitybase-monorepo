@@ -4,7 +4,10 @@ import logging
 
 from fastapi import APIRouter, Request
 
-from models.data.rest_api.v1.entitybase.request import EntityCreateRequest
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    EntityCreateRequest,
+)
 
 logger = logging.getLogger(__name__)
 from models.data.rest_api.v1.entitybase.response import EntityResponse
@@ -61,8 +64,15 @@ async def import_entity(
     logger.debug("Creating entity handler")
     handler = EntityCreateHandler(state=state)
 
+    # Attribute imports to the authenticated user (header injected by
+    # AuthMiddleware from the bearer token) or to the import user (0).
+    try:
+        import_user_id = int(req.headers.get("X-User-ID") or 0)
+    except ValueError:
+        import_user_id = 0
+
     edit_headers = EditHeaders.model_validate(
-        {"X-User-ID": 0, "X-Edit-Summary": "Bulk import"}
+        {"X-User-ID": import_user_id, "X-Edit-Summary": "Bulk import"}
     )
 
     if request.type == "lexeme":
@@ -83,6 +93,7 @@ async def import_entity(
             edit_headers=edit_headers,
             validator=validator,
             auto_assign_id=False,
+            change_type=EntityChangeType.ENTITY_IMPORT,
         )
         logger.info(f"IMPORT SUCCESS: id={request.id}")
         return result

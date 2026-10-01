@@ -1,9 +1,19 @@
 <template>
   <section class="panel" data-testid="recent-changes-section">
     <h2>Recent changes</h2>
-    <button data-testid="recent-refresh" :disabled="loading" @click="refresh">
-      {{ loading ? 'Loading…' : 'Refresh' }}
-    </button>
+    <div class="recent-controls">
+      <button data-testid="recent-refresh" :disabled="loading" @click="refresh">
+        {{ loading ? 'Loading…' : 'Refresh' }}
+      </button>
+      <label class="control" title="Hide bulk-import entries">
+        <input
+          type="checkbox"
+          data-testid="recent-hide-imports"
+          v-model="hideImports"
+        />
+        Hide imports
+      </label>
+    </div>
     <section v-if="error" class="error" data-testid="recent-error">{{ error }}</section>
 
     <table class="history" data-testid="recent-table">
@@ -24,7 +34,12 @@
               {{ entry.entity_id }}
             </router-link>
           </td>
-          <td data-testid="recent-user">{{ entry.user_id }}</td>
+          <td data-testid="recent-user">
+            <span v-if="entry.user_id === 0" class="import-badge" data-testid="recent-import-user">
+              Import
+            </span>
+            <template v-else>{{ entry.user_id }}</template>
+          </td>
           <td data-testid="recent-summary">{{ entry.edit_summary || '—' }}</td>
         </tr>
         <tr v-if="!changes.length && !loading" data-testid="recent-empty">
@@ -42,13 +57,14 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { getRecentChanges } from '../api.js'
 
 const CHANGES_PAGE = 50
 
 const CHANGE_LABELS = {
   entity_create: 'New entity',
+  entity_import: 'Imported',
   label_update: 'Label edited',
   label_delete: 'Label removed',
   description_update: 'Description edited',
@@ -70,6 +86,11 @@ const changes = ref([])
 const limit = ref(CHANGES_PAGE)
 const loading = ref(false)
 const error = ref('')
+const hideImports = ref(false)
+
+watch(hideImports, () => {
+  return refresh()
+})
 
 function changeLabel(entry) {
   return (
@@ -83,7 +104,8 @@ async function load(offset = 0) {
   loading.value = true
   error.value = ''
   try {
-    const entries = (await getRecentChanges(CHANGES_PAGE, offset)) ?? []
+    const entries =
+      (await getRecentChanges(CHANGES_PAGE, offset, hideImports.value)) ?? []
     if (offset === 0) {
       changes.value = entries
     } else {
@@ -113,4 +135,7 @@ onMounted(() => {
 <style>
 .change-type { font-weight: 600; }
 .empty-row { color: #666; }
+.recent-controls { display: flex; gap: 1rem; align-items: center; margin-bottom: .5rem; }
+.recent-controls .control { display: flex; align-items: center; gap: .4rem; font-size: .9rem; }
+.import-badge { background: #fff8e1; border: 1px solid #ffe082; border-radius: 999px; padding: .05rem .5rem; font-size: .85rem; }
 </style>

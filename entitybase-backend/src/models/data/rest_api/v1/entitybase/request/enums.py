@@ -25,6 +25,7 @@ class EntityChangeType(str, Enum):
     """Granular kind of change for the recent-changes list."""
 
     ENTITY_CREATE = "entity_create"  # New item/property/lexeme
+    ENTITY_IMPORT = "entity_import"  # Bulk/system import (special case)
     LABEL_UPDATE = "label_update"
     LABEL_DELETE = "label_delete"
     DESCRIPTION_UPDATE = "description_update"

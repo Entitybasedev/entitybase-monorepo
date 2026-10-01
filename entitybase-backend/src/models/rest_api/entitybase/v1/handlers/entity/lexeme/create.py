@@ -4,7 +4,10 @@ import logging
 from typing import Any
 
 from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
-from models.data.rest_api.v1.entitybase.request import EntityCreateRequest
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    EntityCreateRequest,
+)
 from models.data.rest_api.v1.entitybase.response import EntityResponse
 from models.rest_api.entitybase.v1.services.enumeration_service import (
     EnumerationService,
@@ -26,6 +29,7 @@ class LexemeCreateHandler(EntityCreateHandler):
         edit_headers: EditHeaders,
         validator: Any | None = None,
         auto_assign_id: bool = False,
+        change_type: EntityChangeType = EntityChangeType.ENTITY_CREATE,
     ) -> EntityResponse:
         """Create a new lexeme with auto-assigned L ID."""
         logger.debug("Creating new lexeme")
@@ -47,6 +51,7 @@ class LexemeCreateHandler(EntityCreateHandler):
             edit_headers,
             validator,
             auto_assign_id=True,
+            change_type=change_type,
         )
 
         # Process lexeme terms for deduplication

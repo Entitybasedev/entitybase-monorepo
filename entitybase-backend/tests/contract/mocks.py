@@ -27,7 +27,6 @@ class MockConnectionManager:
         self._cursor = MockCursor(revision_data_store=self._revision_data_store)
         self._connection = MagicMock()
         self._connection.cursor = lambda: self._cursor
-
     def acquire(self) -> MagicMock:
         return self._connection
 
@@ -40,11 +39,16 @@ class MockConnectionManager:
 
 
 class MockCursor:
-    def __init__(self, revision_data_store: dict[int, dict] | None = None) -> None:
+    def __init__(
+        self,
+        revision_data_store: dict[int, dict] | None = None,
+        mysql_client: Any = None,
+    ) -> None:
         self._rows: list[tuple] = []
         self._revision_data_store = (
             revision_data_store if revision_data_store is not None else {}
         )
+        self._mysql_client = mysql_client
 
     @property
     def cursor(self) -> "MockCursor":
@@ -52,6 +56,8 @@ class MockCursor:
 
     def execute(self, query: str, params: Any = None) -> None:
         q = " ".join(query.split())
+        # Unknown queries produce no rows (fresh cursor state)
+        self._rows = []
         if "INSERT INTO entity_revision_data" in q and params:
             self._revision_data_store[params[0]] = json.loads(params[1])
         elif "SELECT data FROM entity_revision_data" in q and params:
@@ -59,6 +65,9 @@ class MockCursor:
             self._rows = [(json.dumps(row),)] if row else []
         elif "SELECT 1 FROM entity_revision_data" in q and params:
             self._rows = [(1,)] if params[0] in self._revision_data_store else []
+        elif "SELECT content_hash FROM entity_revisions" in q and params:
+            content_hash = self._lookup_content_hash(int(params[0]), int(params[1]))
+            self._rows = [(content_hash,)] if content_hash else []
 
     def fetchone(self) -> tuple | None:
         if self._rows:
@@ -70,6 +79,26 @@ class MockCursor:
 
     def close(self) -> None:
         pass
+
+    def _lookup_content_hash(self, internal_id: int, revision_id: int) -> int:
+        """Resolve (internal_id, revision_id) to the stored content hash.
+
+        Mirrors where MockMysqlClient.create_revision records hashes:
+        pending revisions first, then hashes consumed by the S3 mock.
+        """
+        client = self._mysql_client
+        if client is None:
+            return 0
+        entity_id = client.id_resolver.resolve_entity_id(internal_id)
+        if not entity_id:
+            return 0
+        content_hash = client.get_pending_revisions().get((entity_id, revision_id))
+        if content_hash:
+            return int(content_hash)
+        s3 = client._s3_client
+        if s3 is not None:
+            return int(s3._revision_hashes.get((entity_id, revision_id), 0))
+        return 0
 
     def __enter__(self) -> "MockCursor":
         return self
@@ -149,12 +178,18 @@ class MockUserRepository:
         return result
 
     def get_recent_changes(
-        self, limit: int = 50, offset: int = 0, change_type: Any = None
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        change_type: Any = None,
+        exclude_imports: bool = False,
     ) -> list[dict]:
         rows = self._activities
         if change_type is not None:
             wanted = getattr(change_type, "value", change_type)
             rows = [row for row in rows if row["change_type"] == wanted]
+        elif exclude_imports:
+            rows = [row for row in rows if row["change_type"] != "entity_import"]
         # Newest first (id descending), then paginate
         ordered = sorted(rows, key=lambda row: row["id"], reverse=True)
         return ordered[offset : offset + limit]
@@ -253,7 +288,9 @@ class MockMysqlClient:
         self.head_repository = MockHeadRepository()
         self.statement_repository = MockStatementRepository()
         self._revision_data_store: dict[int, dict] = {}
-        self._cursor = MockCursor(revision_data_store=self._revision_data_store)
+        self._cursor = MockCursor(
+            revision_data_store=self._revision_data_store, mysql_client=self
+        )
         self._s3_client: Any = None
         self._pending_revisions: dict[tuple[str, int], int] = {}
         self._revisions: dict[str, list[int]] = {}
@@ -271,6 +308,9 @@ class MockMysqlClient:
 
     def entity_exists(self, entity_id: str) -> bool:
         return self.id_resolver.entity_exists(entity_id)
+
+    def register_entity(self, entity_id: str) -> None:
+        self.id_resolver.register_entity(entity_id)
 
     def is_entity_deleted(self, entity_id: str) -> bool:
         return False

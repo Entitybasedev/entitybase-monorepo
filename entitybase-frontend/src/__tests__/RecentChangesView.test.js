@@ -45,13 +45,31 @@ describe('RecentChangesView', () => {
 
     const wrapper = await mountView()
 
-    expect(apiMocks.getRecentChanges).toHaveBeenCalledWith(50, 0)
+    expect(apiMocks.getRecentChanges).toHaveBeenCalledWith(50, 0, false)
     const rows = wrapper.findAll('[data-testid="recent-row"]')
     expect(rows).toHaveLength(2)
     const types = wrapper.findAll('[data-testid="recent-type"]')
     expect(types[0].text()).toBe('Label edited')
     expect(types[1].text()).toBe('New statement')
     expect(wrapper.find('[data-testid="recent-summary"]').text()).toBe('did a thing')
+  })
+
+  it('shows the import badge for the import user and an Imported type', async () => {
+    const importEntry = { ...entry(1, 'entity_import'), user_id: 0 }
+    apiMocks.getRecentChanges.mockImplementation(async (...args) => {
+      return args[2] ? [] : [importEntry]
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="recent-type"]').text()).toBe('Imported')
+    expect(wrapper.find('[data-testid="recent-import-user"]').text()).toBe('Import')
+
+    await wrapper.find('[data-testid="recent-hide-imports"]').setValue(true)
+    await flushPromises()
+
+    expect(apiMocks.getRecentChanges).toHaveBeenLastCalledWith(50, 0, true)
+    expect(wrapper.find('[data-testid="recent-empty"]').exists()).toBe(true)
   })
 
   it('links to the entity of each row', async () => {
@@ -101,7 +119,7 @@ describe('RecentChangesView', () => {
     await wrapper.find('[data-testid="recent-more"]').trigger('click')
     await flushPromises()
 
-    expect(apiMocks.getRecentChanges).toHaveBeenLastCalledWith(50, 50)
+    expect(apiMocks.getRecentChanges).toHaveBeenLastCalledWith(50, 50, false)
     expect(wrapper.findAll('[data-testid="recent-row"]')).toHaveLength(51)
   })
 })

@@ -27,6 +27,10 @@ def get_recent_changes(
         None,
         description="Filter by granular change type (e.g. statement_add)",
     ),
+    exclude_imports: bool = Query(
+        False,
+        description="Exclude bulk-import entries (change_type entity_import)",
+    ),
 ) -> list[RecentChangeEntry]:
     """Get the most recent changes across all entities."""
     state = req.app.state.state_handler
@@ -43,7 +47,10 @@ def get_recent_changes(
             )
 
     rows = state.db_client.user_repository.get_recent_changes(
-        limit=limit, offset=offset, change_type=change_filter
+        limit=limit,
+        offset=offset,
+        change_type=change_filter,
+        exclude_imports=exclude_imports,
     )
     logger.debug(f"Returning {len(rows)} recent changes")
     return [RecentChangeEntry.model_validate(row) for row in rows]
