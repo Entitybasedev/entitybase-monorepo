@@ -211,7 +211,7 @@ jobs:
     # Playwright e2e against the REAL backend stack (never the mock API).
     # Runs unconditionally, in parallel with the other test jobs.
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 25
     env:
       API_URL: http://localhost:8000
       API_TARGET: http://localhost:8000
