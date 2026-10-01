@@ -11,7 +11,22 @@ import http from 'node:http'
 const db = new Map()
 const statementsByHash = new Map()
 const events = []
+const recentChanges = []
 let counter = 1000
+let changeSeq = 0
+
+function recordChange(entityId, changeType, summary, userId = 90001) {
+  recentChanges.push({
+    id: ++changeSeq,
+    created_at: new Date().toISOString(),
+    user_id: userId,
+    activity_type: changeType === 'entity_create' ? 'entity_create' : 'entity_edit',
+    change_type: changeType,
+    entity_id: entityId,
+    revision_id: 1,
+    edit_summary: summary,
+  })
+}
 
 function recordRevision(entityId, summary) {
   const item = db.get(entityId)
@@ -74,6 +89,7 @@ const server = http.createServer((req, res) => {
       db.set(id, { id, type: 'item', labels: {}, hashes: { statements: [] } })
       recordEvent(id, 'creation')
       recordRevision(id, 'Created item')
+      recordChange(id, 'entity_create', 'Created via entitybase-frontend')
       return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
     }
     if (req.method === 'POST' && url.pathname === '/v1/entities/properties') {
@@ -81,6 +97,7 @@ const server = http.createServer((req, res) => {
       db.set(id, { id, type: 'property', labels: {}, hashes: { statements: [] } })
       recordEvent(id, 'creation')
       recordRevision(id, 'Created property')
+      recordChange(id, 'entity_create', 'Created via entitybase-frontend')
       return json(200, { success: true, data: { entity_id: id, revision_id: 1 } })
     }
     if (req.method === 'POST' && url.pathname === '/v1/entities/lexemes') {
@@ -95,7 +112,18 @@ const server = http.createServer((req, res) => {
       })
       recordEvent(id, 'creation')
       recordRevision(id, 'Created lexeme')
+      recordChange(id, 'entity_create', 'Created via entitybase-frontend')
       return json(200, { id, rev_id: 1, data: { revision: {} } })
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/recentchanges') {
+      let rows = recentChanges
+      if (url.searchParams.get('exclude_imports') === 'true') {
+        rows = rows.filter((row) => row.change_type !== 'entity_import')
+      }
+      const limit = Number(url.searchParams.get('limit') ?? 50)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      const ordered = [...rows].sort((a, b) => b.id - a.id)
+      return json(200, ordered.slice(offset, offset + limit))
     }
     const sm = url.pathname.match(/^\/v1\/statements\/(\d+)$/)
     if (req.method === 'GET' && sm) {
@@ -117,6 +145,7 @@ const server = http.createServer((req, res) => {
         statementsByHash.set(hash, claim)
         item.hashes.statements.push(hash)
         recordRevision(id, 'Add statement')
+        recordChange(id, 'statement_add', 'Created via entitybase-frontend')
         return json(200, { success: true, data: claim })
       }
       const lm = rest.match(/^\/labels\/(\w+)$/)
@@ -125,6 +154,7 @@ const server = http.createServer((req, res) => {
         if (req.method === 'PUT' || req.method === 'POST') {
           item.labels[lang] = { language: lang, value: jsonBody.value }
           recordRevision(id, 'Set label')
+          recordChange(id, 'label_update', 'Created via entitybase-frontend')
           return json(200, { hash: 'mock' })
         }
         return json(200, { value: item.labels[lang]?.value ?? '' })
