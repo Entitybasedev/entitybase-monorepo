@@ -84,12 +84,13 @@ def login(request: LoginRequest, req: Request) -> AuthResponse:
 def _issue_token(user_id: int, username: str) -> str:
     """Create a signed token for the user."""
     try:
-        return create_token(
+        token: str = create_token(
             user_id,
             username,
             settings.auth_signing_secret,
             settings.auth_token_expiry_hours,
         )
+        return token
     except ValueError as e:
         logger.error(f"Token creation failed: {e}")
         # follow_imports=skip hides raise_validation_error's NoReturn type
