@@ -62,7 +62,7 @@ test('stream tab is reachable from the entities view via the menu', async ({
   await page.getByTestId('nav-stream').click()
 
   await expect(page.getByTestId('stream-view')).toBeVisible()
-  expect(new URL(page.url()).searchParams.get('tab')).toBe('stream')
+  expect(new URL(page.url()).pathname).toBe('/stream')
 })
 
 test('creating an item produces a change event with the same QID', async ({

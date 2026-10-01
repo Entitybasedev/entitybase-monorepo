@@ -1,10 +1,20 @@
 const BASE = import.meta.env.VITE_API_BASE || ''
 
+import { authHeaders, userId as authUserId } from './auth.js'
+
+// Resolve the acting user: the logged-in user, else the explicit ID,
+// else the legacy demo ID (90001).
+function actingUserId(userId) {
+  if (authUserId.value) return authUserId.value
+  return userId ?? 90001
+}
+
 function editHeaders(userId) {
   return {
     'Content-Type': 'application/json',
-    'X-User-ID': String(userId ?? 90001),
+    'X-User-ID': String(actingUserId(userId)),
     'X-Edit-Summary': 'Created via entitybase-frontend',
+    ...authHeaders(),
   }
 }
 
@@ -125,7 +135,9 @@ export async function getStreamHealth() {
 // --- Per-user UI settings ---
 
 export async function getUserSettings(userId) {
-  const res = await fetch(`${BASE}/v1/users/${encodeURIComponent(userId)}/settings`)
+  const res = await fetch(`${BASE}/v1/users/${encodeURIComponent(userId)}/settings`, {
+    headers: authHeaders(),
+  })
   if (res.status === 404) return {}
   return unwrap(res, `GET user settings ${userId}`)
 }
@@ -133,7 +145,11 @@ export async function getUserSettings(userId) {
 export async function putUserSettings(userId, settings) {
   const res = await fetch(
     `${BASE}/v1/users/${encodeURIComponent(userId)}/settings`,
-    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(settings),
+    }
   )
   return unwrap(res, `PUT user settings ${userId}`)
 }

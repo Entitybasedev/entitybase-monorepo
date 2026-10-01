@@ -33,6 +33,8 @@ const apiMocks = vi.hoisted(() => ({
 vi.mock('../api.js', () => apiMocks)
 
 import App from '../App.vue'
+import router from '../router.js'
+import { logout } from '../auth.js'
 
 function itemPayload(id, label, statementHashes = []) {
   return {
@@ -51,7 +53,8 @@ function itemPayload(id, label, statementHashes = []) {
 }
 
 async function mountApp() {
-  const wrapper = mount(App)
+  const wrapper = mount(App, { global: { plugins: [router] } })
+  await router.isReady()
   await flushPromises()
   return wrapper
 }
@@ -59,6 +62,8 @@ async function mountApp() {
 beforeEach(() => {
   vi.clearAllMocks()
   window.history.replaceState(null, '', '/')
+  logout()
+  return router.push('/').then(() => router.isReady())
 })
 
 afterEach(() => {
@@ -80,7 +85,7 @@ describe('App', () => {
   })
 
   it('loads an item from the ?entity= query param on mount', async () => {
-    window.history.replaceState(null, '', '/?entity=Q42')
+    await router.push('/?entity=Q42')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
     apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
     apiMocks.getDescriptionWithFallback.mockResolvedValue('The author of the Hitchhiker trilogy')
@@ -111,9 +116,6 @@ describe('App', () => {
 
     expect(apiMocks.postItem).toHaveBeenCalledWith({}, 90001)
     expect(apiMocks.putLabel).toHaveBeenCalledWith('Q1000', 'en', 'E2E Item', 90001)
-    console.log('DEBUG wfb calls:', apiMocks.getLabelWithFallback.mock.calls)
-    console.log('DEBUG wfb result:', await apiMocks.getLabelWithFallback('Q1000', ['en']))
-    console.log('DEBUG label ref text:', wrapper.find('[data-testid="item-label"]').text())
     expect(apiMocks.getItem).toHaveBeenCalledWith('Q1000')
 
     const itemSection = wrapper.find('[data-testid="item-section"]')
@@ -123,7 +125,7 @@ describe('App', () => {
   })
 
   it('adds a statement and renders property and value', async () => {
-    window.history.replaceState(null, '', '/?entity=Q1')
+    await router.push('/?entity=Q1')
     apiMocks.getItem
       .mockResolvedValueOnce(itemPayload('Q1', 'Test', []))
       .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
@@ -194,7 +196,7 @@ describe('App', () => {
     await wrapper.find('[data-testid="create-item-button"]').trigger('click')
     await flushPromises()
 
-    expect(window.location.search).toBe('?tab=entities&entity=Q1234')
+    expect(window.location.search).toBe('?entity=Q1234')
   })
 })
 
@@ -214,7 +216,7 @@ describe('App > create property', () => {
     expect(apiMocks.putLabel).toHaveBeenCalledWith('P30000', 'en', 'instance of', 90001)
     expect(apiMocks.getItem).toHaveBeenCalledWith('P30000')
     expect(wrapper.find('[data-testid="item-label"]').text()).toBe('instance of')
-    expect(window.location.search).toBe('?tab=entities&entity=P30000')
+    expect(window.location.search).toBe('?entity=P30000')
   })
 })
 
@@ -242,13 +244,13 @@ describe('App > create lexeme', () => {
     )
     expect(apiMocks.getItem).toHaveBeenCalledWith('L77')
     expect(wrapper.find('[data-testid="item-section"]').exists()).toBe(true)
-    expect(window.location.search).toBe('?tab=entities&entity=L77')
+    expect(window.location.search).toBe('?entity=L77')
   })
 })
 
 describe('App > entity history', () => {
-  beforeEach(() => {
-    window.history.replaceState(null, '', '/?entity=Q1')
+  beforeEach(async () => {
+    await router.push('/?entity=Q1')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test', []))
     apiMocks.getLabelWithFallback.mockResolvedValue('Test')
     apiMocks.getDescription.mockResolvedValue(null)
@@ -328,8 +330,8 @@ describe('App > entity history', () => {
 })
 
 describe('App > interface language', () => {
-  beforeEach(() => {
-    window.history.replaceState(null, '', '/?entity=Q42')
+  beforeEach(async () => {
+    await router.push('/?entity=Q42')
     language.value = 'en'
     showQid.value = false
     apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
@@ -351,8 +353,6 @@ describe('App > interface language', () => {
     await wrapper.find('[data-testid="language-select"]').setValue('sv')
     await new Promise((r) => setTimeout(r, 50))
 
-    console.log('LABEL AFTER:', wrapper.find('[data-testid="item-label"]').text())
-
     expect(apiMocks.getLabelWithFallback).toHaveBeenLastCalledWith('Q42', ['sv'])
     expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams (sv)')
   })
@@ -365,8 +365,8 @@ describe('App > interface language', () => {
 })
 
 describe('App > show QID toggle', () => {
-  beforeEach(() => {
-    window.history.replaceState(null, '', '/?entity=Q42')
+  beforeEach(async () => {
+    await router.push('/?entity=Q42')
     language.value = 'en'
     showQid.value = false
     apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
