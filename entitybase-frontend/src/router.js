@@ -3,6 +3,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import EntitiesView from './views/EntitiesView.vue'
 import LoginView from './views/LoginView.vue'
+import RegisterView from './views/RegisterView.vue'
 import SettingsView from './views/SettingsView.vue'
 import StreamView from './components/stream/StreamView.vue'
 
@@ -12,6 +13,7 @@ const router = createRouter({
     { path: '/', name: 'entities', component: EntitiesView },
     { path: '/stream', name: 'stream', component: StreamView },
     { path: '/login', name: 'login', component: LoginView },
+    { path: '/register', name: 'register', component: RegisterView },
     {
       path: '/:userId(\\d+)/settings',
       name: 'settings',

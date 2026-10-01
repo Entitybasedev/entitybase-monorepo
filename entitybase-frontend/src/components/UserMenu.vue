@@ -19,6 +19,9 @@
       <router-link class="login-link" data-testid="user-menu-login" to="/login">
         Log in
       </router-link>
+      <router-link class="login-link" data-testid="user-menu-register" to="/register">
+        Register
+      </router-link>
     </template>
   </div>
 </template>
