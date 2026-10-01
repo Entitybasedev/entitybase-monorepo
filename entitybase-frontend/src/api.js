@@ -130,6 +130,14 @@ export async function getStreamHealth() {
   return unwrap(res, 'GET stream health')
 }
 
+// --- Recent changes ---
+
+export async function getRecentChanges(limit = 50, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const res = await fetch(`${BASE}/v1/recentchanges?${params}`)
+  return unwrap(res, 'GET recentchanges')
+}
+
 // --- Per-user UI settings ---
 
 export async function getUserSettings(userId) {

@@ -16,6 +16,13 @@
       >
         Change stream
       </router-link>
+      <router-link
+        data-testid="nav-recent"
+        :class="{ active: isActive('/recent') }"
+        to="/recent"
+      >
+        Recent changes
+      </router-link>
       <div class="header-controls">
         <label class="control">
           Language
@@ -80,7 +87,9 @@ const navQuery = computed(() => {
 })
 
 function isActive(path) {
-  return path === '/' ? route.path === '/' : route.path.startsWith(path)
+  return path === '/'
+    ? route.path === '/'
+    : route.path.startsWith(path)
 }
 </script>
 

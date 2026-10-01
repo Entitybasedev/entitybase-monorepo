@@ -13,7 +13,10 @@ from models.rest_api.entitybase.v1.services.enumeration_service import (
 )
 from models.rest_api.utils import raise_validation_error
 from .handler import EntityHandler
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +107,8 @@ class EntityCreateHandler(EntityHandler):
                     activity_type=UserActivityType.ENTITY_CREATE,
                     entity_id=entity_id,
                     revision_id=response.revision_id,
+                    change_type=EntityChangeType.ENTITY_CREATE,
+                    edit_summary=edit_headers.x_edit_summary,
                 )
             )
             if not activity_result.success:

@@ -5,7 +5,10 @@ from datetime import datetime, timezone
 from typing import cast
 
 from models.config.settings import settings
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
 from models.data.infrastructure.s3.entity_state import EntityState
 from models.data.infrastructure.s3.enums import EditType, EditData, EntityType
@@ -71,6 +74,8 @@ class EntityRevertHandler(Handler):
                     activity_type=UserActivityType.ENTITY_REVERT,
                     entity_id=entity_id,
                     revision_id=new_revision_id,
+                    change_type=EntityChangeType.ENTITY_REVERT,
+                    edit_summary=edit_headers.x_edit_summary,
                 )
             )
             if not activity_result.success:

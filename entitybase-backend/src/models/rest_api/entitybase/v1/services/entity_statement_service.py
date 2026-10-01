@@ -8,9 +8,13 @@ from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
 from models.data.common import OperationResult
 from models.data.infrastructure.s3.enums import EditType
 from models.data.raw_entity import RawEntityData
-from models.data.rest_api.v1.entitybase.request import AddPropertyRequest
-from models.data.rest_api.v1.entitybase.request import AddStatementRequest
-from models.data.rest_api.v1.entitybase.request import PatchStatementRequest
+from models.data.rest_api.v1.entitybase.request import (
+    AddPropertyRequest,
+    AddStatementRequest,
+    EntityChangeType,
+    PatchStatementRequest,
+    UserActivityType,
+)
 from models.data.rest_api.v1.entitybase.response import (
     EntityResponse,
     PropertyRecalculationResult,
@@ -72,6 +76,27 @@ class _PropertyCountHelper:
 class EntityStatementService(Service):
     """Service for entity statement modification operations."""
 
+    def _log_activity(
+        self,
+        edit_headers: EditHeaders,
+        entity_id: str,
+        revision_id: int,
+        change_type: EntityChangeType,
+    ) -> None:
+        """Log user activity for a statement change."""
+        if edit_headers.x_user_id <= 0:
+            return
+        activity_result = self.state.db_client.user_repository.log_user_activity(
+            user_id=edit_headers.x_user_id,
+            activity_type=UserActivityType.ENTITY_EDIT,
+            entity_id=entity_id,
+            revision_id=revision_id,
+            change_type=change_type,
+            edit_summary=edit_headers.x_edit_summary,
+        )
+        if not activity_result.success:
+            logger.warning(f"Failed to log user activity: {activity_result.error}")
+
     async def add_property(
         self,
         entity_id: str,
@@ -95,6 +120,12 @@ class EntityStatementService(Service):
             edit_headers,
             validator,
         )
+        self._log_activity(
+            edit_headers,
+            entity_id,
+            entity_response.revision_id,
+            EntityChangeType.STATEMENT_ADD,
+        )
         return OperationResult(
             success=True,
             data=RevisionIdResult(revision_id=entity_response.revision_id),
@@ -116,6 +147,12 @@ class EntityStatementService(Service):
         self._decrement_statement_ref_count(statement_hash)
         new_revision_id = await self._store_updated_revision(
             revision_data, entity_id, head_revision_id, edit_headers
+        )
+        self._log_activity(
+            edit_headers,
+            entity_id,
+            new_revision_id,
+            EntityChangeType.STATEMENT_REMOVE,
         )
         return OperationResult(
             success=True,
@@ -167,6 +204,12 @@ class EntityStatementService(Service):
             current_data.data,
             edit_headers,
             validator,
+        )
+        self._log_activity(
+            edit_headers,
+            entity_id,
+            entity_response.revision_id,
+            EntityChangeType.STATEMENT_PATCH,
         )
         return OperationResult(
             success=True,

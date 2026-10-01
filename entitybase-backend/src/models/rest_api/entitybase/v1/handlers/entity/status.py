@@ -2,7 +2,10 @@
 
 import logging
 
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
 from models.data.rest_api.v1.entitybase.request.entity.entity_status import (
     EntityStatusRequest,
@@ -76,12 +79,17 @@ class EntityStatusHandler(Handler):
     ) -> None:
         """Log user activity."""
         if edit_headers.x_user_id > 0:
+            try:
+                change_type = EntityChangeType(activity_type.value)
+            except ValueError:
+                change_type = None
             activity_result = (
                 self.state.db_client.user_repository.log_user_activity(
                     user_id=edit_headers.x_user_id,
                     activity_type=activity_type,
                     entity_id=entity_id,
                     revision_id=0,
+                    change_type=change_type,
                 )
             )
             if not activity_result.success:

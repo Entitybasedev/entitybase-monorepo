@@ -17,7 +17,10 @@ from models.data.rest_api.v1.entitybase.request.entity.context import (
     EventPublishContext,
 )
 from models.data.rest_api.v1.entitybase.response import EntityResponse
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 from models.infrastructure.s3.exceptions import S3NotFoundError
 from models.rest_api.utils import raise_validation_error
 from .update_transaction import UpdateTransaction
@@ -118,6 +121,8 @@ class EntityUpdateLexemeMixin(BaseModel):
                         activity_type=UserActivityType.ENTITY_EDIT,
                         entity_id=entity_id,
                         revision_id=response.revision_id,
+                        change_type=EntityChangeType.LEXEME_UPDATE,
+                        edit_summary=edit_headers.x_edit_summary,
                     )
                 )
                 if not activity_result.success:

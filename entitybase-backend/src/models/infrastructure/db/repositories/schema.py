@@ -341,11 +341,29 @@ class SchemaRepository(Repository):
                     entity_id VARCHAR(50),
                     revision_id BIGINT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    edit_summary VARCHAR(200) NOT NULL DEFAULT '',
+                    change_type VARCHAR(50) NOT NULL DEFAULT '',
                     INDEX idx_user_type_time (user_id, activity_type, created_at),
-                    INDEX idx_entity (entity_id)
+                    INDEX idx_entity (entity_id),
+                    INDEX idx_created_at (created_at)
                 )
             """
             )
+
+            # Migrations for tables created before change_type/edit_summary
+            for column in (
+                "ADD COLUMN edit_summary VARCHAR(200) NOT NULL DEFAULT ''",
+                "ADD COLUMN change_type VARCHAR(50) NOT NULL DEFAULT ''",
+            ):
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE user_activity {column}"
+                    )
+                except Exception as e:
+                    # Column already exists in newer schemas
+                    if "Duplicate column" in str(e):
+                        continue
+                    logger.debug(f"user_activity migration skipped: {e}")
 
             cursor.execute(
                 """

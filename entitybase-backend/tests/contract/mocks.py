@@ -108,6 +108,8 @@ class MockUserRepository:
         self._registered: set[int] = set()
         self._ui_preferences: dict[int, dict] = {}
         self._credentials: dict[str, dict] = {}
+        self._activities: list[dict] = []
+        self._next_activity_id = 1
 
     def user_exists(self, user_id: int) -> bool:
         return user_id in self._registered
@@ -118,6 +120,44 @@ class MockUserRepository:
         result.success = True
         result.error = None
         return result
+
+    def log_user_activity(
+        self,
+        user_id: int,
+        activity_type: Any,
+        entity_id: str,
+        revision_id: int = 0,
+        change_type: Any = None,
+        edit_summary: str = "",
+    ) -> Any:
+        """Record an activity row for the recent-changes endpoint."""
+        entry = {
+            "id": self._next_activity_id,
+            "user_id": user_id,
+            "activity_type": getattr(activity_type, "value", str(activity_type)),
+            "change_type": getattr(change_type, "value", "") or "",
+            "entity_id": entity_id,
+            "revision_id": revision_id,
+            "edit_summary": edit_summary,
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+        self._next_activity_id += 1
+        self._activities.append(entry)
+        result = MagicMock()
+        result.success = True
+        result.error = None
+        return result
+
+    def get_recent_changes(
+        self, limit: int = 50, offset: int = 0, change_type: Any = None
+    ) -> list[dict]:
+        rows = self._activities
+        if change_type is not None:
+            wanted = getattr(change_type, "value", change_type)
+            rows = [row for row in rows if row["change_type"] == wanted]
+        # Newest first (id descending), then paginate
+        ordered = sorted(rows, key=lambda row: row["id"], reverse=True)
+        return ordered[offset : offset + limit]
 
     def get_ui_preferences(self, user_id: int) -> dict | None:
         return self._ui_preferences.get(user_id)
@@ -271,7 +311,8 @@ class MockMysqlClient:
         expected_revision_id: int = 0,
     ) -> bool:
         current_head = self.get_head(entity_id)
-        if current_head != expected_revision_id:
+        # Mirror the real repository: expected_revision_id 0 skips the CAS check
+        if expected_revision_id and current_head != expected_revision_id:
             return False
         self._pending_revisions[(entity_id, revision_id)] = content_hash
         if entity_id not in self._revisions:

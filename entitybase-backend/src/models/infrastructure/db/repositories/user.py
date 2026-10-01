@@ -6,7 +6,10 @@ from typing import Any, List
 
 from models.data.common import OperationResult
 from models.infrastructure.db.repository import Repository
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 from models.data.rest_api.v1.entitybase.request.entity.context import (
     GeneralStatisticsContext,
 )
@@ -166,12 +169,14 @@ class UserRepository(Repository):
         """Enable watchlist for user (idempotent)."""
         return self.set_watchlist_enabled(user_id, True)
 
-    def log_user_activity(
+    def log_user_activity(  # noqa: PLR0913, PLR0917
         self,
         user_id: int,
         activity_type: UserActivityType,
         entity_id: str,
         revision_id: int = 0,
+        change_type: EntityChangeType | None = None,
+        edit_summary: str = "",
     ) -> OperationResult:
         """Log a user activity for tracking interactions with entities.
 
@@ -195,14 +200,75 @@ class UserRepository(Repository):
             with self.db_client.cursor as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO user_activity (user_id, activity_type, entity_id, revision_id)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO user_activity
+                        (user_id, activity_type, entity_id, revision_id,
+                         edit_summary, change_type)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (user_id, activity_type.value, entity_id, revision_id),
+                    (
+                        user_id,
+                        activity_type.value,
+                        entity_id,
+                        revision_id,
+                        edit_summary,
+                        change_type.value if change_type else "",
+                    ),
                 )
                 return OperationResult(success=True)
         except Exception as e:
             return OperationResult(success=False, error=str(e))
+
+    def get_recent_changes(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        change_type: "EntityChangeType | None" = None,
+    ) -> List[dict]:
+        """Get the most recent changes across all entities.
+
+        Returns a list of dicts with id, user_id, activity_type,
+        change_type, entity_id, revision_id, edit_summary and created_at.
+        """
+        logger.debug(
+            f"Getting recent changes: limit={limit}, offset={offset}, "
+            f"change_type={change_type}"
+        )
+        try:
+            with self.db_client.cursor as cursor:
+                query = """
+                    SELECT id, user_id, activity_type, change_type, entity_id,
+                           revision_id, edit_summary, created_at
+                    FROM user_activity
+                """
+                params: List[Any] = []
+                if change_type:
+                    query += " WHERE change_type = %s"
+                    params.append(change_type.value)
+                query += " ORDER BY id DESC LIMIT %s OFFSET %s"
+                params.extend([limit, offset])
+
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+
+                changes = []
+                for row in rows:
+                    changes.append(
+                        {
+                            "id": int(row[0]),
+                            "user_id": int(row[1]),
+                            "activity_type": row[2] or "",
+                            "change_type": row[3] or "",
+                            "entity_id": row[4] or "",
+                            "revision_id": int(row[5]) if row[5] else 0,
+                            "edit_summary": row[6] or "",
+                            "created_at": str(row[7]) if row[7] else "",
+                        }
+                    )
+                logger.debug(f"Found {len(changes)} recent changes")
+                return changes
+        except Exception as e:
+            logger.error(f"Failed to get recent changes: {e}")
+            return []
 
     def get_user_preferences(self, user_id: int = 0) -> OperationResult:
         """Get user notification preferences."""

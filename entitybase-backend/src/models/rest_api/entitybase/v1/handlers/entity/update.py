@@ -10,7 +10,10 @@ from pydantic import BaseModel
 from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
 from models.data.infrastructure.s3.enums import EntityType
 from models.data.infrastructure.stream.change_type import ChangeType
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 from models.data.rest_api.v1.entitybase.request.entity import PreparedRequestData
 from models.data.rest_api.v1.entitybase.request.edit_context import EditContext
 from models.data.rest_api.v1.entitybase.request.entity.context import (
@@ -53,13 +56,14 @@ class EntityUpdateHandler(
         """Infer entity type from ID format."""
         return infer_entity_type_from_id(entity_id)
 
-    async def _update_with_transaction(
+    async def _update_with_transaction(  # noqa: PLR0913, PLR0917
         self,
         entity_id: str,
         modified_data: dict[str, Any],
         entity_type: EntityType,
         edit_headers: EditHeaders,
         validator: Any | None = None,
+        change_type: EntityChangeType | None = None,
     ) -> EntityResponse:
         """Execute entity update using UpdateTransaction.
 
@@ -149,6 +153,9 @@ class EntityUpdateHandler(
                         activity_type=UserActivityType.ENTITY_EDIT,
                         entity_id=entity_id,
                         revision_id=response.revision_id,
+                        change_type=change_type
+                        or EntityChangeType.STATEMENTS_BATCH,
+                        edit_summary=edit_headers.x_edit_summary,
                     )
                 )
                 if not activity_result.success:

@@ -7,7 +7,11 @@ from typing import Any
 
 from models.data.infrastructure.s3.enums import EntityType
 from models.data.infrastructure.stream.change_type import ChangeType
-from models.data.rest_api.v1.entitybase.request import EntityCreateRequest
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    EntityCreateRequest,
+    UserActivityType,
+)
 from models.data.rest_api.v1.entitybase.request.entity import PreparedRequestData
 from models.data.rest_api.v1.entitybase.request.edit_context import EditContext
 from models.data.rest_api.v1.entitybase.request.entity.context import (
@@ -128,6 +132,22 @@ class ItemCreateHandler(EntityCreateHandler):
                 validator=validator,
             )
             response = await self._execute_creation_transaction(tx_ctx)
+
+            if edit_headers.x_user_id > 0:
+                activity_result = (
+                    self.state.db_client.user_repository.log_user_activity(
+                        user_id=edit_headers.x_user_id,
+                        activity_type=UserActivityType.ENTITY_CREATE,
+                        entity_id=entity_id,
+                        revision_id=response.revision_id,
+                        change_type=EntityChangeType.ENTITY_CREATE,
+                        edit_summary=edit_headers.x_edit_summary,
+                    )
+                )
+                if not activity_result.success:
+                    logger.warning(
+                        f"Failed to log user activity: {activity_result.error}"
+                    )
 
             if self.enumeration_service:
                 self.enumeration_service.confirm_id_usage(entity_id)

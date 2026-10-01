@@ -325,12 +325,28 @@ class SqliteSchemaRepository(Repository):
                     activity_type TEXT NOT NULL,
                     entity_id TEXT,
                     revision_id INTEGER,
-                    created_at TEXT DEFAULT (datetime('now'))
+                    created_at TEXT DEFAULT (datetime('now')),
+                    edit_summary TEXT NOT NULL DEFAULT '',
+                    change_type TEXT NOT NULL DEFAULT ''
                 )
             """)
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_activity_user ON user_activity(user_id, activity_type, created_at)"
             )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_activity_time ON user_activity(created_at)"
+            )
+            for column in (
+                "ADD COLUMN edit_summary TEXT NOT NULL DEFAULT ''",
+                "ADD COLUMN change_type TEXT NOT NULL DEFAULT ''",
+            ):
+                try:
+                    cursor.execute(f"ALTER TABLE user_activity {column}")
+                except Exception as e:
+                    # Column already exists in newer schemas
+                    if "duplicate column" in str(e).lower():
+                        continue
+                    logger.debug(f"user_activity migration skipped: {e}")
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_activity_entity ON user_activity(entity_id)"
             )

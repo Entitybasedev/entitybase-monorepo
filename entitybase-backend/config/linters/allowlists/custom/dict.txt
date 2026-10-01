@@ -16,6 +16,7 @@ src/models/rest_api/entitybase/v1/routes/resolve.py:196
 src/models/infrastructure/db/storage/base.py:46
 src/models/infrastructure/db/storage/base.py:65
 src/models/infrastructure/db/repositories/revision_data.py:24
-# JSON preferences payloads; no schema model justified for opaque JSON blobs
-src/models/infrastructure/db/repositories/user.py:231
-src/models/infrastructure/db/repositories/user.py:289
+# JSON preferences payloads and raw query rows; no schema model justified
+src/models/infrastructure/db/repositories/user.py:221
+src/models/infrastructure/db/repositories/user.py:297
+src/models/infrastructure/db/repositories/user.py:355

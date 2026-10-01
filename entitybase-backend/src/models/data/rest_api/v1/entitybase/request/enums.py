@@ -19,3 +19,24 @@ class UserActivityType(str, Enum):
     ENDORSEMENT_WITHDRAWN = (
         "endorsement_withdrawn"  # Withdrawing endorsement from a statement
     )
+
+
+class EntityChangeType(str, Enum):
+    """Granular kind of change for the recent-changes list."""
+
+    ENTITY_CREATE = "entity_create"  # New item/property/lexeme
+    LABEL_UPDATE = "label_update"
+    LABEL_DELETE = "label_delete"
+    DESCRIPTION_UPDATE = "description_update"
+    DESCRIPTION_DELETE = "description_delete"
+    ALIASES_UPDATE = "aliases_update"
+    ALIASES_DELETE = "aliases_delete"
+    STATEMENT_ADD = "statement_add"
+    STATEMENT_REMOVE = "statement_remove"
+    STATEMENT_PATCH = "statement_patch"
+    STATEMENTS_BATCH = "statements_batch"  # Multi-statement entity update
+    LEXEME_UPDATE = "lexeme_update"  # Lemmas/senses/forms
+    ENTITY_REVERT = "entity_revert"
+    ENTITY_LOCK = "entity_lock"
+    ENTITY_UNLOCK = "entity_unlock"
+    THANK_SENT = "thank_sent"

@@ -4,7 +4,7 @@
 
 from .endorsements import EndorsementListRequest
 from .entity_filter import EntityFilterRequest
-from .enums import UserActivityType
+from .enums import EntityChangeType, UserActivityType
 from .edit_context import EditContext
 from .entity import (
     EntityCreateRequest,

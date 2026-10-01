@@ -15,7 +15,10 @@ from models.data.rest_api.v1.entitybase.request.entity.context import (
 )
 from models.data.rest_api.v1.entitybase.response import EntityResponse
 from models.data.infrastructure.stream.change_type import ChangeType
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 from models.data.infrastructure.s3.enums import EntityType, MetadataType
 from models.infrastructure.db.repositories.terms import TermsRepository
 
@@ -80,6 +83,7 @@ class EntityUpdateTermsMixin(BaseModel):
             entity_type,
             edit_headers,
             validator,
+            change_type=EntityChangeType.LABEL_UPDATE,
         )
 
     async def delete_label(
@@ -125,6 +129,7 @@ class EntityUpdateTermsMixin(BaseModel):
                 edit_headers=edit_headers,
             ),
             [int(removed_hash)],
+            change_type=EntityChangeType.LABEL_DELETE,
         )
 
     def _decrement_term_ref_count(self, hash_value: int) -> None:
@@ -148,6 +153,7 @@ class EntityUpdateTermsMixin(BaseModel):
         self,
         context: TermTransactionContext,
         removed_hashes: list[int] | None = None,
+        change_type: EntityChangeType | None = None,
     ) -> EntityResponse:
         """Execute common transaction pattern for term deletion operations.
 
@@ -199,6 +205,8 @@ class EntityUpdateTermsMixin(BaseModel):
                         activity_type=UserActivityType.ENTITY_EDIT,
                         entity_id=context.entity_id,
                         revision_id=response.revision_id,
+                        change_type=change_type,
+                        edit_summary=context.edit_headers.x_edit_summary,
                     )
                 )
                 if not activity_result.success:
@@ -225,6 +233,7 @@ class EntityUpdateTermsMixin(BaseModel):
     async def _execute_term_add_transaction(
         self,
         context: TermTransactionContext,
+        change_type: EntityChangeType | None = None,
     ) -> EntityResponse:
         """Execute common transaction pattern for term add operations.
 
@@ -266,6 +275,8 @@ class EntityUpdateTermsMixin(BaseModel):
                         activity_type=UserActivityType.ENTITY_EDIT,
                         entity_id=context.entity_id,
                         revision_id=response.revision_id,
+                        change_type=change_type,
+                        edit_summary=context.edit_headers.x_edit_summary,
                     )
                 )
                 if not activity_result.success:
@@ -326,6 +337,7 @@ class EntityUpdateTermsMixin(BaseModel):
             entity_type,
             edit_headers,
             validator,
+            change_type=EntityChangeType.DESCRIPTION_UPDATE,
         )
 
     async def delete_description(
@@ -371,6 +383,7 @@ class EntityUpdateTermsMixin(BaseModel):
                 edit_headers=edit_headers,
             ),
             [int(removed_hash)],
+            change_type=EntityChangeType.DESCRIPTION_DELETE,
         )
 
     async def update_aliases(
@@ -416,6 +429,7 @@ class EntityUpdateTermsMixin(BaseModel):
             entity_type,
             edit_headers,
             validator,
+            change_type=EntityChangeType.ALIASES_UPDATE,
         )
 
     async def add_alias(
@@ -488,6 +502,7 @@ class EntityUpdateTermsMixin(BaseModel):
                 existing_revision=current_entity.entity_data.revision,
                 edit_headers=edit_headers,
             ),
+            change_type=EntityChangeType.ALIASES_UPDATE,
         )
 
     async def delete_aliases(
@@ -533,4 +548,5 @@ class EntityUpdateTermsMixin(BaseModel):
                 edit_headers=edit_headers,
             ),
             [int(h) for h in removed_hashes],
+            change_type=EntityChangeType.ALIASES_DELETE,
         )

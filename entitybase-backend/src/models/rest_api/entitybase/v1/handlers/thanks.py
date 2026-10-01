@@ -2,7 +2,10 @@
 
 import logging
 
-from models.data.rest_api.v1.entitybase.request import UserActivityType
+from models.data.rest_api.v1.entitybase.request import (
+    EntityChangeType,
+    UserActivityType,
+)
 from models.rest_api.entitybase.v1.handler import Handler
 from models.data.rest_api.v1.entitybase.request.thanks import ThanksListRequest
 from models.data.rest_api.v1.entitybase.response import (
@@ -66,6 +69,7 @@ class ThanksHandler(Handler):
             activity_type=UserActivityType.THANK_SENT,
             entity_id=entity_id,
             revision_id=revision_id,
+            change_type=EntityChangeType.THANK_SENT,
         )
         if not activity_result.success:
             logger.warning(f"Failed to log user activity: {activity_result.error}")
