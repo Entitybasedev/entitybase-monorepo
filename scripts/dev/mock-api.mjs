@@ -125,6 +125,17 @@ const server = http.createServer((req, res) => {
       const ordered = [...rows].sort((a, b) => b.id - a.id)
       return json(200, ordered.slice(offset, offset + limit))
     }
+    if (req.method === 'GET' && url.pathname === '/v1/entities') {
+      const type = url.searchParams.get('entity_type') ?? ''
+      const prefix = { item: 'Q', property: 'P', lexeme: 'L', entityschema: 'E' }[type] ?? ''
+      const ids = [...db.keys()].filter((id) => id.startsWith(prefix)).sort()
+      const limit = Number(url.searchParams.get('limit') ?? 100)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      const page = ids
+        .slice(offset, offset + limit)
+        .map((id) => ({ entity_id: id, head_revision_id: db.get(id).rev_id ?? 1 }))
+      return json(200, { entities: page, count: page.length })
+    }
     const sm = url.pathname.match(/^\/v1\/statements\/(\d+)$/)
     if (req.method === 'GET' && sm) {
       const hash = Number(sm[1])

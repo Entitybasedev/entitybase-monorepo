@@ -130,6 +130,18 @@ export async function getStreamHealth() {
   return unwrap(res, 'GET stream health')
 }
 
+// --- Entity list ---
+
+export async function getEntityList(entityType, limit = 10, offset = 0) {
+  const params = new URLSearchParams({
+    entity_type: entityType,
+    limit: String(limit),
+    offset: String(offset),
+  })
+  const res = await fetch(`${BASE}/v1/entities?${params}`)
+  return unwrap(res, 'GET entity list')
+}
+
 // --- Recent changes ---
 
 export async function getRecentChanges(limit = 50, offset = 0, excludeImports = false) {

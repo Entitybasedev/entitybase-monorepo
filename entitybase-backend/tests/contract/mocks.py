@@ -246,11 +246,33 @@ class MockEntityRepository:
 
     def list_entities_filtered(
         self,
-        entity_type: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[str]:
-        return []
+        filter_request: Any,
+    ) -> list[Any]:
+        """Filter registered entities by type prefix, paginated."""
+        prefix = {
+            "item": "Q",
+            "property": "P",
+            "lexeme": "L",
+            "entityschema": "E",
+        }.get(getattr(filter_request, "entity_type", "") or "", "")
+
+        registered = sorted(self.db_client.id_resolver._entity_to_internal)
+        if prefix:
+            registered = [eid for eid in registered if eid.startswith(prefix)]
+
+        offset = filter_request.offset
+        limit = filter_request.limit
+        page = registered[offset : offset + limit]
+
+        from models.data.rest_api.v1.entitybase.response import EntityListItem
+
+        return [
+            EntityListItem(
+                entity_id=eid,
+                head_revision_id=self.db_client.get_head(eid),
+            )
+            for eid in page
+        ]
 
     def create_entity(self, entity_id: str) -> None:
         self.db_client.id_resolver.register_entity(entity_id)

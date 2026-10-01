@@ -17,6 +17,13 @@
         Change stream
       </router-link>
       <router-link
+        data-testid="nav-list"
+        :class="{ active: isActive('/list') }"
+        to="/list"
+      >
+        Entity list
+      </router-link>
+      <router-link
         data-testid="nav-recent"
         :class="{ active: isActive('/recent') }"
         to="/recent"

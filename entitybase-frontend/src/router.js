@@ -2,6 +2,7 @@
 // links keep working.
 import { createRouter, createWebHistory } from 'vue-router'
 import EntitiesView from './views/EntitiesView.vue'
+import EntityListView from './views/EntityListView.vue'
 import LoginView from './views/LoginView.vue'
 import RecentChangesView from './views/RecentChangesView.vue'
 import RegisterView from './views/RegisterView.vue'
@@ -12,6 +13,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', name: 'entities', component: EntitiesView },
+    { path: '/list', name: 'list', component: EntityListView },
     { path: '/recent', name: 'recent', component: RecentChangesView },
     { path: '/stream', name: 'stream', component: StreamView },
     { path: '/login', name: 'login', component: LoginView },
