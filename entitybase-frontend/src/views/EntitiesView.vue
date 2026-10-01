@@ -1,77 +1,4 @@
 <template>
-  <section class="panel" data-testid="create-item-section">
-      <h2>Create item</h2>
-      <div class="row">
-        <label for="label-input">Label (en)</label>
-        <input
-          id="label-input"
-          v-model="newLabel"
-          data-testid="item-label-input"
-          placeholder="Universe"
-        />
-      </div>
-      <div v-if="!isLoggedIn" class="row">
-        <label for="user-id-input">User ID</label>
-        <input id="user-id-input" v-model.number="userId" data-testid="user-id-input" type="number" />
-      </div>
-      <button :disabled="!newLabel || creating" data-testid="create-item-button" @click="createItem">
-        {{ creating ? 'Creating…' : 'Create item' }}
-      </button>
-    </section>
-
-    <section class="panel" data-testid="create-property-section">
-      <h2>Create property</h2>
-      <div class="row">
-        <label for="property-label-input">Label (en)</label>
-        <input
-          id="property-label-input"
-          v-model="propertyLabel"
-          data-testid="property-label-input"
-          placeholder="instance of"
-        />
-      </div>
-      <button
-        :disabled="!propertyLabel || creatingProperty"
-        data-testid="create-property-button"
-        @click="createProperty"
-      >
-        {{ creatingProperty ? 'Creating…' : 'Create property' }}
-      </button>
-    </section>
-
-    <section class="panel" data-testid="create-lexeme-section">
-      <h2>Create lexeme</h2>
-      <div class="row">
-        <label for="lemma-input">Lemma (en)</label>
-        <input id="lemma-input" v-model="lemma" data-testid="lemma-input" placeholder="answer" />
-      </div>
-      <div class="row">
-        <label for="lexeme-language-input">Language QID</label>
-        <input
-          id="lexeme-language-input"
-          v-model="lexemeLanguage"
-          data-testid="lexeme-language-input"
-          placeholder="Q1860"
-        />
-      </div>
-      <div class="row">
-        <label for="lexeme-category-input">Lexical category QID</label>
-        <input
-          id="lexeme-category-input"
-          v-model="lexemeCategory"
-          data-testid="lexeme-category-input"
-          placeholder="Q1084"
-        />
-      </div>
-      <button
-        :disabled="!lemma || creatingLexeme"
-        data-testid="create-lexeme-button"
-        @click="createLexeme"
-      >
-        {{ creatingLexeme ? 'Creating…' : 'Create lexeme' }}
-      </button>
-    </section>
-
     <section v-if="error" class="error" data-testid="error-banner">{{ error }}</section>
 
     <section v-if="item" class="panel" data-testid="item-section">
@@ -117,8 +44,8 @@
 
       <ul data-testid="statement-list">
         <li v-for="s in statements" :key="s.id" data-testid="statement">
-          <span class="field-name" data-testid="statement-property">{{ s.property }}</span>
-          <span data-testid="statement-value">{{ s.value }}</span>
+          <span class="field-name" data-testid="statement-property">{{ s.propertyLabel || s.property }}</span>
+          <span data-testid="statement-value">{{ s.valueLabel || s.value }}</span>
         </li>
         <li v-if="!statements.length" data-testid="no-statements">No statements yet.</li>
       </ul>
@@ -216,10 +143,6 @@ import {
   resolveDescriptions as resolveDescriptionHashes,
   resolveLabels as resolveLabelHashes,
   postStatement,
-  postItem,
-  postProperty,
-  postLexeme,
-  putLabel,
 } from '../api.js'
 import { computeEntityDiff } from '../entityDiff.js'
 import {
@@ -236,22 +159,12 @@ const router = useRouter()
 // Edits are attributed to the logged-in user; without a token this falls
 // back to the legacy demo ID (overridable via the User ID input).
 const userId = ref(authUserId.value || 90001)
-const newLabel = ref('')
-const creating = ref(false)
 const adding = ref(false)
 const error = ref('')
 const item = ref(null)
 
 const stmtProperty = ref('')
 const stmtValue = ref('')
-
-const propertyLabel = ref('')
-const creatingProperty = ref(false)
-
-const lemma = ref('')
-const lexemeLanguage = ref('Q1860')
-const lexemeCategory = ref('Q1084')
-const creatingLexeme = ref(false)
 
 const label = ref('')
 const description = ref('')
@@ -274,6 +187,22 @@ async function loadTerms(id) {
   label.value = result
   description.value = (await getDescriptionWithFallback(id, chain)) ?? ''
   aliases.value = (await getAliasesWithFallback(id, chain)) ?? []
+}
+
+// Resolve an entity/property ID to its human-readable label (cached)
+const labelCache = new Map()
+
+async function humanLabel(id) {
+  if (!id) return ''
+  if (labelCache.has(id)) return labelCache.get(id)
+  let resolved = ''
+  try {
+    resolved = (await getLabelWithFallback(id, termChain.value)) ?? ''
+  } catch {
+    resolved = ''
+  }
+  labelCache.set(id, resolved)
+  return resolved
 }
 
 watch(language, async () => {
@@ -332,72 +261,29 @@ async function loadItem(id) {
           return { stmt, mainsnak }
         })
     )
-    statements.value = withSnaks
-      .filter(Boolean)
-      .map(({ stmt, mainsnak }) => {
-        const dv = mainsnak.datavalue
-        const value =
-          dv?.type === 'wikibase-item' ? (dv.value?.id ?? '?') : String(dv?.value ?? '?')
-        return {
-          id: stmt.id ?? mainsnak.hash ?? String(mainsnak.property),
-          property: mainsnak.property,
-          value,
-        }
-      })
-  } catch (e) {
-    error.value = String(e.message || e)
-  }
-}
-
-async function createItem() {
-  creating.value = true
-  error.value = ''
-  try {
-    const entityId = await postItem({}, userId.value)
-    await putLabel(entityId, language.value, newLabel.value, userId.value)
-    await router.replace({ path: '/', query: { entity: entityId } })
-    await loadItem(entityId)
-  } catch (e) {
-    error.value = String(e.message || e)
-  } finally {
-    creating.value = false
-  }
-}
-
-async function createProperty() {
-  creatingProperty.value = true
-  error.value = ''
-  try {
-    const entityId = await postProperty({}, userId.value)
-    await putLabel(entityId, language.value, propertyLabel.value, userId.value)
-    await router.replace({ path: '/', query: { entity: entityId } })
-    await loadItem(entityId)
-  } catch (e) {
-    error.value = String(e.message || e)
-  } finally {
-    creatingProperty.value = false
-  }
-}
-
-async function createLexeme() {
-  creatingLexeme.value = true
-  error.value = ''
-  try {
-    const entityId = await postLexeme(
-      {
-        type: 'lexeme',
-        lemmas: { en: { language: 'en', value: lemma.value } },
-        language: lexemeLanguage.value,
-        lexical_category: lexemeCategory.value,
-      },
-      userId.value
+    statements.value = await Promise.all(
+      withSnaks
+        .filter(Boolean)
+        .map(async ({ stmt, mainsnak }) => {
+          const dv = mainsnak.datavalue
+          const valueId =
+            dv?.type === 'wikibase-item' ? (dv.value?.id ?? '?') : null
+          const value = valueId ?? String(dv?.value ?? '?')
+          const [propertyLabel, valueLabel] = await Promise.all([
+            humanLabel(mainsnak.property),
+            valueId ? humanLabel(valueId) : Promise.resolve(''),
+          ])
+          return {
+            id: stmt.id ?? mainsnak.hash ?? String(mainsnak.property),
+            property: mainsnak.property,
+            propertyLabel,
+            value,
+            valueLabel,
+          }
+        })
     )
-    await router.replace({ path: '/', query: { entity: entityId } })
-    await loadItem(entityId)
   } catch (e) {
     error.value = String(e.message || e)
-  } finally {
-    creatingLexeme.value = false
   }
 }
 

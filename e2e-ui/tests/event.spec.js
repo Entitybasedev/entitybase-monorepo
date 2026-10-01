@@ -71,7 +71,7 @@ test('creating an item produces a change event with the same QID', async ({
   const label = `E2E Stream Item ${Date.now()}`
 
   // Create an item through the UI
-  await page.goto('/')
+  await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()

@@ -53,6 +53,34 @@
       </div>
       <UserMenu />
       <div class="docs-menu">
+        <button data-testid="nav-create" @click="createOpen = !createOpen">
+          Create ▾
+        </button>
+        <div v-if="createOpen" class="docs-dropdown" data-testid="create-menu">
+          <router-link
+            data-testid="create-menu-item"
+            to="/create-item"
+            @click="createOpen = false"
+          >
+            Create item
+          </router-link>
+          <router-link
+            data-testid="create-menu-property"
+            to="/create-property"
+            @click="createOpen = false"
+          >
+            Create property
+          </router-link>
+          <router-link
+            data-testid="create-menu-lexeme"
+            to="/create-lexeme"
+            @click="createOpen = false"
+          >
+            Create lexeme
+          </router-link>
+        </div>
+      </div>
+      <div class="docs-menu">
         <button data-testid="nav-docs" @click="docsOpen = !docsOpen">
           Docs ▾
         </button>
@@ -86,6 +114,7 @@ import { language, showQid, SUPPORTED_LANGUAGES } from './settings.js'
 
 const route = useRoute()
 const docsOpen = ref(false)
+const createOpen = ref(false)
 
 // Preserve the current entity when switching tabs back to Entities
 const navQuery = computed(() => {

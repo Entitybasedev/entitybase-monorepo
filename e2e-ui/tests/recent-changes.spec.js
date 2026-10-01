@@ -7,7 +7,7 @@ test('recent changes is in the menu and lists the new entity', async ({
   const label = `E2E Recent ${Date.now()}`
 
   // Create an item via the UI
-  await page.goto('/')
+  await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()
@@ -30,7 +30,7 @@ test('recent changes is in the menu and lists the new entity', async ({
 test('recent changes rows link back to the entity', async ({ page }) => {
   const label = `E2E Recent Link ${Date.now()}`
 
-  await page.goto('/')
+  await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()

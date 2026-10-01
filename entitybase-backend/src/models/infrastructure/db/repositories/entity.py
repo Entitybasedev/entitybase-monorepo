@@ -162,9 +162,11 @@ class EntityRepository(Repository):
 
         base_query += " FROM entity_id_mapping e"
         base_query += " JOIN entity_head h ON e.internal_id = h.internal_id"
-
-        if edit_type:
-            base_query += " JOIN entity_revisions r ON h.internal_id = r.internal_id AND h.head_revision_id = r.revision_id"
+        # Always join the head revision for stable chronological ordering
+        base_query += (
+            " JOIN entity_revisions r"
+            " ON h.internal_id = r.internal_id AND h.head_revision_id = r.revision_id"
+        )
 
         conditions = []
         params: list[Any] = []
@@ -193,6 +195,9 @@ class EntityRepository(Repository):
 
         if conditions:
             base_query += " WHERE " + " AND ".join(conditions)
+
+        # Newest entities first (by head revision creation time)
+        base_query += " ORDER BY r.created_at DESC"
 
         logger.debug(f"Built query with {len(conditions)} conditions")
         return base_query, params

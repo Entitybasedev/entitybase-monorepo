@@ -256,7 +256,7 @@ class MockEntityRepository:
             "entityschema": "E",
         }.get(getattr(filter_request, "entity_type", "") or "", "")
 
-        registered = sorted(self.db_client.id_resolver._entity_to_internal)
+        registered = sorted(self.db_client.id_resolver._entity_to_internal, reverse=True)
         if prefix:
             registered = [eid for eid in registered if eid.startswith(prefix)]
 

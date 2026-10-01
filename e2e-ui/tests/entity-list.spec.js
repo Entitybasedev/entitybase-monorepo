@@ -7,7 +7,7 @@ test('entity list is reachable from the menu and lists created entities', async 
   const label = `E2E List ${Date.now()}`
 
   // Create an item via the UI
-  await page.goto('/')
+  await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()

@@ -4,7 +4,7 @@ import { USER_ID, API_URL, createPropertyViaApi } from './helpers.js'
 test('create a property via the UI', async ({ page }) => {
   const label = `E2E Property ${Date.now()}`
 
-  await page.goto('/')
+  await page.goto('/create-property')
 
   await page.getByTestId('property-label-input').fill(label)
   await page.getByTestId('create-property-button').click()
@@ -21,7 +21,7 @@ test('create a property via the UI', async ({ page }) => {
 test('create an item via the UI and see its label', async ({ page }) => {
   const label = `E2E Item ${Date.now()}`
 
-  await page.goto('/')
+  await page.goto('/create-item')
 
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('user-id-input').fill(USER_ID)
@@ -37,7 +37,7 @@ test('create an item and add a statement via the UI', async ({ page, request }) 
 
   const propertyId = await createPropertyViaApi(request)
 
-  await page.goto('/')
+  await page.goto('/create-item')
 
   // Create the item through the UI
   await page.getByTestId('item-label-input').fill(label)
@@ -91,7 +91,7 @@ test('item history shows revisions, views an old revision and diffs it', async (
 
   // Create item + statement through the UI (multiple revisions)
   const label = `E2E History ${Date.now()}`
-  await page.goto('/')
+  await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()

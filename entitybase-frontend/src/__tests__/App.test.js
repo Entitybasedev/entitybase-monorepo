@@ -72,6 +72,7 @@ afterEach(() => {
 
 describe('App', () => {
   it('renders the create form and disables the button without a label', async () => {
+    await router.push('/create-item')
     const wrapper = await mountApp()
 
     expect(wrapper.find('[data-testid="create-item-section"]').exists()).toBe(true)
@@ -103,6 +104,7 @@ describe('App', () => {
   })
 
   it('creates an item: posts item, sets label, then loads it', async () => {
+    await router.push('/create-item')
     apiMocks.postItem.mockResolvedValue('Q1000')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1000', 'E2E Item'))
@@ -146,6 +148,11 @@ describe('App', () => {
       datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
     })
     apiMocks.postStatement.mockResolvedValue({ success: true })
+    apiMocks.getLabelWithFallback.mockImplementation(async (id) => {
+      if (id === 'P31') return 'instance of'
+      if (id === 'Q5') return 'human'
+      return ''
+    })
 
     const wrapper = await mountApp()
     await flushPromises()
@@ -169,11 +176,12 @@ describe('App', () => {
 
     const statement = wrapper.find('[data-testid="statement"]')
     expect(statement.exists()).toBe(true)
-    expect(wrapper.find('[data-testid="statement-property"]').text()).toBe('P31')
-    expect(wrapper.find('[data-testid="statement-value"]').text()).toBe('Q5')
+    expect(wrapper.find('[data-testid="statement-property"]').text()).toBe('instance of')
+    expect(wrapper.find('[data-testid="statement-value"]').text()).toBe('human')
   })
 
   it('shows the error banner when item creation fails', async () => {
+    await router.push('/create-item')
     apiMocks.postItem.mockRejectedValue(new Error('POST failed: 500'))
 
     const wrapper = await mountApp()
@@ -187,6 +195,7 @@ describe('App', () => {
   })
 
   it('updates the URL with ?entity=<id> after creating an item', async () => {
+    await router.push('/create-item')
     apiMocks.postItem.mockResolvedValue('Q1234')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1234', 'Named'))
@@ -202,6 +211,7 @@ describe('App', () => {
 
 describe('App > create property', () => {
   it('posts a property, sets its label, and loads it', async () => {
+    await router.push('/create-property')
     apiMocks.postProperty.mockResolvedValue('P30000')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
     apiMocks.getItem.mockResolvedValue(itemPayload('P30000', 'instance of'))
@@ -222,6 +232,7 @@ describe('App > create property', () => {
 
 describe('App > create lexeme', () => {
   it('posts a lexeme with lemmas and loads it', async () => {
+    await router.push('/create-lexeme')
     apiMocks.postLexeme.mockResolvedValue('L77')
     apiMocks.getItem.mockResolvedValue(itemPayload('L77', 'answer'))
     apiMocks.getLabelWithFallback.mockResolvedValue('')

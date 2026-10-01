@@ -4,7 +4,7 @@ import { USER_ID, createPropertyViaApi } from './helpers.js'
 test('create a lexeme via the UI', async ({ page }) => {
   const lemma = `e2elexeme${Date.now()}`
 
-  await page.goto('/')
+  await page.goto('/create-lexeme')
 
   await page.getByTestId('lemma-input').fill(lemma)
   await page.getByTestId('lexeme-language-input').fill('Q1860')
@@ -25,7 +25,7 @@ test('create a lexeme and add a statement via the UI', async ({ page, request })
 
   // Create the lexeme through the UI
   const lemma = `e2elexeme${Date.now()}`
-  await page.goto('/')
+  await page.goto('/create-lexeme')
   await page.getByTestId('lemma-input').fill(lemma)
   await page.getByTestId('lexeme-language-input').fill('Q1860')
   await page.getByTestId('lexeme-category-input').fill('Q1084')

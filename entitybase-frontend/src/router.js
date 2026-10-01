@@ -3,6 +3,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import EntitiesView from './views/EntitiesView.vue'
 import EntityListView from './views/EntityListView.vue'
+import CreateItemView from './views/CreateItemView.vue'
+import CreatePropertyView from './views/CreatePropertyView.vue'
+import CreateLexemeView from './views/CreateLexemeView.vue'
 import LoginView from './views/LoginView.vue'
 import RecentChangesView from './views/RecentChangesView.vue'
 import RegisterView from './views/RegisterView.vue'
@@ -14,6 +17,13 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'entities', component: EntitiesView },
     { path: '/list', name: 'list', component: EntityListView },
+    { path: '/create-item', name: 'create-item', component: CreateItemView },
+    {
+      path: '/create-property',
+      name: 'create-property',
+      component: CreatePropertyView,
+    },
+    { path: '/create-lexeme', name: 'create-lexeme', component: CreateLexemeView },
     { path: '/recent', name: 'recent', component: RecentChangesView },
     { path: '/stream', name: 'stream', component: StreamView },
     { path: '/login', name: 'login', component: LoginView },

@@ -128,7 +128,7 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/v1/entities') {
       const type = url.searchParams.get('entity_type') ?? ''
       const prefix = { item: 'Q', property: 'P', lexeme: 'L', entityschema: 'E' }[type] ?? ''
-      const ids = [...db.keys()].filter((id) => id.startsWith(prefix)).sort()
+      const ids = [...db.keys()].filter((id) => id.startsWith(prefix)).sort().reverse()
       const limit = Number(url.searchParams.get('limit') ?? 100)
       const offset = Number(url.searchParams.get('offset') ?? 0)
       const page = ids
