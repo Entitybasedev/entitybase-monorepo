@@ -12,6 +12,9 @@ EXCLUDED_FILES = {
     "models/services/wikidata_import_service.py",
     "models/internal_representation/values/quantity_value.py",
     "models/rest_api/utils.py",
+    # Pure service layer: ValueError is converted to HTTP errors by callers
+    # (routes/auth.py and AuthMiddleware), not user-facing itself
+    "models/rest_api/entitybase/v1/services/auth_service.py",
 }
 
 

@@ -3,6 +3,16 @@
 from pydantic import BaseModel, Field
 
 
+class TokenPayload(BaseModel):
+    """Claims carried inside a signed auth token."""
+
+    model_config = {"extra": "ignore"}
+
+    user_id: int
+    username: str = ""
+    exp: int
+
+
 class AuthResponse(BaseModel):
     """Successful register/login response with a session token."""
 

@@ -18,6 +18,10 @@ from models.data.rest_api.v1.entitybase.response import UserActivityResponse
 from models.rest_api.utils import raise_validation_error, validate_state_clients
 from pydantic import BaseModel
 
+from models.data.rest_api.v1.entitybase.response.user_settings import (
+    SettingsStoredResponse,
+    UserSettingsResponse,
+)
 
 users_router = APIRouter(tags=["users"])
 
@@ -77,16 +81,17 @@ def get_user_stats(req: Request) -> UserStatsResponse:
 
 
 @users_router.get("/users/{user_id}/settings")
-def get_user_settings(user_id: int, req: Request) -> dict:
+def get_user_settings(user_id: int, req: Request) -> UserSettingsResponse:
     """Get the UI settings stored for a user."""
     state = req.app.state.state_handler
     if not state.db_client.user_repository.user_exists(user_id):  # type: ignore[union-attr]
         raise HTTPException(status_code=404, detail=f"User {user_id} not found")
-    return state.db_client.user_repository.get_ui_preferences(user_id) or {}
+    preferences: dict = state.db_client.user_repository.get_ui_preferences(user_id) or {}
+    return UserSettingsResponse.model_validate(preferences)
 
 
 @users_router.put("/users/{user_id}/settings")
-def set_user_settings(user_id: int, request: dict, req: Request) -> dict:
+def set_user_settings(user_id: int, request: dict, req: Request) -> SettingsStoredResponse:
     """Store UI settings for a user (arbitrary JSON, e.g. language chain)."""
     if not isinstance(request, dict):
         raise HTTPException(status_code=400, detail="Settings must be a JSON object")
@@ -96,7 +101,7 @@ def set_user_settings(user_id: int, request: dict, req: Request) -> dict:
     ok = state.db_client.user_repository.set_ui_preferences(user_id, request)
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to store settings")
-    return {"stored": True}
+    return SettingsStoredResponse(stored=True)
 
 
 @users_router.get("/users/{user_id}", response_model=UserResponse)

@@ -14,6 +14,8 @@ import logging
 import os
 import time
 
+from models.data.rest_api.v1.entitybase.response.auth import TokenPayload
+
 logger = logging.getLogger(__name__)
 
 HASH_PREFIX = "scrypt"
@@ -79,7 +81,7 @@ def create_token(
     return ".".join(segments)
 
 
-def decode_token(token: str, secret: str) -> dict:
+def decode_token(token: str, secret: str) -> TokenPayload:
     """Verify a token's signature and expiry; return its payload.
 
     Raises ValueError when the token is malformed, tampered with,
@@ -106,8 +108,13 @@ def decode_token(token: str, secret: str) -> dict:
         raise ValueError("Malformed token payload")
     exp = payload.get("exp", 0)
     if not isinstance(exp, (int, float)) or exp < time.time():
+        logger.info("Token rejected: expired")
         raise ValueError("Token expired")
     user_id = payload.get("user_id")
     if not isinstance(user_id, int) or user_id <= 0:
         raise ValueError("Invalid user_id in token")
-    return payload
+    exp = int(exp)
+    username = payload.get("username", "")
+    if not isinstance(username, str):
+        raise ValueError("Invalid username in token")
+    return TokenPayload(user_id=user_id, username=username, exp=exp)

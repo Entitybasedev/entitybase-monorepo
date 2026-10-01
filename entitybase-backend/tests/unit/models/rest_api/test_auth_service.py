@@ -34,8 +34,8 @@ class TestTokens:
     def test_create_and_decode_roundtrip(self) -> None:
         token = create_token(90001, "alice", SECRET, 1)
         payload = decode_token(token, SECRET)
-        assert payload["user_id"] == 90001
-        assert payload["username"] == "alice"
+        assert payload.user_id == 90001
+        assert payload.username == "alice"
 
     def test_decode_rejects_tampered_token(self) -> None:
         token = create_token(90001, "alice", SECRET, 1)

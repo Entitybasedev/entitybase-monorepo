@@ -120,9 +120,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             user_id_header = request.headers.get("X-User-ID")
             if user_id_header is None:
                 request.scope["headers"].append(
-                    (b"x-user-id", str(payload["user_id"]).encode())
+                    (b"x-user-id", str(payload.user_id).encode())
                 )
-            elif str(payload["user_id"]) != user_id_header:
+            elif str(payload.user_id) != user_id_header:
                 return _auth_error(403, "X-User-ID does not match token")
 
         if settings.auth_secret and request.method in WRITE_METHODS:
@@ -295,7 +295,11 @@ async def get_openapi() -> dict:
     """Retrieve the OpenAPI document."""
     openapi = app.openapi()
     if not isinstance(openapi, dict):
-        raise_validation_error("OpenAPI schema generation failed", status_code=500)
+        # follow_imports=skip hides raise_validation_error's NoReturn type
+        # from mypy, so raise directly here
+        raise HTTPException(
+            status_code=500, detail="OpenAPI schema generation failed"
+        )
     return openapi
 
 
