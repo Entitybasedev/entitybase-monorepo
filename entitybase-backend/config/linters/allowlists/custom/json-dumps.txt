@@ -15,3 +15,9 @@ src/models/infrastructure/db/repositories/revision.py:229
 src/models/infrastructure/db/repositories/revision.py:321
 src/models/infrastructure/db/repositories/backlink.py:116
 src/models/infrastructure/db/repositories/user.py:374
+# plain (non-Pydantic) dicts: JWT segments and opaque preferences blobs
+src/models/rest_api/entitybase/v1/services/auth_service.py:75
+src/models/rest_api/entitybase/v1/services/auth_service.py:76
+src/models/infrastructure/db/repositories/user.py:262
+src/models/infrastructure/db/repositories/user.py:471
+src/models/infrastructure/db/repositories/user.py:472
