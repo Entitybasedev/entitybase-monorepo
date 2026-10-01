@@ -12,11 +12,13 @@ import {
   postStatement,
   putLabel,
 } from '../api.js'
+import { login, logout } from '../auth.js'
 
 const fetchMock = vi.fn()
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
+  logout()
 })
 
 afterEach(() => {
@@ -73,6 +75,24 @@ describe('putLabel', () => {
     expect(init.method).toBe('PUT')
     expect(JSON.parse(init.body)).toEqual({ language: 'en', value: 'Universe' })
     expect(init.headers['X-User-ID']).toBe('9')
+  })
+
+  it('sends only the bearer token (no X-User-ID) when logged in', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const body =
+        url === '/v1/auth/login'
+          ? { token: 'tok', user_id: 42, username: 'ada' }
+          : { success: true, data: { entity_id: 'Q1', revision_id: 1 } }
+      return jsonResponse(body)
+    })
+    await login('ada', 'secret')
+    fetchMock.mockClear()
+
+    await postItem({})
+
+    const init = fetchMock.mock.calls[0][1]
+    expect(init.headers['Authorization']).toBe('Bearer tok')
+    expect(init.headers['X-User-ID']).toBeUndefined()
   })
 })
 

@@ -228,12 +228,14 @@ import {
   language,
   showQid,
 } from '../settings.js'
-import { isLoggedIn } from '../auth.js'
+import { isLoggedIn, userId as authUserId } from '../auth.js'
 
 const route = useRoute()
 const router = useRouter()
 
-const userId = ref(90001)
+// Edits are attributed to the logged-in user; without a token this falls
+// back to the legacy demo ID (overridable via the User ID input).
+const userId = ref(authUserId.value || 90001)
 const newLabel = ref('')
 const creating = ref(false)
 const adding = ref(false)

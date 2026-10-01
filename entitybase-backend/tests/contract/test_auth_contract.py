@@ -168,6 +168,58 @@ async def test_write_with_garbage_token_unauthorized(
 
 @pytest.mark.contract
 @pytest.mark.asyncio
+async def test_write_with_token_only_derives_user_id(
+    api_prefix: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A bearer token replaces X-User-ID: no header needed on writes."""
+    monkeypatch.setattr(settings, "auth_secret", "test-secret")
+    body = (await _register(api_prefix, "grace")).json()
+    from models.rest_api.main import app
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        res = await client.post(
+            f"{api_prefix}/entities/items",
+            headers={
+                "Authorization": f"Bearer {body['token']}",
+                "X-Edit-Summary": "token-only write",
+            },
+        )
+        assert res.status_code == 200
+        entity_id = res.json()["data"]["entity_id"]
+
+        revision = await client.get(
+            f"{api_prefix}/entities/{entity_id}/revision/1",
+            headers={"Authorization": f"Bearer {body['token']}"},
+        )
+        assert revision.status_code == 200
+        edit = revision.json()["data"]["revision"]["edit"]
+        assert int(edit["user_id"]) == body["user_id"]
+
+
+@pytest.mark.contract
+@pytest.mark.asyncio
+async def test_read_with_token_only_derives_user_id(
+    api_prefix: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET endpoints that need the user id accept a bearer token alone."""
+    monkeypatch.setattr(settings, "auth_secret", "test-secret")
+    body = (await _register(api_prefix, "henry")).json()
+    from models.rest_api.main import app
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        res = await client.get(
+            f"{api_prefix}/users/{body['user_id']}/settings",
+            headers={"Authorization": f"Bearer {body['token']}"},
+        )
+        assert res.status_code == 200
+
+
+@pytest.mark.contract
+@pytest.mark.asyncio
 async def test_write_allowed_without_auth_when_secret_unset(
     api_prefix: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

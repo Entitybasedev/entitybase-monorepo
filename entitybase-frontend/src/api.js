@@ -1,21 +1,19 @@
 const BASE = import.meta.env.VITE_API_BASE || ''
 
-import { authHeaders, userId as authUserId } from './auth.js'
-
-// Resolve the acting user: the logged-in user, else the explicit ID,
-// else the legacy demo ID (90001).
-function actingUserId(userId) {
-  if (authUserId.value) return authUserId.value
-  return userId ?? 90001
-}
+import { authHeaders, isLoggedIn, userId as authUserId } from './auth.js'
 
 function editHeaders(userId) {
-  return {
+  const headers = {
     'Content-Type': 'application/json',
-    'X-User-ID': String(actingUserId(userId)),
     'X-Edit-Summary': 'Created via entitybase-frontend',
     ...authHeaders(),
   }
+  // The bearer token carries the user identity; only fall back to the
+  // legacy X-User-ID header when there is no token (demo/e2e mode).
+  if (!isLoggedIn.value) {
+    headers['X-User-ID'] = String(userId ?? authUserId.value ?? 90001)
+  }
+  return headers
 }
 
 function safeJsonParse(text) {

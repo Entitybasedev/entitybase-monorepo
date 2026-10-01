@@ -89,12 +89,17 @@ WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """Middleware enforcing bearer-token authentication on write requests.
+    """Middleware resolving the acting user from a bearer token.
 
-    Auth is enabled only when settings.auth_secret is configured (non-empty);
-    otherwise all requests pass through unchanged, preserving the legacy
-    header-based behavior. Reads (GET/HEAD/OPTIONS) are always public.
+    A valid Authorization: Bearer token is the source of truth for the
+    user: its user_id is injected as the X-User-ID header for downstream
+    routes, which no longer need the client to send it. Clients may still
+    send X-User-ID explicitly; a mismatch with the token is rejected with
+    403. A present but invalid token is rejected with 401 on any request.
 
+    Auth is enforced (writes without a token get 401) only when
+    settings.auth_secret is configured; otherwise the legacy header-based
+    behavior is preserved and reads/writes pass through unchanged.
     Exempt paths (always public): /health, /docs, /openapi.json, /redoc,
     /version, {api_prefix}/auth/login and {api_prefix}/auth/register.
     """
@@ -102,35 +107,36 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: StarletteRequest, call_next: Any
     ) -> StarletteResponse:
-        secret = settings.auth_secret
-        if not secret or request.method not in WRITE_METHODS:
-            return await call_next(request)
-
-        exempt = {
-            "/health",
-            "/docs",
-            "/openapi.json",
-            "/redoc",
-            "/version",
-            f"{settings.api_prefix}/auth/login",
-            f"{settings.api_prefix}/auth/register",
-        }
-        if request.url.path in exempt:
-            return await call_next(request)
-
         authorization = request.headers.get("Authorization", "")
-        if not authorization.startswith("Bearer "):
-            return _auth_error(401, "Missing bearer token")
-        token = authorization.removeprefix("Bearer ").strip()
-        try:
-            payload = decode_token(token, settings.auth_signing_secret)
-        except ValueError as e:
-            logger.info(f"Rejected token: {e}")
-            return _auth_error(401, str(e))
+        payload = None
+        if authorization.startswith("Bearer "):
+            token = authorization.removeprefix("Bearer ").strip()
+            try:
+                payload = decode_token(token, settings.auth_signing_secret)
+            except ValueError as e:
+                logger.info(f"Rejected token: {e}")
+                return _auth_error(401, str(e))
 
-        user_id_header = request.headers.get("X-User-ID")
-        if user_id_header is not None and str(payload["user_id"]) != user_id_header:
-            return _auth_error(403, "X-User-ID does not match token")
+            user_id_header = request.headers.get("X-User-ID")
+            if user_id_header is None:
+                request.scope["headers"].append(
+                    (b"x-user-id", str(payload["user_id"]).encode())
+                )
+            elif str(payload["user_id"]) != user_id_header:
+                return _auth_error(403, "X-User-ID does not match token")
+
+        if settings.auth_secret and request.method in WRITE_METHODS:
+            exempt = {
+                "/health",
+                "/docs",
+                "/openapi.json",
+                "/redoc",
+                "/version",
+                f"{settings.api_prefix}/auth/login",
+                f"{settings.api_prefix}/auth/register",
+            }
+            if payload is None and request.url.path not in exempt:
+                return _auth_error(401, "Missing bearer token")
 
         return await call_next(request)
 

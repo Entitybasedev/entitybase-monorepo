@@ -5,7 +5,11 @@ from pydantic import BaseModel, Field
 
 
 class EditHeaders(BaseModel):
-    """Model for required editing headers (X-User-ID and X-Edit-Summary)."""
+    """Model for required editing headers (X-User-ID and X-Edit-Summary).
+
+    X-User-ID is normally injected by AuthMiddleware from the bearer
+    token; clients only need to send it when they are not using a token.
+    """
 
     x_user_id: int = Field(
         ..., alias="X-User-ID", ge=0, description="User ID making the edit"
