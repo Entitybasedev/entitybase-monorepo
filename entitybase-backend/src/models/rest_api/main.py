@@ -19,6 +19,7 @@ from models.config.version import API_VERSION
 from models.rest_api.entitybase.v1.endpoints import v1_router
 from models.rest_api.entitybase.v1.handlers.state import StateHandler
 from models.rest_api.entitybase.v1.routes import include_routes
+from models.rest_api.entitybase.v1.services.auth_service import decode_token
 from models.rest_api.utils import raise_validation_error
 
 aws_loggers = [
@@ -82,6 +83,63 @@ class StartupMiddleware(BaseHTTPMiddleware):
                 )
 
         return await call_next(request)
+
+
+WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Middleware enforcing bearer-token authentication on write requests.
+
+    Auth is enabled only when settings.auth_secret is configured (non-empty);
+    otherwise all requests pass through unchanged, preserving the legacy
+    header-based behavior. Reads (GET/HEAD/OPTIONS) are always public.
+
+    Exempt paths (always public): /health, /docs, /openapi.json, /redoc,
+    /version, {api_prefix}/auth/login and {api_prefix}/auth/register.
+    """
+
+    async def dispatch(
+        self, request: StarletteRequest, call_next: Any
+    ) -> StarletteResponse:
+        secret = settings.auth_secret
+        if not secret or request.method not in WRITE_METHODS:
+            return await call_next(request)
+
+        exempt = {
+            "/health",
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+            "/version",
+            f"{settings.api_prefix}/auth/login",
+            f"{settings.api_prefix}/auth/register",
+        }
+        if request.url.path in exempt:
+            return await call_next(request)
+
+        authorization = request.headers.get("Authorization", "")
+        if not authorization.startswith("Bearer "):
+            return _auth_error(401, "Missing bearer token")
+        token = authorization.removeprefix("Bearer ").strip()
+        try:
+            payload = decode_token(token, settings.auth_signing_secret)
+        except ValueError as e:
+            logger.info(f"Rejected token: {e}")
+            return _auth_error(401, str(e))
+
+        user_id_header = request.headers.get("X-User-ID")
+        if user_id_header is not None and str(payload["user_id"]) != user_id_header:
+            return _auth_error(403, "X-User-ID does not match token")
+
+        return await call_next(request)
+
+
+def _auth_error(status_code: int, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"error": "auth_error", "message": message},
+    )
 
 
 @asynccontextmanager
@@ -164,6 +222,7 @@ if settings.api_description:
     app_kwargs["description"] = settings.api_description
 
 app = FastAPI(**app_kwargs)
+app.add_middleware(AuthMiddleware)
 app.add_middleware(StartupMiddleware)
 
 

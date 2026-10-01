@@ -289,6 +289,18 @@ class SchemaRepository(Repository):
 
             cursor.execute(
                 """
+                CREATE TABLE IF NOT EXISTS user_credentials (
+                    user_id BIGINT PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY unique_username (username)
+                )
+            """
+            )
+
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS watchlist (
                     id BIGINT AUTO_INCREMENT PRIMARY KEY,
                     user_id BIGINT NOT NULL,

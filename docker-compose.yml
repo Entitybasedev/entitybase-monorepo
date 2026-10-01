@@ -94,6 +94,8 @@ services:
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ENTITY_CHANGE_TOPIC=${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - AUTH_SECRET=${AUTH_SECRET:-}
+      - AUTH_TOKEN_EXPIRY_HOURS=${AUTH_TOKEN_EXPIRY_HOURS:-168}
     depends_on:
       mysql:
         condition: service_healthy

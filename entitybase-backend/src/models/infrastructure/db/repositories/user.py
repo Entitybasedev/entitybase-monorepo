@@ -261,10 +261,69 @@ class UserRepository(Repository):
                     "UPDATE users SET preferences = %s WHERE user_id = %s",
                     (json.dumps(preferences), user_id),
                 )
-                return cursor.rowcount > 0
+                return int(cursor.rowcount) > 0
         except Exception as e:
             logger.error(f"Failed to set UI preferences for {user_id}: {e}")
             return False
+
+    def create_credentials(
+        self, user_id: int, username: str, password_hash: str
+    ) -> OperationResult:
+        """Store login credentials for a user (username must be unique)."""
+        if user_id <= 0 or not username or not password_hash:
+            return OperationResult(success=False, error="Invalid credentials input")
+        try:
+            with self.db_client.cursor as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO user_credentials (user_id, username, password_hash)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (user_id, username, password_hash),
+                )
+                return OperationResult(success=True)
+        except Exception as e:
+            logger.error(f"Failed to create credentials for {username}: {e}")
+            return OperationResult(success=False, error=str(e))
+
+    def get_credentials_by_username(self, username: str) -> dict | None:
+        """Look up credentials by username.
+
+        Returns a dict with user_id and password_hash, or None when the
+        username is unknown.
+        """
+        if not username:
+            return None
+        try:
+            with self.db_client.cursor as cursor:
+                cursor.execute(
+                    """
+                    SELECT user_id, password_hash
+                    FROM user_credentials
+                    WHERE username = %s
+                    """,
+                    (username,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {"user_id": int(row[0]), "password_hash": row[1]}
+                return None
+        except Exception as e:
+            logger.error(f"Failed to get credentials for {username}: {e}")
+            return None
+
+    def get_next_user_id(self) -> int:
+        """Return one more than the highest existing user ID (min 90001)."""
+        try:
+            with self.db_client.cursor as cursor:
+                cursor.execute("SELECT COALESCE(MAX(user_id), 90000) FROM users")
+                row = cursor.fetchone()
+                if row and row[0]:
+                    return int(row[0]) + 1
+                return 90001
+        except Exception as e:
+            logger.error(f"Failed to get next user ID: {e}")
+            return 90001
 
     def update_user_preferences(
         self,

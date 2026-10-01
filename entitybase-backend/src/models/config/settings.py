@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 
 from models.data.config.stream import StreamConfig
 from models.config.version import ENTITYBASE_VERSION
@@ -22,6 +22,8 @@ class Settings(BaseModel):
     """Application settings with environment variable support."""
 
     model_config = {"extra": "ignore"}
+
+    _ephemeral_auth_secret: str = PrivateAttr(default="")
 
     # s3 (for dump uploads only)
     s3_endpoint: str = ""  # empty disables S3 (everything is stored in mysql)
@@ -75,6 +77,28 @@ class Settings(BaseModel):
 
     # API configuration
     api_prefix: str = "/v1"
+
+    # auth (empty secret disables enforcement: writes need no token, but
+    # login still works using a per-process ephemeral signing secret)
+    auth_secret: str = ""
+    auth_token_expiry_hours: int = 168  # 7 days
+
+    @property
+    def auth_signing_secret(self) -> str:
+        """Secret used to sign and verify auth tokens.
+
+        Falls back to an ephemeral per-process secret when AUTH_SECRET is
+        unset, so login still works while auth is not enforced.
+        """
+        if self.auth_secret:
+            return self.auth_secret
+        if not self._ephemeral_auth_secret:
+            import secrets
+
+            object.__setattr__(
+                self, "_ephemeral_auth_secret", secrets.token_hex(32)
+            )
+        return self._ephemeral_auth_secret
 
     # other
     user_agent: str = f"Entitybase/{ENTITYBASE_VERSION} User:So9q"
@@ -165,6 +189,10 @@ class Settings(BaseModel):
         """Load entity version and API config from environment variables."""
         self.entity_version = os.getenv("ENTITY_VERSION", self.entity_version)
         self.api_prefix = os.getenv("API_PREFIX", self.api_prefix)
+        self.auth_secret = os.getenv("AUTH_SECRET", self.auth_secret)
+        self.auth_token_expiry_hours = int(
+            os.getenv("AUTH_TOKEN_EXPIRY_HOURS", str(self.auth_token_expiry_hours))
+        )
         self.dangling_property_id = os.getenv(
             "DANGLING_PROPERTY_ID", self.dangling_property_id
         )

@@ -107,6 +107,7 @@ class MockUserRepository:
     def __init__(self) -> None:
         self._registered: set[int] = set()
         self._ui_preferences: dict[int, dict] = {}
+        self._credentials: dict[str, dict] = {}
 
     def user_exists(self, user_id: int) -> bool:
         return user_id in self._registered
@@ -124,6 +125,26 @@ class MockUserRepository:
     def set_ui_preferences(self, user_id: int, preferences: dict) -> bool:
         self._ui_preferences[user_id] = preferences
         return True
+
+    def create_credentials(
+        self, user_id: int, username: str, password_hash: str
+    ) -> Any:
+        self._credentials[username] = {
+            "user_id": user_id,
+            "password_hash": password_hash,
+        }
+        result = MagicMock()
+        result.success = True
+        result.error = None
+        return result
+
+    def get_credentials_by_username(self, username: str) -> dict | None:
+        return self._credentials.get(username)
+
+    def get_next_user_id(self) -> int:
+        if self._registered:
+            return max(self._registered) + 1
+        return 90001
 
     def is_watchlist_enabled(self, user_id: int) -> bool:
         return False

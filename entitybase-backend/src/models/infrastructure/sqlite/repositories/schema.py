@@ -277,6 +277,15 @@ class SqliteSchemaRepository(Repository):
             """)
 
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_credentials (
+                    user_id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )
+            """)
+
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS watchlist (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
