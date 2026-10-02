@@ -1,14 +1,22 @@
 """Per-language all-terms endpoint for Entitybase v1 API (label, description, aliases)."""
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Path, Request
 
 from models.data.infrastructure.s3.enums import MetadataType
 from models.data.rest_api.v1.entitybase.response import TermsForLanguageResponse
 from models.rest_api.entitybase.v1.handlers.entity.read import EntityReadHandler
 
 logger = logging.getLogger(__name__)
+
+# Path parameters: exactly one entity ID (QID or PID) and one language code
+ENTITY_ID_PATH_PATTERN = r"^[QP]\d+$"
+LANGUAGE_CODE_PATH_PATTERN = r"^[A-Za-z][A-Za-z0-9_-]*$"
+
+SingleEntityId = Annotated[str, Path(pattern=ENTITY_ID_PATH_PATTERN)]
+SingleLanguageCode = Annotated[str, Path(pattern=LANGUAGE_CODE_PATH_PATTERN)]
 
 router = APIRouter()
 
@@ -18,7 +26,9 @@ router = APIRouter()
     response_model=TermsForLanguageResponse,
 )
 async def get_entity_terms(
-    entity_id: str, language_code: str, req: Request
+    entity_id: SingleEntityId,
+    language_code: SingleLanguageCode,
+    req: Request,
 ) -> TermsForLanguageResponse:
     """Get the label, description and aliases of an entity for one language."""
     logger.info(f"Getting terms for entity {entity_id}, language {language_code}")

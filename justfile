@@ -105,6 +105,10 @@ check-docs:
 health:
     timeout 120 ./scripts/health/check.sh
 
+# Repo statistics (currently: test counts only)
+statistics:
+    ./scripts/count-tests.sh
+
 # Build the documentation site (requires mkdocs-material)
 docs:
     #!/usr/bin/env bash
