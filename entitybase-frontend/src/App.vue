@@ -171,4 +171,6 @@ function isActive(path) {
 .statement-anchor { color: inherit; text-decoration: none; }
 .statement-anchor:hover { text-decoration: underline; }
 .statement-group li { margin-left: 1rem; list-style: none; }
+.statement-action { margin-left: .35rem; }
+.statement-edit-input { width: 8rem; }
 </style>

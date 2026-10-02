@@ -28,6 +28,7 @@ const apiMocks = vi.hoisted(() => ({
   postProperty: vi.fn(),
   postLexeme: vi.fn(),
   postStatement: vi.fn(),
+  deleteStatement: vi.fn(),
   putLabel: vi.fn(),
   putDescription: vi.fn(),
   putAliases: vi.fn(),
@@ -423,6 +424,168 @@ describe('App', () => {
     expect(p31Statements[0].attributes('id')).toBe('P31-1')
     expect(p31Statements[1].attributes('id')).toBe('P31-2')
     expect(p31Statements[1].find('[data-testid="statement-value"]').text()).toBe('USA')
+  })
+
+  it('edits a statement value by removing it and adding the new value', async () => {
+    loginState(90001)
+    await router.push('/entity/Q1')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [888]))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
+    apiMocks.getStatement.mockResolvedValue({
+      schema: '1.0',
+      hash: 777,
+      statement: { id: 'S1', mainsnak: 555, type: 'statement', rank: 'normal' },
+    })
+    apiMocks.getSnak.mockResolvedValue({
+      snaktype: 'value',
+      property: 'P31',
+      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+    })
+    apiMocks.deleteStatement.mockResolvedValue({ success: true })
+    apiMocks.postStatement.mockResolvedValue({ success: true })
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    // The editor starts prefilled with the current value
+    await wrapper.find('[data-testid="statement-edit-button"]').trigger('click')
+    await flushPromises()
+    const input = wrapper.find('[data-testid="statement-edit-input"]')
+    expect(input.element.value).toBe('Q5')
+
+    await input.setValue('Q30')
+    await wrapper.find('[data-testid="statement-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.deleteStatement).toHaveBeenCalledWith('Q1', '777')
+    expect(apiMocks.postStatement).toHaveBeenCalledTimes(1)
+    const [, body] = apiMocks.postStatement.mock.calls[0]
+    expect(body.claim.mainsnak.property).toBe('P31')
+    expect(body.claim.mainsnak.datavalue).toEqual({
+      value: { id: 'Q30' },
+      type: 'wikibase-item',
+    })
+    expect(wrapper.find('[data-testid="statement-edit-input"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="error-banner"]').exists()).toBe(false)
+  })
+
+  it('removes a statement', async () => {
+    loginState(90001)
+    await router.push('/entity/Q1')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', []))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
+    apiMocks.getStatement.mockResolvedValue({
+      schema: '1.0',
+      hash: 777,
+      statement: { id: 'S1', mainsnak: 555, type: 'statement', rank: 'normal' },
+    })
+    apiMocks.getSnak.mockResolvedValue({
+      snaktype: 'value',
+      property: 'P31',
+      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+    })
+    apiMocks.deleteStatement.mockResolvedValue({ success: true })
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="statement-remove-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.deleteStatement).toHaveBeenCalledWith('Q1', '777')
+    expect(wrapper.find('[data-testid="statement"]').exists()).toBe(false)
+  })
+
+  it('keeps the editor open and reports a failure when removing fails', async () => {
+    loginState(90001)
+    await router.push('/entity/Q1')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test', [777]))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
+    apiMocks.getStatement.mockResolvedValue({
+      schema: '1.0',
+      hash: 777,
+      statement: { id: 'S1', mainsnak: 555, type: 'statement', rank: 'normal' },
+    })
+    apiMocks.getSnak.mockResolvedValue({
+      snaktype: 'value',
+      property: 'P31',
+      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+    })
+    apiMocks.deleteStatement.mockRejectedValue(new Error('DELETE failed: 500'))
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="statement-remove-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="error-banner"]').text()).toContain(
+      'Could not remove the statement'
+    )
+    // The statement is still listed, so nothing looks lost
+    expect(wrapper.find('[data-testid="statement"]').exists()).toBe(true)
+  })
+
+  it('says so when the value is removed but re-adding it fails', async () => {
+    loginState(90001)
+    await router.push('/entity/Q1')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', []))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
+    apiMocks.getStatement.mockResolvedValue({
+      schema: '1.0',
+      hash: 777,
+      statement: { id: 'S1', mainsnak: 555, type: 'statement', rank: 'normal' },
+    })
+    apiMocks.getSnak.mockResolvedValue({
+      snaktype: 'value',
+      property: 'P31',
+      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+    })
+    apiMocks.deleteStatement.mockResolvedValue({ success: true })
+    apiMocks.postStatement.mockRejectedValue(new Error('POST failed: 409'))
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="statement-edit-button"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="statement-edit-input"]').setValue('Q30')
+    await wrapper.find('[data-testid="statement-save-button"]').trigger('click')
+    await flushPromises()
+
+    const banner = wrapper.find('[data-testid="error-banner"]').text()
+    expect(banner).toContain('Statement removed, but adding')
+    expect(banner).toContain('Q30')
+    // The draft stays so the edit can be retried
+    expect(wrapper.find('[data-testid="statement-edit-input"]').element.value).toBe('Q30')
+  })
+
+  it('hides the statement edit controls when logged out', async () => {
+    await router.push('/entity/Q1')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test', [777]))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
+    apiMocks.getStatement.mockResolvedValue({
+      schema: '1.0',
+      hash: 777,
+      statement: { id: 'S1', mainsnak: 555, type: 'statement', rank: 'normal' },
+    })
+    apiMocks.getSnak.mockResolvedValue({
+      snaktype: 'value',
+      property: 'P31',
+      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+    })
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="statement-edit-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="statement-remove-button"]').exists()).toBe(false)
   })
 
   it('shows a log-in hint instead of the statement form when logged out', async () => {

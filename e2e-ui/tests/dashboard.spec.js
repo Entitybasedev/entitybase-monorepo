@@ -67,3 +67,44 @@ test('statements on an entity are grouped by property with anchors', async ({
     secondProperty
   )
 })
+
+test('a statement value can be edited and removed in the UI', async ({
+  page,
+  request,
+}) => {
+  const propertyId = await createPropertyViaApi(request, 'instance of')
+  await registerViaUi(page)
+
+  await page.goto('/create-item')
+  await page.getByTestId('item-label-input').fill(`E2E EditStatement ${Date.now()}`)
+  await page.getByTestId('create-item-button').click()
+  await expect(page.getByTestId('item-section')).toBeVisible()
+
+  await page.getByTestId('statement-property-input').fill(propertyId)
+  await page.getByTestId('statement-value-input').fill('Q5')
+  await page.getByTestId('add-statement-button').click()
+  await expect(page.getByTestId('add-statement-button')).toHaveText('Add statement')
+  await expect(page.getByTestId('statement')).toHaveCount(1)
+
+  // Editing prefills the current value and saves on click
+  await page.getByTestId('statement-edit-button').click()
+  await expect(page.getByTestId('statement-edit-input')).toHaveValue('Q5')
+  await page.getByTestId('statement-edit-input').fill('Q30')
+  await page.getByTestId('statement-save-button').click()
+  await expect(page.getByTestId('statement-edit-input')).toHaveCount(0)
+  await expect(page.getByTestId('statement')).toHaveCount(1)
+  await expect(page.getByTestId('error-banner')).toHaveCount(0)
+
+  // Cancel leaves the statement as it was
+  await page.getByTestId('statement-edit-button').click()
+  await page.getByTestId('statement-edit-input').fill('Q146')
+  await page.getByTestId('statement-cancel-button').click()
+  await expect(page.getByTestId('statement-edit-input')).toHaveCount(0)
+  await expect(page.getByTestId('statement')).toHaveCount(1)
+
+  // Remove empties the property group
+  await page.getByTestId('statement-remove-button').click()
+  await expect(page.getByTestId('statement')).toHaveCount(0)
+  await expect(page.getByTestId('no-statements')).toBeVisible()
+  await expect(page.getByTestId('error-banner')).toHaveCount(0)
+})

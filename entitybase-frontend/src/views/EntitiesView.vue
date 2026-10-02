@@ -192,7 +192,7 @@
             <li
               v-for="(s, i) in group.statements"
               :id="`${group.property}-${i + 1}`"
-              :key="s.id"
+              :key="s.hash || s.id"
               data-testid="statement"
             >
               <a
@@ -200,7 +200,45 @@
                 class="statement-anchor"
                 data-testid="statement-link"
               >§</a>
-              <span data-testid="statement-value">{{ s.valueLabel || s.value }}</span>
+              <template v-if="editingStatement === s.hash">
+                <input
+                  v-model="statementDraft"
+                  class="statement-edit-input"
+                  data-testid="statement-edit-input"
+                  :aria-label="`New value for ${group.propertyLabel || group.property}`"
+                  @keyup.enter="saveStatementEdit(s)"
+                  @keyup.esc="cancelStatementEdit"
+                />
+                <button
+                  class="btn btn-primary btn-sm"
+                  data-testid="statement-save-button"
+                  :disabled="statementSaving || !statementDraft.trim()"
+                  @click="saveStatementEdit(s)"
+                >{{ statementSaving ? 'Saving…' : 'Save' }}</button>
+                <button
+                  class="btn btn-outline-secondary btn-sm"
+                  data-testid="statement-cancel-button"
+                  :disabled="statementSaving"
+                  @click="cancelStatementEdit"
+                >Cancel</button>
+              </template>
+              <template v-else>
+                <span data-testid="statement-value">{{ s.valueLabel || s.value }}</span>
+                <template v-if="isLoggedIn">
+                  <button
+                    class="btn btn-outline-secondary btn-sm statement-action"
+                    data-testid="statement-edit-button"
+                    :disabled="statementSaving || statementRemoving === s.hash"
+                    @click="startStatementEdit(s)"
+                  >Edit</button>
+                  <button
+                    class="btn btn-outline-danger btn-sm statement-action"
+                    data-testid="statement-remove-button"
+                    :disabled="statementSaving || statementRemoving === s.hash"
+                    @click="removeStatement(s)"
+                  >{{ statementRemoving === s.hash ? 'Removing…' : 'Remove' }}</button>
+                </template>
+              </template>
             </li>
           </ul>
         </div>
@@ -236,6 +274,7 @@ import {
   getUserSettings,
   getSnak,
   getStatement,
+  deleteStatement,
   postStatement,
   putLabel,
   putDescription,
@@ -261,6 +300,11 @@ const item = ref(null)
 
 const stmtProperty = ref('')
 const stmtValue = ref('')
+// Statement editing: a statement is changed by removing and re-adding it
+const editingStatement = ref(null)
+const statementDraft = ref('')
+const statementSaving = ref(false)
+const statementRemoving = ref(null)
 
 const label = ref('')
 const description = ref('')
@@ -501,21 +545,21 @@ async function loadItem(id) {
     const fetched = await Promise.all(hashes.map((h) => getStatement(h)))
     const withSnaks = await Promise.all(
       fetched
-        .map((res) => res.statement)
-        .filter((stmt) => stmt && stmt.mainsnak)
-        .map(async (stmt) => {
+        .map((res, index) => ({ stmt: res.statement, hash: String(hashes[index]) }))
+        .filter((entry) => entry.stmt && entry.stmt.mainsnak)
+        .map(async ({ stmt, hash }) => {
           const mainsnak =
             typeof stmt.mainsnak === 'object'
               ? stmt.mainsnak
               : await getSnak(stmt.mainsnak)
           if (!mainsnak) return null
-          return { stmt, mainsnak }
+          return { stmt, mainsnak, hash }
         })
     )
     statements.value = await Promise.all(
       withSnaks
         .filter(Boolean)
-        .map(async ({ stmt, mainsnak }) => {
+        .map(async ({ stmt, mainsnak, hash }) => {
           const dv = mainsnak.datavalue
           const valueId =
             dv?.type === 'wikibase-item' ? (dv.value?.id ?? '?') : null
@@ -526,6 +570,8 @@ async function loadItem(id) {
           ])
           return {
             id: stmt.id ?? mainsnak.hash ?? String(mainsnak.property),
+            // Content hash, used to address the statement for edit/remove
+            hash,
             property: mainsnak.property,
             propertyLabel,
             value,
@@ -567,6 +613,80 @@ async function addStatement() {
     error.value = String(e.message || e)
   } finally {
     adding.value = false
+  }
+}
+
+// Build the claim the add and edit flows share
+function statementClaim(propertyId, valueId) {
+  return {
+    claim: {
+      id: crypto.randomUUID(),
+      mainsnak: {
+        snaktype: 'value',
+        property: propertyId,
+        datavalue: {
+          value: { id: valueId },
+          type: 'wikibase-item',
+        },
+      },
+      type: 'statement',
+      rank: 'normal',
+    },
+  }
+}
+
+function startStatementEdit(statement) {
+  error.value = ''
+  editingStatement.value = statement.hash
+  statementDraft.value = statement.value
+}
+
+function cancelStatementEdit() {
+  editingStatement.value = null
+  statementDraft.value = ''
+}
+
+// There is no statement-replace endpoint, so changing a value is done as
+// remove-then-add. If the remove succeeds but the add fails the statement
+// is gone, so say so explicitly and keep the draft for a retry.
+async function saveStatementEdit(statement) {
+  const valueId = statementDraft.value.trim()
+  if (!valueId || statementSaving.value) return
+  statementSaving.value = true
+  error.value = ''
+  let removed = false
+  try {
+    await deleteStatement(item.value.id, statement.hash)
+    removed = true
+    await postStatement(item.value.id, statementClaim(statement.property, valueId))
+    editingStatement.value = null
+    statementDraft.value = ''
+    await loadItem(item.value.id)
+  } catch (e) {
+    if (removed) {
+      error.value = `Statement removed, but adding “${valueId}” failed: ${
+        e.message || e
+      }. Add it again to finish the edit.`
+    } else {
+      error.value = `Edit failed, the statement was not changed: ${e.message || e}`
+    }
+  } finally {
+    statementSaving.value = false
+  }
+}
+
+async function removeStatement(statement) {
+  if (statementRemoving.value) return
+  statementRemoving.value = statement.hash
+  error.value = ''
+  try {
+    await deleteStatement(item.value.id, statement.hash)
+    if (editingStatement.value === statement.hash) cancelStatementEdit()
+    await loadItem(item.value.id)
+  } catch (e) {
+    error.value = `Could not remove the statement: ${e.message || e}`
+  } finally {
+    statementRemoving.value = null
   }
 }
 

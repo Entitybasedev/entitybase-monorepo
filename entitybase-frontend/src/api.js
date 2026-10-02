@@ -81,6 +81,14 @@ export async function putAliases(entityId, language, values) {
   return unwrap(res, `PUT aliases ${entityId}`)
 }
 
+export async function deleteStatement(entityId, statementHash) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/statements/${encodeURIComponent(statementHash)}`,
+    { method: 'DELETE', headers: editHeaders() }
+  )
+  return unwrap(res, `DELETE statement ${entityId}/${statementHash}`)
+}
+
 export async function postStatement(entityId, body) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/statements`,
