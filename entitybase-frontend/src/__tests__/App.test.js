@@ -29,6 +29,7 @@ const apiMocks = vi.hoisted(() => ({
   postLexeme: vi.fn(),
   postStatement: vi.fn(),
   putLabel: vi.fn(),
+  putDescription: vi.fn(),
   getRecentChanges: vi.fn(),
   getEntityList: vi.fn(),
 }))
@@ -100,6 +101,79 @@ describe('App', () => {
     const wrapper = await mountApp()
     const link = wrapper.find('[data-testid="item-history-link"]')
     expect(link.attributes('href')).toBe('/Q42/history')
+  })
+
+  it('shows the entity type badge for items, properties and lexemes', async () => {
+    for (const [id, expected] of [['Q1', 'Item'], ['P2', 'Property'], ['L3', 'Lexeme']]) {
+      await router.push(`/?entity=${id}`)
+      apiMocks.getItem.mockResolvedValueOnce(itemPayload(id, 'X'))
+      apiMocks.getLabelWithFallback.mockResolvedValue('X')
+
+      const wrapper = await mountApp()
+      expect(wrapper.find('[data-testid="item-type-badge"]').text()).toBe(expected)
+      expect(wrapper.find('h2').text()).toContain(`${expected} ${id}`)
+    }
+  })
+
+  it('edits the label: edit input, save, reload', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q42')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q42', 'Old'))
+      .mockResolvedValueOnce(itemPayload('Q42', 'New'))
+    apiMocks.getLabelWithFallback
+      .mockResolvedValueOnce('Old')
+      .mockResolvedValueOnce('New')
+    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
+    apiMocks.getEntityHistory.mockResolvedValue([])
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="edit-label-button"]').trigger('click')
+
+    const input = wrapper.find('[data-testid="label-edit-input"]')
+    expect(input.exists()).toBe(true)
+    await input.setValue('New')
+    await wrapper.find('[data-testid="save-label-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.putLabel).toHaveBeenCalledWith('Q42', 'en', 'New')
+    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('New')
+  })
+
+  it('edits the description: edit input, save, reload', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q42')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q42', 'T'))
+      .mockResolvedValueOnce(itemPayload('Q42', 'T'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('T')
+    apiMocks.getDescriptionWithFallback
+      .mockResolvedValueOnce('Old description')
+      .mockResolvedValueOnce('New description')
+    apiMocks.putDescription.mockResolvedValue({ hash: 'x' })
+    apiMocks.getEntityHistory.mockResolvedValue([])
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="edit-description-button"]').trigger('click')
+
+    const input = wrapper.find('[data-testid="description-edit-input"]')
+    expect(input.exists()).toBe(true)
+    await input.setValue('New description')
+    await wrapper.find('[data-testid="save-description-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.putDescription).toHaveBeenCalledWith('Q42', 'en', 'New description')
+    expect(wrapper.find('[data-testid="item-description"]').text()).toBe('New description')
+  })
+
+  it('hides the edit buttons when logged out', async () => {
+    await router.push('/?entity=Q42')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
+
+    const wrapper = await mountApp()
+    expect(wrapper.find('[data-testid="edit-label-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-description-button"]').exists()).toBe(false)
   })
 
   it('adds a statement and renders human-readable property and value', async () => {

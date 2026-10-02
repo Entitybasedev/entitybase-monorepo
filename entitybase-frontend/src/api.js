@@ -62,6 +62,14 @@ export async function putLabel(entityId, language, value) {
   return unwrap(res, `PUT label ${entityId}`)
 }
 
+export async function putDescription(entityId, language, value) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/descriptions/${encodeURIComponent(language)}`,
+    { method: 'PUT', headers: editHeaders(), body: JSON.stringify({ language, value }) }
+  )
+  return unwrap(res, `PUT description ${entityId}`)
+}
+
 export async function postStatement(entityId, body) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/statements`,

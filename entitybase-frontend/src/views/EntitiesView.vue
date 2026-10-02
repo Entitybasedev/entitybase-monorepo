@@ -2,14 +2,61 @@
     <section v-if="error" class="alert alert-danger" data-testid="error-banner">{{ error }}</section>
 
     <section v-if="item" class="card card-body mb-3" data-testid="item-section">
-      <h2>Entity {{ item.id }}</h2>
+      <h2>
+        {{ typeLabel }} {{ item.id }}
+        <span class="badge text-bg-secondary" data-testid="item-type-badge">{{ typeLabel }}</span>
+      </h2>
       <div class="row">
         <span class="field-name">Label</span>
-        <span data-testid="item-label">{{ displayLabel }}</span>
+        <template v-if="editingLabel">
+          <input
+            v-model="labelDraft"
+            data-testid="label-edit-input"
+            @keyup.enter="saveLabel"
+          />
+          <button
+            class="btn btn-primary btn-sm"
+            data-testid="save-label-button"
+            :disabled="savingLabel"
+            @click="saveLabel"
+          >{{ savingLabel ? 'Saving…' : 'Save' }}</button>
+          <button class="btn btn-outline-secondary btn-sm" data-testid="cancel-label-button" @click="editingLabel = false">Cancel</button>
+        </template>
+        <template v-else>
+          <span data-testid="item-label">{{ displayLabel }}</span>
+          <button
+            v-if="isLoggedIn"
+            class="btn btn-outline-secondary btn-sm"
+            data-testid="edit-label-button"
+            @click="startLabelEdit"
+          >Edit</button>
+        </template>
       </div>
       <div class="row">
         <span class="field-name">Description</span>
-        <span data-testid="item-description">{{ description || '—' }}</span>
+        <template v-if="editingDescription">
+          <input
+            v-model="descriptionDraft"
+            data-testid="description-edit-input"
+            @keyup.enter="saveDescription"
+          />
+          <button
+            class="btn btn-primary btn-sm"
+            data-testid="save-description-button"
+            :disabled="savingDescription"
+            @click="saveDescription"
+          >{{ savingDescription ? 'Saving…' : 'Save' }}</button>
+          <button class="btn btn-outline-secondary btn-sm" data-testid="cancel-description-button" @click="editingDescription = false">Cancel</button>
+        </template>
+        <template v-else>
+          <span data-testid="item-description">{{ description || '—' }}</span>
+          <button
+            v-if="isLoggedIn"
+            class="btn btn-outline-secondary btn-sm"
+            data-testid="edit-description-button"
+            @click="startDescriptionEdit"
+          >Edit</button>
+        </template>
       </div>
       <div class="row">
         <span class="field-name">Aliases</span>
@@ -80,6 +127,8 @@ import {
   getSnak,
   getStatement,
   postStatement,
+  putLabel,
+  putDescription,
 } from '../api.js'
 import {
   MAX_FALLBACK_LANGUAGES,
@@ -153,6 +202,64 @@ const displayLabel = computed(() => {
   const suffix = showQid.value && item.value ? ` (${item.value.id})` : ''
   return label.value + suffix
 })
+
+const TYPE_LABELS = { item: 'Item', property: 'Property', lexeme: 'Lexeme' }
+
+const typeLabel = computed(() => {
+  const id = item.value?.id ?? ''
+  const fromRevision = item.value?.data?.revision?.entity_type
+    ?? item.value?.data?.entity_type
+  if (fromRevision && TYPE_LABELS[fromRevision]) return TYPE_LABELS[fromRevision]
+  if (id.startsWith('Q')) return TYPE_LABELS.item
+  if (id.startsWith('P')) return TYPE_LABELS.property
+  if (id.startsWith('L')) return TYPE_LABELS.lexeme
+  return 'Entity'
+})
+
+const editingLabel = ref(false)
+const labelDraft = ref('')
+const savingLabel = ref(false)
+const editingDescription = ref(false)
+const descriptionDraft = ref('')
+const savingDescription = ref(false)
+
+function startLabelEdit() {
+  labelDraft.value = label.value
+  editingLabel.value = true
+}
+
+async function saveLabel() {
+  savingLabel.value = true
+  error.value = ''
+  try {
+    await putLabel(item.value.id, language.value, labelDraft.value)
+    editingLabel.value = false
+    await loadItem(item.value.id)
+  } catch (e) {
+    error.value = String(e.message || e)
+  } finally {
+    savingLabel.value = false
+  }
+}
+
+function startDescriptionEdit() {
+  descriptionDraft.value = description.value
+  editingDescription.value = true
+}
+
+async function saveDescription() {
+  savingDescription.value = true
+  error.value = ''
+  try {
+    await putDescription(item.value.id, language.value, descriptionDraft.value)
+    editingDescription.value = false
+    await loadItem(item.value.id)
+  } catch (e) {
+    error.value = String(e.message || e)
+  } finally {
+    savingDescription.value = false
+  }
+}
 
 const entityData = computed(
   () => item.value?.data?.revision ?? item.value?.data ?? item.value ?? {}
