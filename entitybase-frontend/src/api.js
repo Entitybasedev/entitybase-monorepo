@@ -70,6 +70,14 @@ export async function putDescription(entityId, language, value) {
   return unwrap(res, `PUT description ${entityId}`)
 }
 
+export async function putAliases(entityId, language, values) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/aliases/${encodeURIComponent(language)}`,
+    { method: 'PUT', headers: editHeaders(), body: JSON.stringify(values) }
+  )
+  return unwrap(res, `PUT aliases ${entityId}`)
+}
+
 export async function postStatement(entityId, body) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/statements`,

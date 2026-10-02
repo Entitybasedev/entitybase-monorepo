@@ -30,6 +30,7 @@ const apiMocks = vi.hoisted(() => ({
   postStatement: vi.fn(),
   putLabel: vi.fn(),
   putDescription: vi.fn(),
+  putAliases: vi.fn(),
   getRecentChanges: vi.fn(),
   getEntityList: vi.fn(),
 }))
@@ -174,6 +175,37 @@ describe('App', () => {
     const wrapper = await mountApp()
     expect(wrapper.find('[data-testid="edit-label-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="edit-description-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-aliases-button"]').exists()).toBe(false)
+  })
+
+  it('edits aliases: slugs in an edit box, deduplicated on save', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q42')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q42', 'T'))
+      .mockResolvedValueOnce(itemPayload('Q42', 'T'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('T')
+    apiMocks.getAliasesWithFallback
+      .mockResolvedValueOnce(['Doug', 'Douglas Noel Adams'])
+      .mockResolvedValueOnce(['Doug', 'DNA'])
+    apiMocks.putAliases.mockResolvedValue({ hashes: [] })
+    apiMocks.getEntityHistory.mockResolvedValue([])
+
+    const wrapper = await mountApp()
+    const chips = wrapper.findAll('[data-testid="item-alias"]')
+    expect(chips).toHaveLength(2)
+
+    await wrapper.find('[data-testid="edit-aliases-button"]').trigger('click')
+    const input = wrapper.find('[data-testid="aliases-edit-input"]')
+    expect(input.element.value).toBe('Doug, Douglas Noel Adams')
+
+    await input.setValue('Doug, DNA, doug ,  , DNA')
+    await wrapper.find('[data-testid="save-aliases-button"]').trigger('click')
+    await flushPromises()
+
+    // Duplicates (case-insensitive) and blanks removed, kept first casing
+    expect(apiMocks.putAliases).toHaveBeenCalledWith('Q42', 'en', ['Doug', 'DNA'])
+    expect(wrapper.findAll('[data-testid="item-alias"]')).toHaveLength(2)
   })
 
   it('adds a statement and renders human-readable property and value', async () => {

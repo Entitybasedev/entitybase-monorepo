@@ -60,15 +60,45 @@
       </div>
       <div class="row">
         <span class="field-name">Aliases</span>
-        <span v-if="aliases.length" data-testid="item-aliases">
-          <span
-            v-for="alias in aliases"
-            :key="alias"
-            data-testid="item-alias"
-            class="alias-chip"
-          >{{ alias }}</span>
-        </span>
-        <span v-else>—</span>
+        <template v-if="editingAliases">
+          <input
+            v-model="aliasesDraft"
+            class="form-control"
+            style="width: auto"
+            data-testid="aliases-edit-input"
+            placeholder="alias1, alias2, alias3"
+            @keyup.enter="saveAliases"
+          />
+          <button
+            class="btn btn-primary btn-sm"
+            data-testid="save-aliases-button"
+            :disabled="savingAliases"
+            @click="saveAliases"
+          >{{ savingAliases ? 'Saving…' : 'Save' }}</button>
+          <button
+            class="btn btn-outline-secondary btn-sm"
+            data-testid="cancel-aliases-button"
+            @click="editingAliases = false"
+          >Cancel</button>
+          <span class="small text-muted">Comma-separated; duplicates are removed on save.</span>
+        </template>
+        <template v-else>
+          <span v-if="aliases.length" data-testid="item-aliases">
+            <span
+              v-for="alias in aliases"
+              :key="alias"
+              data-testid="item-alias"
+              class="alias-chip"
+            >{{ alias }}</span>
+          </span>
+          <span v-else>—</span>
+          <button
+            v-if="isLoggedIn"
+            class="btn btn-outline-secondary btn-sm"
+            data-testid="edit-aliases-button"
+            @click="startAliasesEdit"
+          >Edit</button>
+        </template>
       </div>
       <p>
         <a :href="`/?entity=${item.id}`" data-testid="item-permalink">Permalink</a>
@@ -129,6 +159,7 @@ import {
   postStatement,
   putLabel,
   putDescription,
+  putAliases,
 } from '../api.js'
 import {
   MAX_FALLBACK_LANGUAGES,
@@ -245,6 +276,46 @@ async function saveLabel() {
 function startDescriptionEdit() {
   descriptionDraft.value = description.value
   editingDescription.value = true
+}
+
+const editingAliases = ref(false)
+const aliasesDraft = ref('')
+const savingAliases = ref(false)
+
+function startAliasesEdit() {
+  aliasesDraft.value = aliases.value.join(', ')
+  editingAliases.value = true
+}
+
+// Parse the comma-separated draft: trim, drop empties, dedupe
+// case-insensitively (keeping the first casing seen).
+function parseAliasDraft(draft) {
+  const seen = new Set()
+  const values = []
+  for (const raw of draft.split(',')) {
+    const value = raw.trim()
+    if (!value) continue
+    const key = value.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    values.push(value)
+  }
+  return values
+}
+
+async function saveAliases() {
+  savingAliases.value = true
+  error.value = ''
+  try {
+    const values = parseAliasDraft(aliasesDraft.value)
+    await putAliases(item.value.id, language.value, values)
+    editingAliases.value = false
+    await loadItem(item.value.id)
+  } catch (e) {
+    error.value = String(e.message || e)
+  } finally {
+    savingAliases.value = false
+  }
 }
 
 async function saveDescription() {

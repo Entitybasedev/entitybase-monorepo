@@ -196,6 +196,19 @@ const server = http.createServer((req, res) => {
         }
         return json(200, { value: item.descriptions[lang]?.value ?? '' })
       }
+      const am = rest.match(/^\/aliases\/(\w+)$/)
+      if (am) {
+        const lang = am[1]
+        if (req.method === 'PUT') {
+          const values = Array.isArray(jsonBody) ? jsonBody : []
+          item.aliases ||= {}
+          item.aliases[lang] = values
+          recordRevision(id, 'Set aliases')
+          recordChange(id, 'aliases_update', 'Created via entitybase-frontend')
+          return json(200, { hashes: values.map(() => 'mock') })
+        }
+        return json(200, { aliases: item.aliases?.[lang] ?? [] })
+      }
       if (rest === '/revisions' && req.method === 'GET') {
         return json(200, item.revisions ?? [])
       }
