@@ -9,6 +9,16 @@
       <div class="row">
         <span class="field-name">Label</span>
         <template v-if="editingLabel">
+          <select
+            class="form-select form-select-sm"
+            style="width: auto"
+            data-testid="label-lang-select"
+            v-model="editLanguage"
+          >
+            <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+              {{ l.code }}
+            </option>
+          </select>
           <input
             v-model="labelDraft"
             data-testid="label-edit-input"
@@ -35,6 +45,16 @@
       <div class="row">
         <span class="field-name">Description</span>
         <template v-if="editingDescription">
+          <select
+            class="form-select form-select-sm"
+            style="width: auto"
+            data-testid="description-lang-select"
+            v-model="editLanguage"
+          >
+            <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+              {{ l.code }}
+            </option>
+          </select>
           <input
             v-model="descriptionDraft"
             data-testid="description-edit-input"
@@ -61,6 +81,16 @@
       <div class="row">
         <span class="field-name">Aliases</span>
         <template v-if="editingAliases">
+          <select
+            class="form-select form-select-sm"
+            style="width: auto"
+            data-testid="aliases-lang-select"
+            v-model="editLanguage"
+          >
+            <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+              {{ l.code }}
+            </option>
+          </select>
           <input
             v-model="aliasDraft"
             class="form-control"
@@ -155,6 +185,11 @@
           :to="`/${item.id}/history`"
           data-testid="item-history-link"
         >View history</router-link>
+        ·
+        <router-link
+          :to="`/${item.id}/terms`"
+          data-testid="item-terms-link"
+        >View all terms</router-link>
       </p>
      </section>
 </template>
@@ -163,6 +198,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  getAliases,
+  getLabel,
+  getDescription,
   getItem,
   getLabelWithFallback,
   getDescriptionWithFallback,
@@ -177,6 +215,7 @@ import {
 } from '../api.js'
 import {
   MAX_FALLBACK_LANGUAGES,
+  SUPPORTED_LANGUAGES,
   fallbackChain,
   language,
   showQid,
@@ -267,17 +306,46 @@ const savingLabel = ref(false)
 const editingDescription = ref(false)
 const descriptionDraft = ref('')
 const savingDescription = ref(false)
+const editingAliases = ref(false)
+const aliasDraft = ref('')
+const committedAliases = ref([])
+const savingAliases = ref(false)
+// Language being edited (selectable in the editor; defaults to the
+// interface language)
+const editLanguage = ref('en')
+
+// Load the term that already exists in the editor language (empty when
+// adding a term in a language the entity has none for yet)
+async function loadDraftForLanguage() {
+  const id = item.value?.id
+  if (!id) return
+  const lang = editLanguage.value
+  if (editingLabel.value) {
+    labelDraft.value = (await getLabel(id, lang)) ?? ''
+  }
+  if (editingDescription.value) {
+    descriptionDraft.value = (await getDescription(id, lang)) ?? ''
+  }
+  if (editingAliases.value) {
+    committedAliases.value = (await getAliases(id, lang)) ?? []
+  }
+}
+
+watch(editLanguage, () => {
+  loadDraftForLanguage()
+})
 
 function startLabelEdit() {
-  labelDraft.value = label.value
+  editLanguage.value = language.value
   editingLabel.value = true
+  loadDraftForLanguage()
 }
 
 async function saveLabel() {
   savingLabel.value = true
   error.value = ''
   try {
-    await putLabel(item.value.id, language.value, labelDraft.value)
+    await putLabel(item.value.id, editLanguage.value, labelDraft.value)
     editingLabel.value = false
     await loadItem(item.value.id)
   } catch (e) {
@@ -288,19 +356,16 @@ async function saveLabel() {
 }
 
 function startDescriptionEdit() {
-  descriptionDraft.value = description.value
+  editLanguage.value = language.value
   editingDescription.value = true
+  loadDraftForLanguage()
 }
 
-const editingAliases = ref(false)
-const aliasDraft = ref('')
-const committedAliases = ref([])
-const savingAliases = ref(false)
-
 function startAliasesEdit() {
-  committedAliases.value = [...aliases.value]
+  editLanguage.value = language.value
   aliasDraft.value = ''
   editingAliases.value = true
+  loadDraftForLanguage()
 }
 
 // Commit the draft as slug chips: trim, drop blanks, dedupe
@@ -339,7 +404,7 @@ async function saveAliases() {
   error.value = ''
   try {
     commitAlias()
-    await putAliases(item.value.id, language.value, committedAliases.value)
+    await putAliases(item.value.id, editLanguage.value, committedAliases.value)
     editingAliases.value = false
     await loadItem(item.value.id)
   } catch (e) {
@@ -353,7 +418,7 @@ async function saveDescription() {
   savingDescription.value = true
   error.value = ''
   try {
-    await putDescription(item.value.id, language.value, descriptionDraft.value)
+    await putDescription(item.value.id, editLanguage.value, descriptionDraft.value)
     editingDescription.value = false
     await loadItem(item.value.id)
   } catch (e) {

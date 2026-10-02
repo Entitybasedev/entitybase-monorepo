@@ -7,7 +7,17 @@
     </section>
     <template v-else>
       <form class="row" @submit.prevent="createProperty">
-        <label for="property-label-input">Label (en)</label>
+        <label for="property-label-input">Label</label>
+        <select
+          class="form-select form-select-sm"
+          style="width: auto"
+          data-testid="property-lang-select"
+          v-model="labelLanguage"
+        >
+          <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+            {{ l.code }}
+          </option>
+        </select>
         <input
           id="property-label-input"
           v-model="propertyLabel"
@@ -32,11 +42,12 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { postProperty, putLabel } from '../api.js'
-import { language } from '../settings.js'
+import { SUPPORTED_LANGUAGES, language } from '../settings.js'
 import { isLoggedIn } from '../auth.js'
 
 const router = useRouter()
 const propertyLabel = ref('')
+const labelLanguage = ref(language.value)
 const creatingProperty = ref(false)
 const error = ref('')
 
@@ -46,7 +57,7 @@ async function createProperty() {
   error.value = ''
   try {
     const entityId = await postProperty({})
-    await putLabel(entityId, language.value, propertyLabel.value)
+    await putLabel(entityId, labelLanguage.value, propertyLabel.value)
     await router.push({ path: '/', query: { entity: entityId } })
   } catch (e) {
     error.value = String(e.message || e)

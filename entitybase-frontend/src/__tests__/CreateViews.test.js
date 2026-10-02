@@ -85,6 +85,20 @@ describe('CreateItemView', () => {
     expect(router.currentRoute.value.path).toBe('/')
     expect(router.currentRoute.value.query.entity).toBe('Q500')
   })
+
+  it('creates the label in the language chosen in the select', async () => {
+    loginState(90001)
+    apiMocks.postItem.mockResolvedValue('Q501')
+    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
+
+    const wrapper = await mountApp('/create-item')
+    await wrapper.find('[data-testid="item-lang-select"]').setValue('sv')
+    await wrapper.find('[data-testid="item-label-input"]').setValue('E2E sv')
+    await wrapper.find('[data-testid="create-item-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.putLabel).toHaveBeenCalledWith('Q501', 'sv', 'E2E sv')
+  })
 })
 
 describe('CreatePropertyView', () => {

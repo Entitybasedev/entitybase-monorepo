@@ -8,7 +8,17 @@
     <template v-else>
     <form @submit.prevent="createLexeme">
       <div class="row">
-        <label for="lemma-input">Lemma (en)</label>
+        <label for="lemma-input">Lemma</label>
+        <select
+          class="form-select form-select-sm"
+          style="width: auto"
+          data-testid="lemma-lang-select"
+          v-model="lemmaLanguage"
+        >
+          <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+            {{ l.code }}
+          </option>
+        </select>
         <input id="lemma-input" v-model="lemma" data-testid="lemma-input" placeholder="answer" @keyup.enter="createLexeme" />
       </div>
       <div class="row">
@@ -46,10 +56,12 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { postLexeme } from '../api.js'
+import { SUPPORTED_LANGUAGES, language } from '../settings.js'
 import { isLoggedIn } from '../auth.js'
 
 const router = useRouter()
 const lemma = ref('')
+const lemmaLanguage = ref(language.value)
 const lexemeLanguage = ref('Q1860')
 const lexemeCategory = ref('Q1084')
 const creatingLexeme = ref(false)
@@ -62,7 +74,12 @@ async function createLexeme() {
   try {
     const entityId = await postLexeme({
       type: 'lexeme',
-      lemmas: { en: { language: 'en', value: lemma.value } },
+      lemmas: {
+        [lemmaLanguage.value]: {
+          language: lemmaLanguage.value,
+          value: lemma.value,
+        },
+      },
       language: lexemeLanguage.value,
       lexical_category: lexemeCategory.value,
     })

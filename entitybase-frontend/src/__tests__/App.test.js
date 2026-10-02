@@ -104,6 +104,74 @@ describe('App', () => {
     expect(link.attributes('href')).toBe('/Q42/history')
   })
 
+  it('links to the all-terms page', async () => {
+    await router.push('/?entity=Q42')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
+
+    const wrapper = await mountApp()
+    const link = wrapper.find('[data-testid="item-terms-link"]')
+    expect(link.attributes('href')).toBe('/Q42/terms')
+  })
+
+  it('saves the label in the language chosen in the editor', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q42')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q42', 'Old'))
+      .mockResolvedValueOnce(itemPayload('Q42', 'Old'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Old')
+    // First load is the draft for the default editor language (en: none yet),
+    // second load happens when the editor language switches to sv
+    apiMocks.getLabel
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('Gammal')
+    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="edit-label-button"]').trigger('click')
+    await flushPromises()
+    // Switching the editor language loads the existing term in that language
+    await wrapper.find('[data-testid="label-lang-select"]').setValue('sv')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="label-edit-input"]').element.value).toBe('Gammal')
+
+    await wrapper.find('[data-testid="label-edit-input"]').setValue('Ny')
+    await wrapper.find('[data-testid="save-label-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.putLabel).toHaveBeenCalledWith('Q42', 'sv', 'Ny')
+  })
+
+  it('saves the description in the language chosen in the editor', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q42')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q42', 'T'))
+      .mockResolvedValueOnce(itemPayload('Q42', 'T'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('T')
+    apiMocks.getDescriptionWithFallback.mockResolvedValue('Old description')
+    apiMocks.getDescription
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('Gammal beskrivning')
+    apiMocks.putDescription.mockResolvedValue({ hash: 'x' })
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="edit-description-button"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="description-lang-select"]').setValue('sv')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="description-edit-input"]').element.value).toBe(
+      'Gammal beskrivning'
+    )
+
+    await wrapper.find('[data-testid="description-edit-input"]').setValue('Ny beskrivning')
+    await wrapper.find('[data-testid="save-description-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.putDescription).toHaveBeenCalledWith('Q42', 'sv', 'Ny beskrivning')
+  })
+
   it('shows the entity type badge for items, properties and lexemes', async () => {
     for (const [id, expected] of [['Q1', 'Item'], ['P2', 'Property'], ['L3', 'Lexeme']]) {
       await router.push(`/?entity=${id}`)
@@ -185,6 +253,9 @@ describe('App', () => {
       .mockResolvedValueOnce(itemPayload('Q42', 'T'))
       .mockResolvedValueOnce(itemPayload('Q42', 'T'))
     apiMocks.getLabelWithFallback.mockResolvedValue('T')
+    apiMocks.getAliases
+      .mockResolvedValueOnce(['Doug', 'Douglas Noel Adams'])
+      .mockResolvedValue(['Doug', 'Douglas Noel Adams'])
     apiMocks.getAliasesWithFallback
       .mockResolvedValueOnce(['Doug', 'Douglas Noel Adams'])
       .mockResolvedValueOnce(['Doug', 'DNA'])

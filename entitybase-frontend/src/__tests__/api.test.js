@@ -3,6 +3,7 @@ import {
   getItem,
   getAliases,
   getDescription,
+  getEntityTerms,
   getLabel,
   getSnak,
   getStatement,
@@ -272,5 +273,26 @@ describe('getAliases', () => {
   it('returns an empty list on 404', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ message: 'not found' }, 404))
     expect(await getAliases('Q42', 'sv')).toEqual([])
+  })
+})
+
+describe('getEntityTerms', () => {
+  it('GETs the per-language terms endpoint and returns the terms', async () => {
+    const terms = { language: 'en', label: 'A', description: 'B', aliases: ['C'] }
+    fetchMock.mockResolvedValue(jsonResponse(terms))
+
+    expect(await getEntityTerms('Q42', 'en')).toEqual(terms)
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/Q42/terms/en')
+  })
+
+  it('returns empty terms on 404', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: 'not found' }, 404))
+
+    expect(await getEntityTerms('Q42', 'de')).toEqual({
+      language: 'de',
+      label: '',
+      description: '',
+      aliases: [],
+    })
   })
 })

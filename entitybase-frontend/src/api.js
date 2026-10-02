@@ -118,6 +118,15 @@ export async function getAliases(entityId, language) {
   return json.aliases ?? []
 }
 
+export async function getEntityTerms(entityId, language) {
+  const res = await fetch(
+    `${BASE}/v1/entities/${encodeURIComponent(entityId)}/terms/${encodeURIComponent(language)}`
+  )
+  if (res.status === 404) return { language, label: '', description: '', aliases: [] }
+  const json = await unwrap(res, `GET terms ${entityId}/${language}`)
+  return json
+}
+
 export async function getStatement(contentHash) {
   const res = await fetch(`${BASE}/v1/statements/${encodeURIComponent(contentHash)}`)
   return unwrap(res, `GET statement ${contentHash}`)

@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import EntitiesView from './views/EntitiesView.vue'
 import EntityHistoryView from './views/EntityHistoryView.vue'
 import EntityListView from './views/EntityListView.vue'
+import EntityTermsView from './views/EntityTermsView.vue'
 import UserListView from './views/UserListView.vue'
 import CreateItemView from './views/CreateItemView.vue'
 import CreatePropertyView from './views/CreatePropertyView.vue'
@@ -24,6 +25,11 @@ const router = createRouter({
       path: '/:entityId([QPLE]\\d+)/history',
       name: 'history',
       component: EntityHistoryView,
+    },
+    {
+      path: '/:entityId([QPLE]\\d+)/terms',
+      name: 'terms',
+      component: EntityTermsView,
     },
     {
       // Shareable diff URL: revision <newRev> vs <oldRev>
