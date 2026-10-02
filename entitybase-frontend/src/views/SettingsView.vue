@@ -25,8 +25,13 @@
       />
     </div>
 
-    <div class="row" data-testid="settings-fallback-chain" title="Fallback languages when a term is missing in the interface language (max 5)">
-      <span class="field-name">Fallback</span>
+    <div class="row" data-testid="settings-fallback-chain">
+      <span class="field-name">Language fallback chain</span>
+      <span
+        class="info-icon"
+        data-testid="fallback-info"
+        title="When a label or description is missing in your interface language, these languages are tried in order (max 5). Example: interface language is English, chain is [sv, da] — a term missing in English is looked up in Swedish, then Danish."
+      >i</span>
       <span
         v-for="code in fallbackChain"
         :key="code"
@@ -145,4 +150,18 @@ watch(isLoggedIn, (loggedIn) => {
 
 <style>
 .saved { color: #1b5e20; }
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #b6d4fe;
+  color: #084298;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: help;
+  user-select: none;
+}
 </style>

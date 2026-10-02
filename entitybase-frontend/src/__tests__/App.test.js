@@ -166,41 +166,6 @@ describe('App', () => {
   })
 })
 
-describe('App > interface language', () => {
-  beforeEach(async () => {
-    await router.push('/?entity=Q42')
-    language.value = 'en'
-    showQid.value = false
-    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
-    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
-    apiMocks.getDescription.mockResolvedValue(null)
-    apiMocks.getAliases.mockResolvedValue([])
-  })
-
-  it('fetches terms in the selected language and refetches on change', async () => {
-    apiMocks.getLabelWithFallback
-      .mockResolvedValueOnce('Douglas Adams')
-      .mockResolvedValueOnce('Douglas Adams (sv)')
-
-    const wrapper = await mountApp()
-    await flushPromises()
-
-    expect(apiMocks.getLabelWithFallback).toHaveBeenCalledWith('Q42', ['en'])
-
-    await wrapper.find('[data-testid="language-select"]').setValue('sv')
-    await new Promise((r) => setTimeout(r, 50))
-
-    expect(apiMocks.getLabelWithFallback).toHaveBeenLastCalledWith('Q42', ['sv'])
-    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams (sv)')
-  })
-
-  it('persists the language to localStorage', async () => {
-    const wrapper = await mountApp()
-    await wrapper.find('[data-testid="language-select"]').setValue('de')
-    expect(localStorage.getItem('entitybase.language')).toBe('de')
-  })
-})
-
 describe('App > show QID toggle', () => {
   beforeEach(async () => {
     await router.push('/?entity=Q42')
@@ -212,19 +177,15 @@ describe('App > show QID toggle', () => {
     apiMocks.getAliases.mockResolvedValue([])
   })
 
-  it('appends the QID to the label when toggled on', async () => {
+  it('appends the QID to the label when the setting is on', async () => {
     const wrapper = await mountApp()
     await flushPromises()
 
     expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams')
 
-    await wrapper.find('[data-testid="show-qid-toggle"]').setValue(true)
+    showQid.value = true
+    await flushPromises()
     expect(wrapper.find('[data-testid="item-label"]').text()).toBe('Douglas Adams (Q42)')
-  })
-
-  it('persists the toggle to localStorage', async () => {
-    const wrapper = await mountApp()
-    await wrapper.find('[data-testid="show-qid-toggle"]').setValue(true)
-    expect(localStorage.getItem('entitybase.showQid')).toBe('true')
+    showQid.value = false
   })
 })

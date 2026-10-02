@@ -47,32 +47,6 @@
       </ul>
 
       <div class="d-flex align-items-center gap-3">
-        <label class="d-flex align-items-center gap-1 small mb-0">
-          Language
-          <select
-            class="form-select form-select-sm"
-            style="width: auto"
-            data-testid="language-select"
-            v-model="language"
-          >
-            <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
-              {{ l.name }}
-            </option>
-          </select>
-        </label>
-        <label
-          class="d-flex align-items-center gap-1 small mb-0"
-          title="Append the entity ID to labels"
-        >
-          <input
-            type="checkbox"
-            class="form-check-input mt-0"
-            data-testid="show-qid-toggle"
-            v-model="showQid"
-          />
-          Show IDs
-        </label>
-
         <div class="dropdown">
           <button
             class="btn btn-outline-secondary btn-sm dropdown-toggle"
@@ -163,7 +137,6 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import UserMenu from './components/UserMenu.vue'
-import { language, showQid, SUPPORTED_LANGUAGES } from './settings.js'
 
 const route = useRoute()
 

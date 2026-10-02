@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import { fallbackChain, language } from '../settings.js'
+import { fallbackChain, language, showQid } from '../settings.js'
 import { logout } from '../auth.js'
 
 const apiMocks = vi.hoisted(() => ({
@@ -81,5 +81,27 @@ describe('SettingsView', () => {
     const error = wrapper.find('[data-testid="settings-error"]')
     expect(error.exists()).toBe(true)
     expect(error.text()).toContain('500')
+  })
+
+  it('has the language select and persists it to localStorage', async () => {
+    const wrapper = await mountSettings('42')
+
+    const select = wrapper.find('[data-testid="settings-language-select"]')
+    expect(select.exists()).toBe(true)
+
+    await select.setValue('de')
+    expect(localStorage.getItem('entitybase.language')).toBe('de')
+    language.value = 'en'
+  })
+
+  it('has the show-IDs toggle and persists it to localStorage', async () => {
+    const wrapper = await mountSettings('42')
+
+    const toggle = wrapper.find('[data-testid="settings-show-qid-toggle"]')
+    expect(toggle.exists()).toBe(true)
+
+    await toggle.setValue(true)
+    expect(localStorage.getItem('entitybase.showQid')).toBe('true')
+    showQid.value = false
   })
 })
