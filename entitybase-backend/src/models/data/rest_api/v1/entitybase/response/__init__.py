@@ -41,6 +41,10 @@ from .entity.entitybase import (
 from .entity.revision_read_response import RevisionReadResponse
 from .entity.entity_status import EntityStatusResponse
 from .entity.wikibase import AliasValue, DescriptionValue, LabelValue, SitelinkValue
+from .auth import AuthResponse, TokenPayload, UserCredentials
+from .user_list import UserListItem, UserListResponse
+from .user_settings import SettingsStoredResponse, UserSettingsResponse
+from .recent_changes import RecentChangeEntry
 from .events import RDFChangeEvent
 from .health import HealthCheckResponse, HealthResponse, WorkerHealthCheckResponse
 from .id_response import IdResponse
@@ -240,11 +244,19 @@ __all__ = [
     "TopEntityByBacklinks",
     "TurtleResponse",
     "UserActivityItemResponse",
+    "AuthResponse",
+    "TokenPayload",
+    "UserCredentials",
     "UserActivityResponse",
     "UserCreateResponse",
     "UserPreferencesResponse",
     "UserResponse",
     "UserStatsData",
+    "UserListItem",
+    "UserListResponse",
+    "SettingsStoredResponse",
+    "UserSettingsResponse",
+    "RecentChangeEntry",
     "UserStatsResponse",
     "WatchCounts",
     "WatchlistEntryResponse",

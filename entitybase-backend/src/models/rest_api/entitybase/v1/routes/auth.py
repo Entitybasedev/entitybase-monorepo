@@ -71,12 +71,12 @@ def login(request: LoginRequest, req: Request) -> AuthResponse:
 
     credentials = repo.get_credentials_by_username(request.username)
     if credentials is None or not verify_password(
-        request.password, credentials["password_hash"]
+        request.password, credentials.password_hash
     ):
         logger.info(f"Failed login attempt for {request.username}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    user_id = credentials["user_id"]
+    user_id = credentials.user_id
     token = _issue_token(user_id, request.username)
     return AuthResponse(token=token, user_id=user_id, username=request.username)
 

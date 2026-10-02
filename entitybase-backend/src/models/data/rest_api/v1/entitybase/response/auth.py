@@ -13,6 +13,15 @@ class TokenPayload(BaseModel):
     exp: int
 
 
+class UserCredentials(BaseModel):
+    """Stored login credentials looked up by username."""
+
+    model_config = {"populate_by_name": True}
+
+    user_id: int
+    password_hash: str = ""
+
+
 class AuthResponse(BaseModel):
     """Successful register/login response with a session token."""
 

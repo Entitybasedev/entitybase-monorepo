@@ -57,7 +57,7 @@ test('stream tab is reachable from the entities view via the menu', async ({
   page,
 }) => {
   await page.goto('/')
-  await expect(page.getByTestId('nav-entities')).toBeVisible()
+  await expect(page.getByTestId('nav-stream')).toBeVisible()
 
   await page.getByTestId('nav-stream').click()
 

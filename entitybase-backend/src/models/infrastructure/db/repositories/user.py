@@ -16,6 +16,7 @@ from models.data.rest_api.v1.entitybase.request.entity.context import (
 from models.data.rest_api.v1.entitybase.response import UserResponse
 from models.data.rest_api.v1.entitybase.response import (
     UserActivityItemResponse,
+    UserCredentials,
 )
 from models.rest_api.utils import raise_validation_error
 
@@ -398,11 +399,11 @@ class UserRepository(Repository):
             logger.error(f"Failed to create credentials for {username}: {e}")
             return OperationResult(success=False, error=str(e))
 
-    def get_credentials_by_username(self, username: str) -> dict | None:
+    def get_credentials_by_username(self, username: str) -> UserCredentials | None:
         """Look up credentials by username.
 
-        Returns a dict with user_id and password_hash, or None when the
-        username is unknown.
+        Returns the stored credentials, or None when the username is
+        unknown.
         """
         if not username:
             return None
@@ -418,7 +419,7 @@ class UserRepository(Repository):
                 )
                 row = cursor.fetchone()
                 if row:
-                    return {"user_id": int(row[0]), "password_hash": row[1]}
+                    return UserCredentials(user_id=int(row[0]), password_hash=row[1])
                 return None
         except Exception as e:
             logger.error(f"Failed to get credentials for {username}: {e}")

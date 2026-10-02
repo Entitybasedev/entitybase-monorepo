@@ -213,8 +213,16 @@ class MockUserRepository:
         result.error = None
         return result
 
-    def get_credentials_by_username(self, username: str) -> dict | None:
-        return self._credentials.get(username)
+    def get_credentials_by_username(self, username: str) -> Any:
+        """Return stored credentials (UserCredentials-compatible)."""
+        stored = self._credentials.get(username)
+        if stored is None:
+            return None
+        from models.data.rest_api.v1.entitybase.response.auth import UserCredentials
+
+        return UserCredentials(
+            user_id=stored["user_id"], password_hash=stored["password_hash"]
+        )
 
     def get_next_user_id(self) -> int:
         if self._registered:
