@@ -62,12 +62,12 @@
         <span class="field-name">Aliases</span>
         <template v-if="editingAliases">
           <input
-            v-model="aliasesDraft"
+            v-model="aliasDraft"
             class="form-control"
             style="width: auto"
             data-testid="aliases-edit-input"
-            placeholder="alias1, alias2, alias3"
-            @keyup.enter="saveAliases"
+            placeholder="type an alias, press Enter"
+            @keyup.enter="commitAlias"
           />
           <button
             class="btn btn-primary btn-sm"
@@ -80,7 +80,21 @@
             data-testid="cancel-aliases-button"
             @click="editingAliases = false"
           >Cancel</button>
-          <span class="small text-muted">Comma-separated; duplicates are removed on save.</span>
+          <span class="small text-muted">Type an alias and press Enter; click Save to commit.</span>
+          <span v-if="committedAliases.length" data-testid="alias-slugs">
+            <span
+              v-for="alias in committedAliases"
+              :key="alias"
+              class="fallback-chip"
+            >
+              {{ alias }}
+              <button
+                class="fallback-remove"
+                :data-testid="'alias-remove-' + alias"
+                @click="removeCommittedAlias(alias)"
+              >×</button>
+            </span>
+          </span>
         </template>
         <template v-else>
           <span v-if="aliases.length" data-testid="item-aliases">
@@ -279,16 +293,19 @@ function startDescriptionEdit() {
 }
 
 const editingAliases = ref(false)
-const aliasesDraft = ref('')
+const aliasDraft = ref('')
+const committedAliases = ref([])
 const savingAliases = ref(false)
 
 function startAliasesEdit() {
-  aliasesDraft.value = aliases.value.join(', ')
+  committedAliases.value = [...aliases.value]
+  aliasDraft.value = ''
   editingAliases.value = true
 }
 
-// Parse the comma-separated draft: trim, drop empties, dedupe
-// case-insensitively (keeping the first casing seen).
+// Commit the draft as slug chips: trim, drop blanks, dedupe
+// case-insensitively (first casing wins). Enter commits; only the
+// Save button persists to the server.
 function parseAliasDraft(draft) {
   const seen = new Set()
   const values = []
@@ -303,12 +320,26 @@ function parseAliasDraft(draft) {
   return values
 }
 
+function commitAlias() {
+  for (const value of parseAliasDraft(aliasDraft.value)) {
+    const exists = committedAliases.value.some(
+      (a) => a.toLowerCase() === value.toLowerCase()
+    )
+    if (!exists) committedAliases.value.push(value)
+  }
+  aliasDraft.value = ''
+}
+
+function removeCommittedAlias(alias) {
+  committedAliases.value = committedAliases.value.filter((a) => a !== alias)
+}
+
 async function saveAliases() {
   savingAliases.value = true
   error.value = ''
   try {
-    const values = parseAliasDraft(aliasesDraft.value)
-    await putAliases(item.value.id, language.value, values)
+    commitAlias()
+    await putAliases(item.value.id, language.value, committedAliases.value)
     editingAliases.value = false
     await loadItem(item.value.id)
   } catch (e) {

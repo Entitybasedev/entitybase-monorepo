@@ -13,11 +13,16 @@ test('aliases can be added and removed via the edit box', async ({ page }) => {
   // No aliases yet
   await expect(page.getByTestId('item-aliases')).toHaveCount(0)
 
-  // Add aliases via the edit box
+  // Add aliases via the edit box: Enter commits a slug
   await page.getByTestId('edit-aliases-button').click()
-  await page
-    .getByTestId('aliases-edit-input')
-    .fill(`alpha one, beta two, alpha one`)
+  const box = page.getByTestId('aliases-edit-input')
+  await box.fill('alpha one')
+  await box.press('Enter')
+  await box.fill('beta two')
+  await box.press('Enter')
+  // Duplicates are not committed twice (case-insensitive)
+  await box.fill('Alpha One')
+  await box.press('Enter')
   await page.getByTestId('save-aliases-button').click()
 
   const chips = page.getByTestId('item-alias')
@@ -25,9 +30,9 @@ test('aliases can be added and removed via the edit box', async ({ page }) => {
   await expect(chips.first()).toHaveText('alpha one')
   await expect(chips.nth(1)).toHaveText('beta two')
 
-  // Remove one and save
+  // Remove one via the slug x
   await page.getByTestId('edit-aliases-button').click()
-  await page.getByTestId('aliases-edit-input').fill('beta two')
+  await page.getByTestId('alias-remove-alpha one').click()
   await page.getByTestId('save-aliases-button').click()
 
   await expect(page.getByTestId('item-alias')).toHaveCount(1, { timeout: 15000 })

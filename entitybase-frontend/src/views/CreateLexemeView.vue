@@ -6,9 +6,10 @@
       <router-link to="/login" data-testid="login-required-link">Log in</router-link>
     </section>
     <template v-else>
+    <form @submit.prevent="createLexeme">
       <div class="row">
         <label for="lemma-input">Lemma (en)</label>
-        <input id="lemma-input" v-model="lemma" data-testid="lemma-input" placeholder="answer" />
+        <input id="lemma-input" v-model="lemma" data-testid="lemma-input" placeholder="answer" @keyup.enter="createLexeme" />
       </div>
       <div class="row">
         <label for="lexeme-language-input">Language QID</label>
@@ -28,13 +29,14 @@
           placeholder="Q1084"
         />
       </div>
-      <button class="btn btn-primary btn-sm"
+      <button type="submit" class="btn btn-primary btn-sm"
         :disabled="!lemma || creatingLexeme"
         data-testid="create-lexeme-button"
         @click="createLexeme"
       >
         {{ creatingLexeme ? 'Creating…' : 'Create lexeme' }}
       </button>
+    </form>
     </template>
     <section v-if="error" class="alert alert-danger" data-testid="error-banner">{{ error }}</section>
   </section>
@@ -54,6 +56,7 @@ const creatingLexeme = ref(false)
 const error = ref('')
 
 async function createLexeme() {
+  if (creatingLexeme.value) return
   creatingLexeme.value = true
   error.value = ''
   try {

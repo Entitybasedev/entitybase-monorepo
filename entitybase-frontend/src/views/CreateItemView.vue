@@ -6,18 +6,19 @@
       <router-link to="/login" data-testid="login-required-link">Log in</router-link>
     </section>
     <template v-else>
-      <div class="row">
+      <form class="row" @submit.prevent="createItem">
         <label for="label-input">Label (en)</label>
         <input
           id="label-input"
           v-model="newLabel"
           data-testid="item-label-input"
           placeholder="Universe"
+          @keyup.enter="createItem"
         />
-      </div>
-      <button class="btn btn-primary btn-sm" :disabled="!newLabel || creating" data-testid="create-item-button" @click="createItem">
-        {{ creating ? 'Creating…' : 'Create item' }}
-      </button>
+        <button type="submit" class="btn btn-primary btn-sm" :disabled="!newLabel || creating" data-testid="create-item-button" @click="createItem">
+          {{ creating ? 'Creating…' : 'Create item' }}
+        </button>
+      </form>
     </template>
     <section v-if="error" class="alert alert-danger" data-testid="error-banner">{{ error }}</section>
   </section>
@@ -36,6 +37,7 @@ const creating = ref(false)
 const error = ref('')
 
 async function createItem() {
+  if (creating.value) return
   creating.value = true
   error.value = ''
   try {

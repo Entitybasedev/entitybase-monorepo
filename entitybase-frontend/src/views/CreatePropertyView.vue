@@ -6,22 +6,23 @@
       <router-link to="/login" data-testid="login-required-link">Log in</router-link>
     </section>
     <template v-else>
-      <div class="row">
+      <form class="row" @submit.prevent="createProperty">
         <label for="property-label-input">Label (en)</label>
         <input
           id="property-label-input"
           v-model="propertyLabel"
           data-testid="property-label-input"
           placeholder="instance of"
+          @keyup.enter="createProperty"
         />
-      </div>
-      <button class="btn btn-primary btn-sm"
-        :disabled="!propertyLabel || creatingProperty"
-        data-testid="create-property-button"
-        @click="createProperty"
-      >
-        {{ creatingProperty ? 'Creating…' : 'Create property' }}
-      </button>
+        <button type="submit" class="btn btn-primary btn-sm"
+          :disabled="!propertyLabel || creatingProperty"
+          data-testid="create-property-button"
+          @click="createProperty"
+        >
+          {{ creatingProperty ? 'Creating…' : 'Create property' }}
+        </button>
+      </form>
     </template>
     <section v-if="error" class="alert alert-danger" data-testid="error-banner">{{ error }}</section>
   </section>
@@ -40,6 +41,7 @@ const creatingProperty = ref(false)
 const error = ref('')
 
 async function createProperty() {
+  if (creatingProperty.value) return
   creatingProperty.value = true
   error.value = ''
   try {

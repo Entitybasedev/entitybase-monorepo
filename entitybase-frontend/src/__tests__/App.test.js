@@ -178,7 +178,7 @@ describe('App', () => {
     expect(wrapper.find('[data-testid="edit-aliases-button"]').exists()).toBe(false)
   })
 
-  it('edits aliases: slugs in an edit box, deduplicated on save', async () => {
+  it('edits aliases: enter commits slugs, x removes them, save persists', async () => {
     loginState(90001)
     await router.push('/?entity=Q42')
     apiMocks.getItem
@@ -196,14 +196,29 @@ describe('App', () => {
     expect(chips).toHaveLength(2)
 
     await wrapper.find('[data-testid="edit-aliases-button"]').trigger('click')
+    // Existing aliases appear as committed slugs; input starts empty
+    expect(wrapper.findAll('[data-testid="alias-slugs"] [class*="chip"]')).toHaveLength(2)
     const input = wrapper.find('[data-testid="aliases-edit-input"]')
-    expect(input.element.value).toBe('Doug, Douglas Noel Adams')
+    expect(input.element.value).toBe('')
 
-    await input.setValue('Doug, DNA, doug ,  , DNA')
+    // Enter commits a slug and clears the input
+    await input.setValue('DNA')
+    await input.trigger('keyup.enter')
+    expect(input.element.value).toBe('')
+    // Duplicate (case-insensitive) is not added again
+    await input.setValue('dna')
+    await input.trigger('keyup.enter')
+    const slugs = wrapper.findAll('[data-testid="alias-slugs"] [class*="chip"]')
+    expect(slugs).toHaveLength(3)
+
+    // x removes a committed slug
+    await wrapper.find('[data-testid="alias-remove-Douglas Noel Adams"]').trigger('click')
+    expect(wrapper.findAll('[data-testid="alias-slugs"] [class*="chip"]')).toHaveLength(2)
+
+    // Save persists the committed slugs
     await wrapper.find('[data-testid="save-aliases-button"]').trigger('click')
     await flushPromises()
 
-    // Duplicates (case-insensitive) and blanks removed, kept first casing
     expect(apiMocks.putAliases).toHaveBeenCalledWith('Q42', 'en', ['Doug', 'DNA'])
     expect(wrapper.findAll('[data-testid="item-alias"]')).toHaveLength(2)
   })
