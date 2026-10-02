@@ -41,6 +41,9 @@
         Already registered? Log in
       </router-link>
     </p>
+    <p v-if="mode === 'login'" class="demo-hint small text-muted" data-testid="demo-hint">
+      Demo account: <code>demo</code> / <code>demo</code>
+    </p>
     <section v-if="error" class="alert alert-danger" data-testid="auth-error">{{ error }}</section>
   </section>
 </template>

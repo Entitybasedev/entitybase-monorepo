@@ -19,7 +19,7 @@ from models.config.version import API_VERSION
 from models.rest_api.entitybase.v1.endpoints import v1_router
 from models.rest_api.entitybase.v1.handlers.state import StateHandler
 from models.rest_api.entitybase.v1.routes import include_routes
-from models.rest_api.entitybase.v1.services.auth_service import decode_token
+from models.rest_api.entitybase.v1.services.auth_service import decode_token, hash_password
 from models.rest_api.utils import raise_validation_error
 
 aws_loggers = [
@@ -157,6 +157,7 @@ async def lifespan(app_: FastAPI) -> AsyncGenerator[None, None]:
         await _ensure_stream_producer(state_handler)
         await _create_database_tables(state_handler)
         _ensure_import_user(state_handler)
+        _ensure_demo_user(state_handler)
         await _initialize_app_state(app_, state_handler)
         yield
     except Exception as e:
@@ -230,6 +231,36 @@ def _ensure_import_user(state_handler: StateHandler) -> None:
         logger.info(f"Import user ready: {settings.import_username}")
     except Exception as e:
         logger.warning(f"Could not ensure import user: {e}")
+
+
+def _ensure_demo_user(state_handler: StateHandler) -> None:
+    """Ensure the demo user exists (idempotent).
+
+    The demo user is a regular account for local testing; it can log in
+    with credentials from settings (DEMO_USERNAME / DEMO_PASSWORD,
+    default demo/demo).
+    """
+    try:
+        repo = state_handler.db_client.user_repository
+        if repo.get_credentials_by_username(settings.demo_username) is not None:
+            logger.debug(f"Demo user exists: {settings.demo_username}")
+            return
+        next_id = repo.get_next_user_id()
+        created = repo.create_user(next_id)
+        if not getattr(created, "success", False):
+            logger.warning(f"Could not create demo user: {created.error}")
+            return
+        credentials = repo.create_credentials(
+            next_id,
+            settings.demo_username,
+            hash_password(settings.demo_password),
+        )
+        if not getattr(credentials, "success", False):
+            logger.warning(f"Could not store demo credentials: {credentials.error}")
+            return
+        logger.info(f"Demo user ready: {settings.demo_username} (user {next_id})")
+    except Exception as e:
+        logger.warning(f"Could not ensure demo user: {e}")
 
 
 async def _initialize_app_state(app_: FastAPI, state_handler: StateHandler) -> None:

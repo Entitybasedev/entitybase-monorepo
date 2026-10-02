@@ -377,8 +377,12 @@ class UserRepository(Repository):
     def create_credentials(
         self, user_id: int, username: str, password_hash: str
     ) -> OperationResult:
-        """Store login credentials for a user (username must be unique)."""
-        if user_id <= 0 or not username or not password_hash:
+        """Store login credentials for a user (username must be unique).
+
+        An empty password_hash marks a system user that can never log in
+        (verify_password fails on an empty hash).
+        """
+        if user_id < 0 or not username:
             return OperationResult(success=False, error="Invalid credentials input")
         try:
             with self.db_client.cursor as cursor:

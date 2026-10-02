@@ -5,7 +5,7 @@ src/models/infrastructure/vitess/storage/base.py:46
 src/models/infrastructure/vitess/storage/base.py:65
 src/models/rest_api/entitybase/v1/endpoints/debug.py:14
 src/models/rest_api/entitybase/v1/endpoints/debug.py:43
-src/models/rest_api/main.py:323
+src/models/rest_api/main.py:354
 src/models/rest_api/entitybase/v1/handlers/entity/revert.py:83
 src/models/rest_api/entitybase/v1/handlers/entity/revert.py:91
 src/models/internal_representation/statement_backlink_extractor.py:13

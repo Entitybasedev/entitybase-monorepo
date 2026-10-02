@@ -86,6 +86,10 @@ class Settings(BaseModel):
     # import system user (created at first API start)
     import_username: str = "import"
 
+    # demo user for local testing (created at first API start)
+    demo_username: str = "demo"
+    demo_password: str = "demo"
+
     @property
     def auth_signing_secret(self) -> str:
         """Secret used to sign and verify auth tokens.
@@ -197,6 +201,8 @@ class Settings(BaseModel):
             os.getenv("AUTH_TOKEN_EXPIRY_HOURS", str(self.auth_token_expiry_hours))
         )
         self.import_username = os.getenv("IMPORT_USERNAME", self.import_username)
+        self.demo_username = os.getenv("DEMO_USERNAME", self.demo_username)
+        self.demo_password = os.getenv("DEMO_PASSWORD", self.demo_password)
         self.dangling_property_id = os.getenv(
             "DANGLING_PROPERTY_ID", self.dangling_property_id
         )
