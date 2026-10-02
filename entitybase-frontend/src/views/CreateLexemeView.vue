@@ -83,7 +83,7 @@ async function createLexeme() {
       language: lexemeLanguage.value,
       lexical_category: lexemeCategory.value,
     })
-    await router.push({ path: '/', query: { entity: entityId } })
+    await router.push(`/entity/${entityId}`)
   } catch (e) {
     error.value = String(e.message || e)
   } finally {

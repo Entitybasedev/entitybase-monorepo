@@ -16,7 +16,7 @@ test('create a property via the UI', async ({ page }) => {
 
   // Property IDs are P-prefixed and persisted server-side
   const permalink = await page.getByTestId('item-permalink').getAttribute('href')
-  expect(permalink).toMatch(/\?entity=P\d+$/)
+  expect(permalink).toMatch(/\/entity\/P\d+$/)
 })
 
 test('create an item via the UI and see its label', async ({ page }) => {

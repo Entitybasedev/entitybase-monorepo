@@ -88,7 +88,7 @@ test('creating an item produces a change event with the same QID', async ({
   const itemSection = page.getByTestId('item-section')
   await expect(itemSection).toBeVisible()
   const permalink = await page.getByTestId('item-permalink').getAttribute('href')
-  const itemId = permalink.split('entity=')[1]
+  const itemId = permalink.split('/entity/')[1]
   expect(itemId).toMatch(/^Q\d+$/)
 
   // Switch to the change stream and expect the item's creation event.

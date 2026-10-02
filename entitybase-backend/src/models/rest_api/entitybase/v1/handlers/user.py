@@ -2,13 +2,14 @@
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 from models.config.settings import settings
 from models.data.infrastructure.stream.change_type import ChangeType
 from models.data.rest_api.v1.entitybase.response import (
     DeduplicationDatabaseStatsResponse,
+    EditStatsResponse,
     GeneralStatsResponse,
     TermsByType,
     TermsPerLanguage,
@@ -37,9 +38,7 @@ class UserHandler(Handler):
         """Create/register a user."""
         created = False
         if not self.state.db_client.user_repository.user_exists(request.user_id):
-            result = self.state.db_client.user_repository.create_user(
-                request.user_id
-            )
+            result = self.state.db_client.user_repository.create_user(request.user_id)
             if not result.success:
                 raise_validation_error(
                     result.error or "Failed to create user", status_code=500
@@ -259,6 +258,45 @@ class UserHandler(Handler):
                 )
             else:
                 return self._compute_fallback_stats()
+        finally:
+            cursor.close()
+            self.state.db_client.connection_manager.release(connection)
+
+    def get_edit_stats(self) -> EditStatsResponse:
+        """Get edit counts for the last 7 days, 30 days and in total."""
+        logger.debug("Fetching edit stats from user_activity")
+        # Compare against a UTC cutoff string so both MySQL TIMESTAMP and
+        # SQLite TEXT created_at values compare correctly
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        cutoff_7d = (now_utc - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+        cutoff_30d = (now_utc - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+
+        connection = self.state.db_client.connection_manager.acquire()
+        cursor = connection.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    COALESCE(SUM(created_at >= %s), 0),
+                    COALESCE(SUM(created_at >= %s), 0),
+                    COUNT(*)
+                FROM user_activity
+                """,
+                (cutoff_7d, cutoff_30d),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                raise_validation_error("Failed to compute edit stats", status_code=500)
+            stats = EditStatsResponse(
+                edits_7d=int(row[0]),
+                edits_30d=int(row[1]),
+                edits_total=int(row[2]),
+            )
+            logger.debug(
+                f"Edit stats: 7d={stats.edits_7d}, 30d={stats.edits_30d}, "
+                f"total={stats.edits_total}"
+            )
+            return stats
         finally:
             cursor.close()
             self.state.db_client.connection_manager.release(connection)

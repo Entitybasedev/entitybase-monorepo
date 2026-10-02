@@ -27,6 +27,16 @@
         <li class="nav-item">
           <router-link
             class="nav-link"
+            :class="{ active: isActive('/statistics') }"
+            data-testid="nav-statistics"
+            to="/statistics"
+          >
+            Statistics
+          </router-link>
+        </li>
+        <li class="nav-item">
+          <router-link
+            class="nav-link"
             :class="{ active: isActive('/recent') }"
             data-testid="nav-recent"
             to="/recent"
@@ -156,4 +166,9 @@ function isActive(path) {
 .alias-chip { display: inline-block; background: #eef6ff; border: 1px solid #b6d4fe; border-radius: 999px; padding: .1rem .6rem; margin-right: .35rem; }
 .fallback-chip { background: #eef6ff; border: 1px solid #b6d4fe; border-radius: 999px; padding: .1rem .5rem; }
 .fallback-remove { border: none; background: none; cursor: pointer; padding: 0; color: #b71c1c; }
+.statement-group { margin-bottom: .5rem; }
+.statement-group-header { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
+.statement-anchor { color: inherit; text-decoration: none; }
+.statement-anchor:hover { text-decoration: underline; }
+.statement-group li { margin-left: 1rem; list-style: none; }
 </style>

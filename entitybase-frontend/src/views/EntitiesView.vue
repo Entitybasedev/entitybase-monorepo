@@ -2,10 +2,10 @@
     <section v-if="error" class="alert alert-danger" data-testid="error-banner">{{ error }}</section>
 
     <section v-if="item" class="card card-body mb-3" data-testid="item-section">
-      <h2>
-        {{ typeLabel }} {{ item.id }}
+      <h1>
+        {{ item.id }}
         <span class="badge text-bg-secondary" data-testid="item-type-badge">{{ typeLabel }}</span>
-      </h2>
+      </h1>
       <div class="row">
         <span class="field-name">Label</span>
         <template v-if="editingLabel">
@@ -145,11 +145,10 @@
         </template>
       </div>
       <p>
-        <a :href="`/?entity=${item.id}`" data-testid="item-permalink">Permalink</a>
+        <a :href="`/entity/${item.id}`" data-testid="item-permalink">Permalink</a>
       </p>
 
-      <h3>Statements</h3>
-      <form
+      <h3>Statements</h3>      <form
         v-if="isLoggedIn"
         class="statement-form"
         data-testid="statement-form"
@@ -171,13 +170,42 @@
         <router-link to="/login">Log in</router-link> to add statements.
       </p>
 
-      <ul data-testid="statement-list">
-        <li v-for="s in statements" :key="s.id" data-testid="statement">
-          <span class="field-name" data-testid="statement-property">{{ s.propertyLabel || s.property }}</span>
-          <span data-testid="statement-value">{{ s.valueLabel || s.value }}</span>
-        </li>
-        <li v-if="!statements.length" data-testid="no-statements">No statements yet.</li>
-      </ul>
+      <div data-testid="statement-list">
+        <div
+          v-for="group in groupedStatements"
+          :id="group.property"
+          :key="group.property"
+          class="statement-group"
+          data-testid="statement-group"
+        >
+          <div class="statement-group-header">
+            <a
+              :href="`#${group.property}`"
+              class="statement-anchor"
+              data-testid="statement-property"
+            >{{ group.propertyLabel || group.property }}</a>
+            <span class="badge text-bg-secondary" data-testid="statement-group-count">
+              {{ group.statements.length }}
+            </span>
+          </div>
+          <ul>
+            <li
+              v-for="(s, i) in group.statements"
+              :id="`${group.property}-${i + 1}`"
+              :key="s.id"
+              data-testid="statement"
+            >
+              <a
+                :href="`#${group.property}-${i + 1}`"
+                class="statement-anchor"
+                data-testid="statement-link"
+              >§</a>
+              <span data-testid="statement-value">{{ s.valueLabel || s.value }}</span>
+            </li>
+          </ul>
+        </div>
+        <p v-if="!statements.length" data-testid="no-statements">No statements yet.</p>
+      </div>
 
       <h3>History</h3>
       <p>
@@ -285,6 +313,21 @@ const displayLabel = computed(() => {
   if (!label.value) return ''
   const suffix = showQid.value && item.value ? ` (${item.value.id})` : ''
   return label.value + suffix
+})
+
+// Statements grouped by property for anchored navigation
+// (/entity/<qid>#P31 or #P31-<n> per statement)
+const groupedStatements = computed(() => {
+  const groups = new Map()
+  for (const s of statements.value) {
+    if (!groups.has(s.property)) groups.set(s.property, [])
+    groups.get(s.property).push(s)
+  }
+  return [...groups.entries()].map(([property, stmts]) => ({
+    property,
+    propertyLabel: stmts[0]?.propertyLabel || property,
+    statements: stmts,
+  }))
 })
 
 const TYPE_LABELS = { item: 'Item', property: 'Property', lexeme: 'Lexeme' }
@@ -433,7 +476,7 @@ const entityData = computed(
 )
 
 function entityIdFromQuery() {
-  return typeof route.query.entity === 'string' ? route.query.entity : ''
+  return typeof route.params.entityId === 'string' ? route.params.entityId : ''
 }
 
 async function loadItem(id) {
@@ -527,6 +570,15 @@ async function addStatement() {
   }
 }
 
+const entityId = computed(() =>
+  typeof route.params.entityId === 'string' ? route.params.entityId : ''
+)
+
+// Reload when navigating between entities
+watch(entityId, (id) => {
+  if (id) loadItem(id)
+})
+
 onMounted(async () => {
   try {
     const settings = await getUserSettings(authUser.value || 90001)
@@ -540,9 +592,8 @@ onMounted(async () => {
   } catch {
     /* settings are optional */
   }
-  const id = entityIdFromQuery()
-  if (id) {
-    await loadItem(id)
+  if (entityId.value) {
+    await loadItem(entityId.value)
   }
 })
 </script>

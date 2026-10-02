@@ -144,7 +144,7 @@ describe('EntityTermsView', () => {
     const wrapper = await mountAt('/Q42/terms')
 
     expect(wrapper.find('[data-testid="back-to-entity-link"]').attributes('href')).toBe(
-      '/?entity=Q42'
+      '/entity/Q42'
     )
   })
 })

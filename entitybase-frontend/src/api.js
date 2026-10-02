@@ -151,6 +151,23 @@ export async function getStreamHealth() {
   return unwrap(res, 'GET stream health')
 }
 
+// --- Statistics ---
+
+export async function getGeneralStats() {
+  const res = await fetch(`${BASE}/v1/stats`)
+  return unwrap(res, 'GET general stats')
+}
+
+export async function getEditStats() {
+  const res = await fetch(`${BASE}/v1/stats/edits`)
+  return unwrap(res, 'GET edit stats')
+}
+
+export async function getDeduplicationStats() {
+  const res = await fetch(`${BASE}/v1/stats/deduplication`)
+  return unwrap(res, 'GET deduplication stats')
+}
+
 // --- User list ---
 
 export async function getUserList(limit = 10, offset = 0) {

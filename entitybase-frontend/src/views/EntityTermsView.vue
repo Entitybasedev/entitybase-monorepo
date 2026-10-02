@@ -69,7 +69,7 @@
     </table>
 
     <p>
-      <router-link :to="{ path: '/', query: { entity: entityId } }" data-testid="back-to-entity-link">
+      <router-link :to="`/entity/${entityId}`" data-testid="back-to-entity-link">
         Back to entity
       </router-link>
     </p>

@@ -33,6 +33,20 @@ const apiMocks = vi.hoisted(() => ({
   putAliases: vi.fn(),
   getRecentChanges: vi.fn(),
   getEntityList: vi.fn(),
+  getGeneralStats: vi.fn().mockResolvedValue({
+    date: '2026-10-01',
+    total_items: 1,
+    total_properties: 1,
+    total_lexemes: 1,
+    total_statements: 1,
+    total_terms: 1,
+  }),
+  getEditStats: vi.fn().mockResolvedValue({
+    edits_7d: 0,
+    edits_30d: 0,
+    edits_total: 0,
+  }),
+  getDeduplicationStats: vi.fn().mockResolvedValue({}),
 }))
 
 vi.mock('../api.js', () => apiMocks)
@@ -180,7 +194,10 @@ describe('App', () => {
 
       const wrapper = await mountApp()
       expect(wrapper.find('[data-testid="item-type-badge"]').text()).toBe(expected)
-      expect(wrapper.find('h2').text()).toContain(`${expected} ${id}`)
+      // The heading shows the ID; the type only appears in the badge
+      const heading = wrapper.find('h1')
+      expect(heading.element.childNodes[0].textContent.trim()).toBe(id)
+      expect(heading.find('[data-testid="item-type-badge"]').exists()).toBe(true)
     }
   })
 
@@ -345,6 +362,67 @@ describe('App', () => {
     expect(statement.exists()).toBe(true)
     expect(wrapper.find('[data-testid="statement-property"]').text()).toBe('instance of')
     expect(wrapper.find('[data-testid="statement-value"]').text()).toBe('human')
+
+    // Statements are grouped under an anchored property header
+    expect(wrapper.find('[data-testid="statement-group"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="statement-group"]').attributes('id')).toBe('P31')
+    expect(wrapper.find('[data-testid="statement"]').attributes('id')).toBe('P31-1')
+  })
+
+  it('groups statements by property with anchors per group and statement', async () => {
+    loginState(90001)
+    await router.push('/entity/Q1')
+    apiMocks.getItem
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777, 888, 999]))
+      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777, 888, 999]))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
+    apiMocks.getStatement
+      .mockResolvedValueOnce({
+        schema: '1.0',
+        hash: 777,
+        statement: { id: 'S1', mainsnak: 551, type: 'statement', rank: 'normal' },
+      })
+      .mockResolvedValueOnce({
+        schema: '1.0',
+        hash: 888,
+        statement: { id: 'S2', mainsnak: 552, type: 'statement', rank: 'normal' },
+      })
+      .mockResolvedValueOnce({
+        schema: '1.0',
+        hash: 999,
+        statement: { id: 'S3', mainsnak: 553, type: 'statement', rank: 'normal' },
+      })
+    apiMocks.getSnak.mockImplementation(async (hash) => ({
+      snaktype: 'value',
+      property: hash === 553 ? 'P17' : 'P31',
+      datavalue: {
+        value: { id: hash === 552 ? 'Q30' : 'Q5' },
+        type: 'wikibase-item',
+      },
+    }))
+    apiMocks.getLabelWithFallback.mockImplementation(async (id) => {
+      if (id === 'P31') return 'instance of'
+      if (id === 'P17') return 'country'
+      if (id === 'Q5') return 'human'
+      if (id === 'Q30') return 'USA'
+      return ''
+    })
+
+    const wrapper = await mountApp()
+    await flushPromises()
+
+    const groups = wrapper.findAll('[data-testid="statement-group"]')
+    expect(groups).toHaveLength(2)
+    expect(groups[0].attributes('id')).toBe('P31')
+    expect(groups[0].find('[data-testid="statement-property"]').text()).toBe('instance of')
+    expect(groups[0].find('[data-testid="statement-group-count"]').text()).toBe('2')
+    expect(groups[1].attributes('id')).toBe('P17')
+
+    const p31Statements = groups[0].findAll('[data-testid="statement"]')
+    expect(p31Statements).toHaveLength(2)
+    expect(p31Statements[0].attributes('id')).toBe('P31-1')
+    expect(p31Statements[1].attributes('id')).toBe('P31-2')
+    expect(p31Statements[1].find('[data-testid="statement-value"]').text()).toBe('USA')
   })
 
   it('shows a log-in hint instead of the statement form when logged out', async () => {

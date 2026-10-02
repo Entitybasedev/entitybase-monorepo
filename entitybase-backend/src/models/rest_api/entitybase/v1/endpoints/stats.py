@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from models.rest_api.entitybase.v1.handlers.user import UserHandler
 from models.data.rest_api.v1.entitybase.response import (
     DeduplicationDatabaseStatsResponse,
+    EditStatsResponse,
     GeneralStatsResponse,
 )
 
@@ -27,6 +28,20 @@ def get_general_stats(req: Request) -> GeneralStatsResponse:
         logger.warning(f"ValueError in get_general_stats: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve general stats: {str(e)}"
+        )
+
+
+@stats_router.get("/stats/edits", response_model=EditStatsResponse)
+def get_edit_stats(req: Request) -> EditStatsResponse:
+    """Get edit counts for the last 7 days, 30 days and in total."""
+    state = req.app.state.state_handler
+    handler = UserHandler(state=state)
+    try:
+        return handler.get_edit_stats()
+    except Exception as e:
+        logger.warning(f"Error in get_edit_stats: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve edit stats: {str(e)}"
         )
 
 

@@ -76,6 +76,7 @@ from .sitelinks import (
 from .stats import (
     DeduplicationDatabaseStatsResponse,
     DeduplicationStatsByType,
+    EditStatsResponse,
     GeneralStatsData,
     GeneralStatsResponse,
     WatchCounts,
@@ -167,6 +168,7 @@ __all__ = [
     "DescriptionResponse",
     "DescriptionValue",
     "DeduplicationStatsResponse",
+    "EditStatsResponse",
     "EndorsementListResponse",
     "EndorsementResponse",
     "EndorsementStatsResponse",

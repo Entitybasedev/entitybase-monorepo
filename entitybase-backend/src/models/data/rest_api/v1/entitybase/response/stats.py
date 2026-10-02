@@ -15,6 +15,12 @@ class WatchCounts(BaseModel):
     property_count: int = Field(..., description="Number of properties watched")
 
 
+class EditStatsResponse(BaseModel):
+    """API response for edit activity statistics."""
+
+    edits_7d: int = Field(..., description="Number of edits in the last 7 days")
+    edits_30d: int = Field(..., description="Number of edits in the last 30 days")
+    edits_total: int = Field(..., description="Total number of edits")
 
 
 class GeneralStatsResponse(BaseModel):

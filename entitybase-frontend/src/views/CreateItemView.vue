@@ -54,7 +54,7 @@ async function createItem() {
   try {
     const entityId = await postItem({})
     await putLabel(entityId, labelLanguage.value, newLabel.value)
-    await router.push({ path: '/', query: { entity: entityId } })
+    await router.push(`/entity/${entityId}`)
   } catch (e) {
     error.value = String(e.message || e)
   } finally {

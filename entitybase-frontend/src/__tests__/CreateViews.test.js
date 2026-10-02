@@ -17,6 +17,19 @@ const apiMocks = vi.hoisted(() => ({
   postStatement: vi.fn(),
   getEntityList: vi.fn(),
   getRecentChanges: vi.fn(),
+  getGeneralStats: vi.fn().mockResolvedValue({
+    date: '2026-10-01',
+    total_items: 1,
+    total_properties: 1,
+    total_lexemes: 1,
+    total_statements: 1,
+    total_terms: 1,
+  }),
+  getEditStats: vi.fn().mockResolvedValue({
+    edits_7d: 0,
+    edits_30d: 0,
+    edits_total: 0,
+  }),
 }))
 
 vi.mock('../api.js', () => apiMocks)
@@ -82,8 +95,7 @@ describe('CreateItemView', () => {
 
     expect(apiMocks.postItem).toHaveBeenCalledWith({})
     expect(apiMocks.putLabel).toHaveBeenCalledWith('Q500', 'en', 'E2E')
-    expect(router.currentRoute.value.path).toBe('/')
-    expect(router.currentRoute.value.query.entity).toBe('Q500')
+    expect(router.currentRoute.value.path).toBe('/entity/Q500')
   })
 
   it('creates the label in the language chosen in the select', async () => {
@@ -114,7 +126,7 @@ describe('CreatePropertyView', () => {
     await flushPromises()
 
     expect(apiMocks.postProperty).toHaveBeenCalledWith({})
-    expect(router.currentRoute.value.query.entity).toBe('P300')
+    expect(router.currentRoute.value.path).toBe('/entity/P300')
   })
 })
 
@@ -135,6 +147,6 @@ describe('CreateLexemeView', () => {
       language: 'Q1860',
       lexical_category: 'Q1084',
     })
-    expect(router.currentRoute.value.query.entity).toBe('L50')
+    expect(router.currentRoute.value.path).toBe('/entity/L50')
   })
 })

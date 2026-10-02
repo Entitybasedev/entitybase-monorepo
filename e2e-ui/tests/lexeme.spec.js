@@ -17,7 +17,7 @@ test('create a lexeme via the UI', async ({ page }) => {
 
   // Lexeme IDs are L-prefixed and persisted server-side
   const permalink = await page.getByTestId('item-permalink').getAttribute('href')
-  expect(permalink).toMatch(/\?entity=L\d+$/)
+  expect(permalink).toMatch(/\/entity\/L\d+$/)
 })
 
 test('create a lexeme and add a statement via the UI', async ({ page, request }) => {
@@ -36,7 +36,7 @@ test('create a lexeme and add a statement via the UI', async ({ page, request })
   const itemSection = page.getByTestId('item-section')
   await expect(itemSection).toBeVisible()
   const permalink = await page.getByTestId('item-permalink').getAttribute('href')
-  const lexemeId = permalink.split('entity=')[1]
+  const lexemeId = permalink.split('/entity/')[1]
   expect(lexemeId).toMatch(/^L\d+$/)
 
   // Add a statement to the lexeme through the UI

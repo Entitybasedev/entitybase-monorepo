@@ -129,6 +129,65 @@ const server = http.createServer((req, res) => {
       recordChange(id, 'entity_create', 'Created via entitybase-frontend')
       return json(200, { id, rev_id: 1, data: { revision: {} } })
     }
+    if (req.method === 'GET' && url.pathname === '/v1/stats/edits') {
+      const day = 24 * 60 * 60 * 1000
+      const now = Date.now()
+      const within = (days) =>
+        recentChanges.filter(
+          (row) => now - Date.parse(row.created_at) <= days * day
+        ).length
+      return json(200, {
+        edits_7d: within(7),
+        edits_30d: within(30),
+        edits_total: recentChanges.length,
+      })
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/stats/deduplication') {
+      const type = () => ({
+        unique_hashes: 100,
+        total_ref_count: 150,
+        deduplication_factor: 33.3,
+        space_saved: 50,
+      })
+      return json(200, {
+        statements: type(),
+        qualifiers: type(),
+        references: type(),
+        snaks: type(),
+        sitelinks: type(),
+        terms: type(),
+      })
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/stats') {
+      const countBy = (prefix) => [...db.keys()].filter((id) => id.startsWith(prefix)).length
+      const perLanguage = {}
+      const byType = { labels: 0, descriptions: 0, aliases: 0 }
+      for (const item of db.values()) {
+        for (const [lang] of Object.entries(item.labels ?? {})) {
+          byType.labels += 1
+          perLanguage[lang] = (perLanguage[lang] ?? 0) + 1
+        }
+        for (const term of Object.values(item.descriptions ?? {})) {
+          byType.descriptions += 1
+        }
+        for (const values of Object.values(item.aliases ?? {})) {
+          byType.aliases += values.length
+        }
+      }
+      return json(200, {
+        date: new Date().toISOString().slice(0, 10),
+        total_items: countBy('Q'),
+        total_properties: countBy('P'),
+        total_lexemes: countBy('L'),
+        total_statements: statementsByHash.size,
+        total_qualifiers: 0,
+        total_references: 0,
+        total_sitelinks: 0,
+        total_terms: byType.labels + byType.descriptions + byType.aliases,
+        terms_per_language: { terms: perLanguage },
+        terms_by_type: { counts: byType },
+      })
+    }
     if (req.method === 'GET' && url.pathname === '/v1/recentchanges') {
       let rows = recentChanges
       if (url.searchParams.get('exclude_imports') === 'true') {
@@ -178,6 +237,8 @@ const server = http.createServer((req, res) => {
         const lang = lm[1]
         if (req.method === 'PUT' || req.method === 'POST') {
           item.labels[lang] = { language: lang, value: jsonBody.value }
+          item.hashes.labels ||= {}
+          item.hashes.labels[lang] = counter++
           recordRevision(id, 'Set label')
           recordChange(id, 'label_update', 'Created via entitybase-frontend')
           return json(200, { hash: 'mock' })
@@ -190,6 +251,8 @@ const server = http.createServer((req, res) => {
         if (req.method === 'PUT' || req.method === 'POST') {
           item.descriptions ||= {}
           item.descriptions[lang] = { language: lang, value: jsonBody.value }
+          item.hashes.descriptions ||= {}
+          item.hashes.descriptions[lang] = counter++
           recordRevision(id, 'Set description')
           recordChange(id, 'description_update', 'Created via entitybase-frontend')
           return json(200, { hash: 'mock' })
@@ -203,11 +266,24 @@ const server = http.createServer((req, res) => {
           const values = Array.isArray(jsonBody) ? jsonBody : []
           item.aliases ||= {}
           item.aliases[lang] = values
+          item.hashes.aliases ||= {}
+          item.hashes.aliases[lang] = values.map(() => counter++)
           recordRevision(id, 'Set aliases')
           recordChange(id, 'aliases_update', 'Created via entitybase-frontend')
           return json(200, { hashes: values.map(() => 'mock') })
         }
         return json(200, { aliases: item.aliases?.[lang] ?? [] })
+      }
+      const tm = rest.match(/^\/terms\/([\w-]+)$/)
+      if (tm && req.method === 'GET') {
+        const lang = tm[1]
+        const label = item.labels?.[lang]?.value ?? ''
+        const description = item.descriptions?.[lang]?.value ?? ''
+        const aliases = item.aliases?.[lang] ?? []
+        if (!label && !description && !aliases.length) {
+          return json(404, { message: 'terms not found' })
+        }
+        return json(200, { language: lang, label, description, aliases })
       }
       if (rest === '/revisions' && req.method === 'GET') {
         return json(200, item.revisions ?? [])
