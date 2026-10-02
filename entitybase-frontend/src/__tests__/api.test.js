@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  deleteStatement,
   getItem,
   getAliases,
   getDescription,
@@ -113,6 +114,27 @@ describe('postStatement', () => {
   })
 })
 
+describe('deleteStatement', () => {
+  it('DELETEs the statement addressed by hash', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ success: true }))
+
+    await deleteStatement('Q42', '5105433794040195521')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe(
+      '/v1/entities/Q42/statements/5105433794040195521'
+    )
+    expect(init.method).toBe('DELETE')
+    expect(init.headers['X-Edit-Summary']).toBeTruthy()
+  })
+
+  it('throws with the server error when the delete fails', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: 'not found' }, 404))
+
+    await expect(deleteStatement('Q42', '123')).rejects.toThrow(/404/)
+  })
+})
+
 describe('getItem', () => {
   it('GETs the entity and unwraps the response', async () => {
     fetchMock.mockResolvedValue(
@@ -215,6 +237,29 @@ describe('int64-safe JSON parsing', () => {
     const item = await getItem('Q1')
 
     expect(item.data.revision.hashes.statements[0]).toBe(bigHash)
+  })
+
+  it('preserves every hash when several large hashes are adjacent', async () => {
+    // Regression: the regex used to consume the delimiter before the next
+    // hash, so the second hash was parsed as a number and rounded
+    const hashes = ['15043976472407168515', '11852207546045822495', '211101557983833924']
+    const raw = `{"id":"Q1","rev_id":1,"data":{"revision":{"hashes":{"statements":[${hashes.join(
+      ','
+    )}],"aliases":{"en":["3479604806168766037","9089341576056635688"]}}}}}`
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(raw),
+      json: () => Promise.resolve(JSON.parse(raw)),
+    })
+
+    const item = await getItem('Q1')
+
+    expect(item.data.revision.hashes.statements).toEqual(hashes)
+    expect(item.data.revision.hashes.aliases.en).toEqual([
+      '3479604806168766037',
+      '9089341576056635688',
+    ])
   })
 
   it('keeps small numbers as numbers', async () => {

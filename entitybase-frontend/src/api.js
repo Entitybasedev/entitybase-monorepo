@@ -15,7 +15,10 @@ function editHeaders() {
 function safeJsonParse(text) {
   // Quote integer literals >= 15 digits so int64 hashes survive JS parsing
   // (Number.MAX_SAFE_INTEGER is ~9e15; rounding makes them unusable).
-  return JSON.parse(text.replace(/([:[,\[]\s*)(\d{15,})(\s*[,\]}])/g, '$1"$2"$3'))
+  // The trailing delimiter is matched with a lookahead so it is not
+  // consumed: otherwise every second hash in a list loses the delimiter it
+  // needs as its leading match and gets rounded.
+  return JSON.parse(text.replace(/([:,[]\s*)(\d{15,})(?=\s*[,\]}])/g, '$1"$2"'))
 }
 
 async function unwrap(res, what) {
