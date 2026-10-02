@@ -7,7 +7,12 @@
 // mirroring how the real stack flows entity changes through redpanda.
 import http from 'node:http'
 
-const MOCK_API = process.env.MOCK_API_URL || 'http://localhost:8083'
+// Mock ports live in the 90xx range so they never collide with the
+// docker stack (80xx). Override with MOCK_API_PORT / MOCK_STREAM_PORT.
+const API_PORT = Number(process.env.MOCK_API_PORT || 9083)
+const STREAM_PORT = Number(process.env.MOCK_STREAM_PORT || 9088)
+
+const MOCK_API = process.env.MOCK_API_URL || `http://localhost:${API_PORT}`
 
 const TOPICS = ['entity_change']
 
@@ -77,4 +82,4 @@ const server = http.createServer((req, res) => {
 // Poll the mock api for new entity events
 setInterval(pollEvents, 300)
 
-server.listen(8888, () => console.log('mock stream api on :8888'))
+server.listen(STREAM_PORT, () => console.log(`mock stream api on :${STREAM_PORT}`))

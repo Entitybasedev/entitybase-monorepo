@@ -48,3 +48,13 @@ Host Port → Container Port (Service Name)
 | 9201 | 8080 | elasticsearch-health | ES health proxy |
 | 7700 | 7700 | meilisearch | Full-text search |
 | 7701 | 8080 | meilisearch-health | Meilisearch health proxy |
+
+## Mock servers (development only)
+
+The mock servers used by `just e2e-mock` deliberately use the 90xx range so
+they never collide with the docker stack, which owns the 80xx range.
+
+| Host Port | Service | Description |
+|-----------|---------|-------------|
+| 9083 | mock-api | Mock REST API (`scripts/dev/mock-api.mjs`) |
+| 9088 | mock-stream-api | Mock SSE backend (`scripts/dev/mock-stream-api.mjs`) |

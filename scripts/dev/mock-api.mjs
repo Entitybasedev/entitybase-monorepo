@@ -298,4 +298,8 @@ const server = http.createServer((req, res) => {
   })
 })
 
-server.listen(8083, () => console.log('mock entitybase api on :8083'))
+// Mock port lives in the 90xx range so it never collides with the docker
+// stack (80xx). Override with MOCK_API_PORT.
+const PORT = Number(process.env.MOCK_API_PORT || 9083)
+
+server.listen(PORT, () => console.log(`mock entitybase api on :${PORT}`))

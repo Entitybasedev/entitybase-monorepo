@@ -2,6 +2,9 @@
 
 API_URL := "http://localhost:8083"
 FRONTEND_PORT := "8085"
+# Mock servers use the 90xx range so they never collide with the docker stack
+MOCK_API_URL := "http://localhost:9083"
+MOCK_STREAM_URL := "http://localhost:9088"
 MOCK_API_LOG := "/tmp/entitybase-mock-api.log"
 MOCK_API_SCRIPT := "/tmp/entitybase-mock-api.mjs"
 
@@ -24,7 +27,7 @@ e2e:
 e2e-mock:
     just -f {{justfile()}} mock-api-up
     just -f {{justfile()}} mock-stream-up
-    cd e2e-ui && API_URL={{API_URL}} E2E_MOCK=1 npx playwright test
+    cd e2e-ui && API_URL={{MOCK_API_URL}} STREAM_TARGET={{MOCK_STREAM_URL}} E2E_MOCK=1 npx playwright test
 
 # Stop the mock backends
 mock-api-down:
@@ -37,7 +40,7 @@ mock-stream-up:
     @cp -f scripts/dev/mock-stream-api.mjs /tmp/entitybase-mock-stream.mjs
     @nohup node /tmp/entitybase-mock-stream.mjs > /tmp/entitybase-mock-stream.log 2>&1 & disown
     @sleep 1
-    @curl -sf http://localhost:8888/health > /dev/null && echo "mock stream backend up on :8888" || (echo "mock stream backend failed:" && cat /tmp/entitybase-mock-stream.log && exit 1)
+    @curl -sf {{MOCK_STREAM_URL}}/health > /dev/null && echo "mock stream backend up on :9088" || (echo "mock stream backend failed:" && cat /tmp/entitybase-mock-stream.log && exit 1)
 
 # Start the mock API in the background
 mock-api-up:
@@ -45,7 +48,7 @@ mock-api-up:
     @cp -f scripts/dev/mock-api.mjs {{MOCK_API_SCRIPT}}
     @nohup node {{MOCK_API_SCRIPT}} > {{MOCK_API_LOG}} 2>&1 & disown
     @sleep 1
-    @curl -sf {{API_URL}}/health > /dev/null 2>&1 || curl -sf -X POST {{API_URL}}/v1/users -d '{"user_id":0}' > /dev/null 2>&1 && echo "mock API up on :8083" || (echo "mock API failed to start:" && cat {{MOCK_API_LOG}} && exit 1)
+    @curl -sf {{MOCK_API_URL}}/health > /dev/null 2>&1 || curl -sf -X POST {{MOCK_API_URL}}/v1/users -d '{"user_id":0}' > /dev/null 2>&1 && echo "mock API up on :9083" || (echo "mock API failed to start:" && cat {{MOCK_API_LOG}} && exit 1)
 
 # Install playwright + frontend deps
 e2e-install:

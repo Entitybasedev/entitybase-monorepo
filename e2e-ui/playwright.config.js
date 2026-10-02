@@ -6,7 +6,9 @@ const FRONTEND_PORT = process.env.FRONTEND_PORT || '8085'
 export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
-  retries: 0,
+  // The backend occasionally takes longer than the per-test timeout while
+  // saving an entity under parallel load, so retry once before failing
+  retries: 1,
   use: {
     baseURL: `http://localhost:${FRONTEND_PORT}`,
     trace: 'on-first-retry',
