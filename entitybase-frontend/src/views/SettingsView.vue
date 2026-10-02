@@ -1,5 +1,5 @@
 <template>
-  <section class="panel" data-testid="settings-section">
+  <section class="card card-body mb-3" data-testid="settings-section">
     <h2>Settings</h2>
     <p v-if="!isLoggedIn" data-testid="settings-not-logged-in">
       You are not logged in. Settings shown here are local to this browser.
@@ -55,11 +55,11 @@
       </select>
     </div>
 
-    <button data-testid="settings-save" :disabled="saving" @click="save">
+    <button class="btn btn-primary btn-sm" data-testid="settings-save" :disabled="saving" @click="save">
       {{ saving ? 'Saving…' : 'Save settings' }}
     </button>
     <p v-if="savedMessage" class="saved" data-testid="settings-saved">{{ savedMessage }}</p>
-    <section v-if="error" class="error" data-testid="settings-error">{{ error }}</section>
+    <section v-if="error" class="alert alert-danger" data-testid="settings-error">{{ error }}</section>
   </section>
 </template>
 

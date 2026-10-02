@@ -1,5 +1,5 @@
 <template>
-  <section class="panel" data-testid="entity-list-section">
+  <section class="card card-body mb-3" data-testid="entity-list-section">
     <h2>Entity list</h2>
 
     <div class="row" data-testid="entity-list-controls">
@@ -15,9 +15,9 @@
       </select>
     </div>
 
-    <section v-if="error" class="error" data-testid="entity-list-error">{{ error }}</section>
+    <section v-if="error" class="alert alert-danger" data-testid="entity-list-error">{{ error }}</section>
 
-    <table class="history" data-testid="entity-list-table">
+    <table class="table table-striped history" data-testid="entity-list-table">
       <tbody>
         <tr v-for="entry in entities" :key="entry.entity_id" data-testid="entity-list-row">
           <td>
@@ -38,13 +38,13 @@
     </table>
 
     <div class="pagination" data-testid="entity-list-pagination">
-      <button
+      <button class="btn btn-primary btn-sm"
         data-testid="entity-list-prev"
         :disabled="page === 1 || loading"
         @click="goToPage(page - 1)"
       >← Prev</button>
       <span data-testid="entity-list-page">Page {{ page }}</span>
-      <button
+      <button class="btn btn-primary btn-sm"
         data-testid="entity-list-next"
         :disabled="!hasMore || loading"
         @click="goToPage(page + 1)"

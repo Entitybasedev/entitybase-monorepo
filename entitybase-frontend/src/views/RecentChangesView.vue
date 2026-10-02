@@ -1,8 +1,8 @@
 <template>
-  <section class="panel" data-testid="recent-changes-section">
+  <section class="card card-body mb-3" data-testid="recent-changes-section">
     <h2>Recent changes</h2>
     <div class="recent-controls">
-      <button data-testid="recent-refresh" :disabled="loading" @click="refresh">
+      <button class="btn btn-primary btn-sm" data-testid="recent-refresh" :disabled="loading" @click="refresh">
         {{ loading ? 'Loading…' : 'Refresh' }}
       </button>
       <label class="control" title="Hide bulk-import entries">
@@ -14,9 +14,9 @@
         Hide imports
       </label>
     </div>
-    <section v-if="error" class="error" data-testid="recent-error">{{ error }}</section>
+    <section v-if="error" class="alert alert-danger" data-testid="recent-error">{{ error }}</section>
 
-    <table class="history" data-testid="recent-table">
+    <table class="table table-striped history" data-testid="recent-table">
       <tbody>
         <tr v-for="entry in changes" :key="entry.id" data-testid="recent-row">
           <td data-testid="recent-time">{{ entry.created_at }}</td>

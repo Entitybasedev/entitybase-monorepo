@@ -1,15 +1,15 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID, createPropertyViaApi } from './helpers.js'
+import { createPropertyViaApi, registerViaUi } from './helpers.js'
 
 test('entity list is reachable from the menu and lists created entities', async ({
   page,
 }) => {
+  await registerViaUi(page)
   const label = `E2E List ${Date.now()}`
 
   // Create an item via the UI
   await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
-  await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
   const entityId = new URL(page.url()).searchParams.get('entity')

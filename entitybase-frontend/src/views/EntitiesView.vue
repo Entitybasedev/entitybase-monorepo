@@ -1,7 +1,7 @@
 <template>
-    <section v-if="error" class="error" data-testid="error-banner">{{ error }}</section>
+    <section v-if="error" class="alert alert-danger" data-testid="error-banner">{{ error }}</section>
 
-    <section v-if="item" class="panel" data-testid="item-section">
+    <section v-if="item" class="card card-body mb-3" data-testid="item-section">
       <h2>Entity {{ item.id }}</h2>
       <div class="row">
         <span class="field-name">Label</span>
@@ -28,7 +28,12 @@
       </p>
 
       <h3>Statements</h3>
-      <form class="statement-form" data-testid="statement-form" @submit.prevent="addStatement">
+      <form
+        v-if="isLoggedIn"
+        class="statement-form"
+        data-testid="statement-form"
+        @submit.prevent="addStatement"
+      >
         <div class="row">
           <label for="property-input">Property</label>
           <input id="property-input" v-model="stmtProperty" data-testid="statement-property-input" placeholder="P31" />
@@ -37,10 +42,13 @@
           <label for="value-input">Value entity</label>
           <input id="value-input" v-model="stmtValue" data-testid="statement-value-input" placeholder="Q5" />
         </div>
-        <button type="submit" :disabled="adding || !stmtProperty || !stmtValue" data-testid="add-statement-button">
+        <button class="btn btn-primary btn-sm" type="submit" :disabled="adding || !stmtProperty || !stmtValue" data-testid="add-statement-button">
           {{ adding ? 'Adding…' : 'Add statement' }}
         </button>
       </form>
+      <p v-else class="login-hint" data-testid="login-required-edit">
+        <router-link to="/login">Log in</router-link> to add statements.
+      </p>
 
       <ul data-testid="statement-list">
         <li v-for="s in statements" :key="s.id" data-testid="statement">
@@ -51,77 +59,13 @@
       </ul>
 
       <h3>History</h3>
-      <div v-if="viewingRevision" class="revision-banner" data-testid="revision-banner">
-        Viewing revision {{ viewingRevision }} —
-        <a href="#" data-testid="back-to-current" @click.prevent="backToCurrent">back to current</a>
-      </div>
-      <table class="history" data-testid="history-list">
-        <tbody>
-          <tr v-for="entry in history" :key="entry.revision_id" data-testid="history-row">
-            <td data-testid="history-revision">{{ entry.revision_id }}</td>
-            <td data-testid="history-timestamp">{{ entry.created_at }}</td>
-            <td data-testid="history-user">{{ entry.user_id }}</td>
-            <td data-testid="history-summary">{{ entry.edit_summary || '—' }}</td>
-            <td>
-              <button data-testid="history-view" @click="viewRevision(entry.revision_id)">View</button>
-              <button
-                v-if="canDiff(entry.revision_id)"
-                data-testid="history-diff"
-                @click="diffWithPrevious(entry.revision_id)"
-              >Diff vs previous</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <button
-        v-if="history.length >= historyOffset"
-        data-testid="history-more"
-        @click="loadMoreHistory"
-      >Load more</button>
-
-      <div v-if="diff" class="panel" data-testid="diff-view">
-        <h3>Diff: revision {{ diff.newRev }} vs {{ diff.oldRev }}</h3>
-        <p v-if="!diff.hasChanges" data-testid="diff-no-changes">No changes between these revisions.</p>
-        <template v-else>
-          <h4>Labels</h4>
-          <ul>
-            <li v-for="d in diff.labels" :key="'l' + d.lang" :data-testid="'diff-' + d.status">
-              {{ d.lang }}: <span class="diff-old">{{ d.old ?? '—' }}</span> →
-              <span class="diff-new">{{ d.new ?? '—' }}</span>
-            </li>
-          </ul>
-          <h4>Descriptions</h4>
-          <ul>
-            <li v-for="d in diff.descriptions" :key="'d' + d.lang">
-              {{ d.lang }}: <span class="diff-old">{{ d.old ?? '—' }}</span> →
-              <span class="diff-new">{{ d.new ?? '—' }}</span>
-            </li>
-          </ul>
-          <h4>Aliases</h4>
-          <ul>
-            <li v-for="a in diff.aliases" :key="'a' + a.lang">
-              {{ a.lang }}:
-              <span v-for="added in a.added" :key="added" class="diff-new" data-testid="diff-added">
-                +{{ added }}
-              </span>
-              <span v-for="removed in a.removed" :key="removed" class="diff-old" data-testid="diff-removed">
-                −{{ removed }}
-              </span>
-            </li>
-          </ul>
-          <h4>Statements</h4>
-          <ul>
-            <li v-for="st in diff.statements.added" :key="'sa' + st.property + st.value">
-              <span class="diff-new" data-testid="diff-added">+ {{ st.property }}: {{ st.value }}</span>
-            </li>
-            <li v-for="st in diff.statements.removed" :key="'sr' + st.property + st.value">
-              <span class="diff-old" data-testid="diff-removed">− {{ st.property }}: {{ st.value }}</span>
-            </li>
-          </ul>
-        </template>
-        <button data-testid="diff-close" @click="diff = null">Close diff</button>
-      </div>
-    </section>
+      <p>
+        <router-link
+          :to="`/${item.id}/history`"
+          data-testid="item-history-link"
+        >View history</router-link>
+      </p>
+     </section>
 </template>
 
 <script setup>
@@ -129,22 +73,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getItem,
-  getDescription,
-  getAliases,
   getLabelWithFallback,
   getDescriptionWithFallback,
   getAliasesWithFallback,
   getUserSettings,
-  getEntityHistory,
-  getEntityRevision,
   getSnak,
   getStatement,
-  resolveAliases as resolveAliasHashes,
-  resolveDescriptions as resolveDescriptionHashes,
-  resolveLabels as resolveLabelHashes,
   postStatement,
 } from '../api.js'
-import { computeEntityDiff } from '../entityDiff.js'
 import {
   MAX_FALLBACK_LANGUAGES,
   fallbackChain,
@@ -156,9 +92,8 @@ import { isLoggedIn, userId as authUserId } from '../auth.js'
 const route = useRoute()
 const router = useRouter()
 
-// Edits are attributed to the logged-in user; without a token this falls
-// back to the legacy demo ID (overridable via the User ID input).
-const userId = ref(authUserId.value || 90001)
+// Edits are attributed to the logged-in user (login is required to edit).
+const authUser = ref(authUserId.value)
 const adding = ref(false)
 const error = ref('')
 const item = ref(null)
@@ -242,7 +177,6 @@ async function loadItem(id) {
 
     // Label values are stored hash-referenced; fetch via the terms endpoints
     await loadTerms(id)
-    await loadHistory(id)
 
     // Statement values are resolved per content hash; mainsnak is stored
     // as a snak hash and resolved via the snaks endpoint
@@ -307,8 +241,7 @@ async function addStatement() {
           type: 'statement',
           rank: 'normal',
         },
-      },
-      userId.value
+      }
     )
     stmtProperty.value = ''
     stmtValue.value = ''
@@ -320,69 +253,9 @@ async function addStatement() {
   }
 }
 
-async function loadHistory(id, offset = 0) {
-  const entries = (await getEntityHistory(id, HISTORY_PAGE, offset)) ?? []
-  if (offset === 0) {
-    history.value = entries
-  } else {
-    history.value = [...history.value, ...entries]
-  }
-  historyOffset.value = offset + entries.length
-}
-
-async function loadMoreHistory() {
-  if (!item.value) return
-  await loadHistory(item.value.id, historyOffset.value)
-}
-
-function canDiff(revisionId) {
-  const idx = history.value.findIndex((e) => e.revision_id === revisionId)
-  return idx >= 0 && idx + 1 < history.value.length
-}
-
-async function viewRevision(revisionId) {
-  error.value = ''
-  try {
-    item.value = await getEntityRevision(item.value.id, revisionId)
-    viewingRevision.value = revisionId
-    await loadTerms(item.value.id)
-    statements.value = []
-  } catch (e) {
-    error.value = String(e.message || e)
-  }
-}
-
-async function backToCurrent() {
-  viewingRevision.value = null
-  await loadItem(item.value.id)
-}
-
-async function diffWithPrevious(revisionId) {
-  error.value = ''
-  diff.value = null
-  try {
-    const idx = history.value.findIndex((e) => e.revision_id === revisionId)
-    const older = history.value[idx + 1]
-    const [newRev, oldRev] = await Promise.all([
-      getEntityRevision(item.value.id, revisionId),
-      getEntityRevision(item.value.id, older.revision_id),
-    ])
-    const result = await computeEntityDiff(oldRev, newRev, {
-      resolveLabels: resolveLabelHashes,
-      resolveDescriptions: resolveDescriptionHashes,
-      resolveAliases: resolveAliasHashes,
-      getStatement,
-      getSnak,
-    })
-    diff.value = { ...result, oldRev: older.revision_id, newRev: revisionId }
-  } catch (e) {
-    error.value = String(e.message || e)
-  }
-}
-
 onMounted(async () => {
   try {
-    const settings = await getUserSettings(userId.value)
+    const settings = await getUserSettings(authUser.value || 90001)
     const ui = settings?.ui ?? {}
     if (Array.isArray(ui.fallbackChain)) {
       fallbackChain.value = ui.fallbackChain.slice(0, MAX_FALLBACK_LANGUAGES)

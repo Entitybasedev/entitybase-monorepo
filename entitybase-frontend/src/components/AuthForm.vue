@@ -1,5 +1,5 @@
 <template>
-  <section class="panel" data-testid="auth-section">
+  <section class="card card-body mb-3" data-testid="auth-section">
     <h2>{{ mode === 'login' ? 'Log in' : 'Register' }}</h2>
     <form class="auth-form" data-testid="auth-form" @submit.prevent="submit">
       <div class="row">
@@ -41,7 +41,7 @@
         Already registered? Log in
       </router-link>
     </p>
-    <section v-if="error" class="error" data-testid="auth-error">{{ error }}</section>
+    <section v-if="error" class="alert alert-danger" data-testid="auth-error">{{ error }}</section>
   </section>
 </template>
 

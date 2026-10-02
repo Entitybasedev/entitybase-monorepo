@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID, API_URL, createPropertyViaApi } from './helpers.js'
+import { USER_ID, API_URL, createPropertyViaApi, registerViaUi } from './helpers.js'
 
 test('create a property via the UI', async ({ page }) => {
+  await registerViaUi(page)
   const label = `E2E Property ${Date.now()}`
 
   await page.goto('/create-property')
@@ -19,12 +20,12 @@ test('create a property via the UI', async ({ page }) => {
 })
 
 test('create an item via the UI and see its label', async ({ page }) => {
+  await registerViaUi(page)
   const label = `E2E Item ${Date.now()}`
 
   await page.goto('/create-item')
 
   await page.getByTestId('item-label-input').fill(label)
-  await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()
 
   const itemSection = page.getByTestId('item-section')
@@ -33,6 +34,7 @@ test('create an item via the UI and see its label', async ({ page }) => {
 })
 
 test('create an item and add a statement via the UI', async ({ page, request }) => {
+  await registerViaUi(page)
   const label = `E2E Item ${Date.now()}`
 
   const propertyId = await createPropertyViaApi(request)
@@ -41,7 +43,6 @@ test('create an item and add a statement via the UI', async ({ page, request }) 
 
   // Create the item through the UI
   await page.getByTestId('item-label-input').fill(label)
-  await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()
 
   const itemSection = page.getByTestId('item-section')
@@ -87,6 +88,7 @@ test('item history shows revisions, views an old revision and diffs it', async (
   page,
   request,
 }) => {
+  await registerViaUi(page)
   const propertyId = await createPropertyViaApi(request)
 
   // Create item + statement through the UI (multiple revisions)
@@ -95,11 +97,17 @@ test('item history shows revisions, views an old revision and diffs it', async (
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
+  const entityId = new URL(page.url()).searchParams.get('entity')
 
   await page.getByTestId('statement-property-input').fill(propertyId)
   await page.getByTestId('statement-value-input').fill('Q5')
   await page.getByTestId('add-statement-button').click()
   await expect(page.getByTestId('statement').first()).toBeVisible()
+
+  // History lives on its own page
+  await page.getByTestId('item-history-link').click()
+  await expect(page).toHaveURL(new RegExp(`/${entityId}/history$`))
+  await expect(page.getByTestId('history-section')).toBeVisible()
 
   // History shows at least two revisions
   const rows = page.getByTestId('history-row')

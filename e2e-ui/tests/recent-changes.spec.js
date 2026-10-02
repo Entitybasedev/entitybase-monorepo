@@ -1,15 +1,15 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID } from './helpers.js'
+import { registerViaUi } from './helpers.js'
 
 test('recent changes is in the menu and lists the new entity', async ({
   page,
 }) => {
+  await registerViaUi(page)
   const label = `E2E Recent ${Date.now()}`
 
   // Create an item via the UI
   await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
-  await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()
 
   const itemSection = page.getByTestId('item-section')
@@ -28,11 +28,11 @@ test('recent changes is in the menu and lists the new entity', async ({
 })
 
 test('recent changes rows link back to the entity', async ({ page }) => {
+  await registerViaUi(page)
   const label = `E2E Recent Link ${Date.now()}`
 
   await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
-  await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
   const entityId = new URL(page.url()).searchParams.get('entity')

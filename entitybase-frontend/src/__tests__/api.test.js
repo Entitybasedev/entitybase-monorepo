@@ -41,13 +41,15 @@ describe('postItem', () => {
       jsonResponse({ success: true, data: { entity_id: 'Q1000', revision_id: 1 } })
     )
 
-    const entityId = await postItem({}, 42)
+    const entityId = await postItem({})
 
     expect(entityId).toBe('Q1000')
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/v1/entities/items')
     expect(init.method).toBe('POST')
-    expect(init.headers['X-User-ID']).toBe('42')
+    // Logged out: identity comes from the bearer token only
+    expect(init.headers['X-User-ID']).toBeUndefined()
+    expect(init.headers['Authorization']).toBeUndefined()
     expect(init.headers['X-Edit-Summary']).toBeTruthy()
   })
 
@@ -55,12 +57,12 @@ describe('postItem', () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ success: true, data: { entity_id: 'Q7', revision_id: 3 } })
     )
-    expect(await postItem({}, 1)).toBe('Q7')
+    expect(await postItem({})).toBe('Q7')
   })
 
   it('throws with status and body on failure', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ message: 'boom' }, 500))
-    await expect(postItem({}, 1)).rejects.toThrow(/500/)
+    await expect(postItem({})).rejects.toThrow(/500/)
   })
 })
 
@@ -68,13 +70,13 @@ describe('putLabel', () => {
   it('PUTs language and value to the label endpoint', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ hash: 'abc' }))
 
-    await putLabel('Q42', 'en', 'Universe', 9)
+    await putLabel('Q42', 'en', 'Universe')
 
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/v1/entities/Q42/labels/en')
     expect(init.method).toBe('PUT')
     expect(JSON.parse(init.body)).toEqual({ language: 'en', value: 'Universe' })
-    expect(init.headers['X-User-ID']).toBe('9')
+    expect(init.headers['X-User-ID']).toBeUndefined()
   })
 
   it('sends only the bearer token (no X-User-ID) when logged in', async () => {
@@ -92,7 +94,7 @@ describe('putLabel', () => {
 
     const init = fetchMock.mock.calls[0][1]
     expect(init.headers['Authorization']).toBe('Bearer tok')
-    expect(init.headers['X-User-ID']).toBeUndefined()
+    expect(init.headers['X-User-ID']).toBe('42')
   })
 })
 
@@ -101,7 +103,7 @@ describe('postStatement', () => {
     fetchMock.mockResolvedValue(jsonResponse({ success: true, data: {} }))
 
     const claim = { mainsnak: { snaktype: 'value', property: 'P31' } }
-    await postStatement('Q42', { claim }, 5)
+    await postStatement('Q42', { claim })
 
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/v1/entities/Q42/statements')
@@ -169,12 +171,12 @@ describe('postProperty', () => {
       jsonResponse({ success: true, data: { entity_id: 'P30000', revision_id: 1 } })
     )
 
-    const propertyId = await postProperty({}, 42)
+    const propertyId = await postProperty({})
 
     expect(propertyId).toBe('P30000')
     expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/properties')
     expect(fetchMock.mock.calls[0][1].method).toBe('POST')
-    expect(fetchMock.mock.calls[0][1].headers['X-User-ID']).toBe('42')
+    expect(fetchMock.mock.calls[0][1].headers['X-User-ID']).toBeUndefined()
   })
 })
 

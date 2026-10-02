@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID, API_URL } from './helpers.js'
+import { API_URL, registerViaUi } from './helpers.js'
 
 const COMPOSE = 'docker compose -f entitybase-backend/docker-compose.ci.yml'
 
@@ -68,12 +68,12 @@ test('stream tab is reachable from the entities view via the menu', async ({
 test('creating an item produces a change event with the same QID', async ({
   page,
 }) => {
+  await registerViaUi(page)
   const label = `E2E Stream Item ${Date.now()}`
 
   // Create an item through the UI
   await page.goto('/create-item')
   await page.getByTestId('item-label-input').fill(label)
-  await page.getByTestId('user-id-input').fill(USER_ID)
   await page.getByTestId('create-item-button').click()
 
   const itemSection = page.getByTestId('item-section')

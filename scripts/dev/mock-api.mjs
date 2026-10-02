@@ -69,6 +69,12 @@ const server = http.createServer((req, res) => {
       res.writeHead(200)
       return res.end('ok')
     }
+    if (req.method === 'POST' && url.pathname === '/v1/auth/register') {
+      return json(200, { token: 'mock-token', user_id: 90001, username: jsonBody.username })
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/auth/login') {
+      return json(200, { token: 'mock-token', user_id: 90001, username: jsonBody.username })
+    }
     if (req.method === 'POST' && url.pathname === '/v1/users') {
       return json(200, { user_id: jsonBody.user_id })
     }

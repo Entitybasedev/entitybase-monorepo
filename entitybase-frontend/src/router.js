@@ -2,6 +2,7 @@
 // links keep working.
 import { createRouter, createWebHistory } from 'vue-router'
 import EntitiesView from './views/EntitiesView.vue'
+import EntityHistoryView from './views/EntityHistoryView.vue'
 import EntityListView from './views/EntityListView.vue'
 import CreateItemView from './views/CreateItemView.vue'
 import CreatePropertyView from './views/CreatePropertyView.vue'
@@ -17,6 +18,11 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'entities', component: EntitiesView },
     { path: '/list', name: 'list', component: EntityListView },
+    {
+      path: '/:entityId([QPLE]\\d+)/history',
+      name: 'history',
+      component: EntityHistoryView,
+    },
     { path: '/create-item', name: 'create-item', component: CreateItemView },
     {
       path: '/create-property',

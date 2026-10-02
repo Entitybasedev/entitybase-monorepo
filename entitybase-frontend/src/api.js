@@ -1,18 +1,14 @@
 const BASE = import.meta.env.VITE_API_BASE || ''
 
-import { authHeaders, isLoggedIn, userId as authUserId } from './auth.js'
+import { authHeaders, userId as authUserId } from './auth.js'
 
-function editHeaders(userId) {
+function editHeaders() {
   const headers = {
     'Content-Type': 'application/json',
     'X-Edit-Summary': 'Created via entitybase-frontend',
     ...authHeaders(),
   }
-  // The bearer token carries the user identity; only fall back to the
-  // legacy X-User-ID header when there is no token (demo/e2e mode).
-  if (!isLoggedIn.value) {
-    headers['X-User-ID'] = String(userId ?? authUserId.value ?? 90001)
-  }
+  if (authUserId.value) headers['X-User-ID'] = String(authUserId.value)
   return headers
 }
 
@@ -30,46 +26,46 @@ async function unwrap(res, what) {
   return safeJsonParse(await res.text())
 }
 
-export async function postItem(_body, userId) {
+export async function postItem(_body) {
   const res = await fetch(`${BASE}/v1/entities/items`, {
     method: 'POST',
-    headers: editHeaders(userId),
+    headers: editHeaders(),
   })
   const json = await unwrap(res, 'POST item')
   return json.data?.entity_id ?? json.entity_id ?? json.id
 }
 
-export async function postProperty(_body, userId) {
+export async function postProperty(_body) {
   const res = await fetch(`${BASE}/v1/entities/properties`, {
     method: 'POST',
-    headers: editHeaders(userId),
+    headers: editHeaders(),
   })
   const json = await unwrap(res, 'POST property')
   return json.data?.entity_id ?? json.entity_id ?? json.id
 }
 
-export async function postLexeme(body, userId) {
+export async function postLexeme(body) {
   const res = await fetch(`${BASE}/v1/entities/lexemes`, {
     method: 'POST',
-    headers: editHeaders(userId),
+    headers: editHeaders(),
     body: JSON.stringify(body),
   })
   const json = await unwrap(res, 'POST lexeme')
   return json.data?.entity_id ?? json.entity_id ?? json.id
 }
 
-export async function putLabel(entityId, language, value, userId) {
+export async function putLabel(entityId, language, value) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/labels/${encodeURIComponent(language)}`,
-    { method: 'PUT', headers: editHeaders(userId), body: JSON.stringify({ language, value }) }
+    { method: 'PUT', headers: editHeaders(), body: JSON.stringify({ language, value }) }
   )
   return unwrap(res, `PUT label ${entityId}`)
 }
 
-export async function postStatement(entityId, body, userId) {
+export async function postStatement(entityId, body) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/statements`,
-    { method: 'POST', headers: editHeaders(userId), body: JSON.stringify(body) }
+    { method: 'POST', headers: editHeaders(), body: JSON.stringify(body) }
   )
   return unwrap(res, `POST statement ${entityId}`)
 }

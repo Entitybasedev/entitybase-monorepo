@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 const apiMocks = vi.hoisted(() => ({
@@ -6,13 +6,24 @@ const apiMocks = vi.hoisted(() => ({
   postProperty: vi.fn(),
   postLexeme: vi.fn(),
   putLabel: vi.fn(),
+  getUserSettings: vi.fn().mockResolvedValue({}),
+  getItem: vi.fn(),
+  getLabelWithFallback: vi.fn().mockResolvedValue(null),
+  getDescriptionWithFallback: vi.fn().mockResolvedValue(null),
+  getAliasesWithFallback: vi.fn().mockResolvedValue([]),
+  getEntityHistory: vi.fn().mockResolvedValue([]),
+  getStatement: vi.fn(),
+  getSnak: vi.fn(),
+  postStatement: vi.fn(),
+  getEntityList: vi.fn(),
+  getRecentChanges: vi.fn(),
 }))
 
 vi.mock('../api.js', () => apiMocks)
 
 import App from '../App.vue'
 import router from '../router.js'
-import { logout } from '../auth.js'
+import { loginState, logoutState } from './helpers'
 
 async function mountApp(path = '/') {
   await router.push(path)
@@ -22,20 +33,19 @@ async function mountApp(path = '/') {
 }
 
 beforeEach(async () => {
-  vi.resetAllMocks()
-  logout()
+  vi.clearAllMocks()
+  logoutState()
   await router.push('/').then(() => router.isReady())
 })
 
+afterEach(() => {
+  logoutState()
+})
+
 describe('Create menu', () => {
-  it('opens from the nav and links to the three create pages', async () => {
+  it('links to the three create pages', async () => {
     const wrapper = await mountApp()
 
-    expect(wrapper.find('[data-testid="create-menu"]').exists()).toBe(false)
-    await wrapper.find('[data-testid="nav-create"]').trigger('click')
-
-    const menu = wrapper.find('[data-testid="create-menu"]')
-    expect(menu.exists()).toBe(true)
     expect(wrapper.find('[data-testid="create-menu-item"]').attributes('href')).toBe(
       '/create-item'
     )
@@ -46,30 +56,32 @@ describe('Create menu', () => {
       wrapper.find('[data-testid="create-menu-lexeme"]').attributes('href')
     ).toBe('/create-lexeme')
   })
-
-  it('navigates to the create item page', async () => {
-    await mountApp()
-    await router.push('/create-item')
-    await flushPromises()
-
-    const wrapper = mount(App, { global: { plugins: [router] } })
-    await flushPromises()
-    expect(wrapper.find('[data-testid="create-item-section"]').exists()).toBe(true)
-  })
 })
 
 describe('CreateItemView', () => {
+  it('requires login: shows a log-in hint instead of the form', async () => {
+    const wrapper = await mountApp('/create-item')
+
+    expect(wrapper.find('[data-testid="item-label-input"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="login-required"]').exists()).toBe(true)
+    expect(
+      wrapper.find('[data-testid="login-required-link"]').attributes('href')
+    ).toBe('/login')
+  })
+
   it('creates an item and navigates to the entity view', async () => {
+    loginState(90001)
     apiMocks.postItem.mockResolvedValue('Q500')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
+    apiMocks.getEntityHistory.mockResolvedValue([])
 
     const wrapper = await mountApp('/create-item')
     await wrapper.find('[data-testid="item-label-input"]').setValue('E2E')
     await wrapper.find('[data-testid="create-item-button"]').trigger('click')
     await flushPromises()
 
-    expect(apiMocks.postItem).toHaveBeenCalledWith({}, 90001)
-    expect(apiMocks.putLabel).toHaveBeenCalledWith('Q500', 'en', 'E2E', 90001)
+    expect(apiMocks.postItem).toHaveBeenCalledWith({})
+    expect(apiMocks.putLabel).toHaveBeenCalledWith('Q500', 'en', 'E2E')
     expect(router.currentRoute.value.path).toBe('/')
     expect(router.currentRoute.value.query.entity).toBe('Q500')
   })
@@ -77,37 +89,38 @@ describe('CreateItemView', () => {
 
 describe('CreatePropertyView', () => {
   it('creates a property and navigates to the entity view', async () => {
+    loginState(90001)
     apiMocks.postProperty.mockResolvedValue('P300')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
+    apiMocks.getEntityHistory.mockResolvedValue([])
 
     const wrapper = await mountApp('/create-property')
     await wrapper.find('[data-testid="property-label-input"]').setValue('instance of')
     await wrapper.find('[data-testid="create-property-button"]').trigger('click')
     await flushPromises()
 
-    expect(apiMocks.postProperty).toHaveBeenCalledWith({}, 90001)
+    expect(apiMocks.postProperty).toHaveBeenCalledWith({})
     expect(router.currentRoute.value.query.entity).toBe('P300')
   })
 })
 
 describe('CreateLexemeView', () => {
   it('creates a lexeme and navigates to the entity view', async () => {
+    loginState(90001)
     apiMocks.postLexeme.mockResolvedValue('L50')
+    apiMocks.getEntityHistory.mockResolvedValue([])
 
     const wrapper = await mountApp('/create-lexeme')
     await wrapper.find('[data-testid="lemma-input"]').setValue('answer')
     await wrapper.find('[data-testid="create-lexeme-button"]').trigger('click')
     await flushPromises()
 
-    expect(apiMocks.postLexeme).toHaveBeenCalledWith(
-      {
-        type: 'lexeme',
-        lemmas: { en: { language: 'en', value: 'answer' } },
-        language: 'Q1860',
-        lexical_category: 'Q1084',
-      },
-      90001
-    )
+    expect(apiMocks.postLexeme).toHaveBeenCalledWith({
+      type: 'lexeme',
+      lemmas: { en: { language: 'en', value: 'answer' } },
+      language: 'Q1860',
+      lexical_category: 'Q1084',
+    })
     expect(router.currentRoute.value.query.entity).toBe('L50')
   })
 })

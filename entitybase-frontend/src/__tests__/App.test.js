@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { language, showQid } from '../settings.js'
+import { loginState } from './helpers'
 
 enableAutoUnmount(afterEach)
 
@@ -28,6 +29,8 @@ const apiMocks = vi.hoisted(() => ({
   postLexeme: vi.fn(),
   postStatement: vi.fn(),
   putLabel: vi.fn(),
+  getRecentChanges: vi.fn(),
+  getEntityList: vi.fn(),
 }))
 
 vi.mock('../api.js', () => apiMocks)
@@ -71,20 +74,6 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  it('renders the create form and disables the button without a label', async () => {
-    await router.push('/create-item')
-    const wrapper = await mountApp()
-
-    expect(wrapper.find('[data-testid="create-item-section"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="item-section"]').exists()).toBe(false)
-
-    const button = wrapper.find('[data-testid="create-item-button"]')
-    expect(button.attributes('disabled')).toBeDefined()
-
-    await wrapper.find('[data-testid="item-label-input"]').setValue('Universe')
-    expect(button.attributes('disabled')).toBeUndefined()
-  })
-
   it('loads an item from the ?entity= query param on mount', async () => {
     await router.push('/?entity=Q42')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
@@ -103,35 +92,27 @@ describe('App', () => {
     expect(wrapper.find('[data-testid="item-alias"]').text()).toBe('Douglas Noel Adams')
   })
 
-  it('creates an item: posts item, sets label, then loads it', async () => {
-    await router.push('/create-item')
-    apiMocks.postItem.mockResolvedValue('Q1000')
-    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
-    apiMocks.getItem.mockResolvedValue(itemPayload('Q1000', 'E2E Item'))
-    apiMocks.getLabelWithFallback.mockResolvedValue('E2E Item')
+  it('links to the entity history page', async () => {
+    await router.push('/?entity=Q42')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
 
     const wrapper = await mountApp()
-    await wrapper.find('[data-testid="item-label-input"]').setValue('E2E Item')
-    await wrapper.find('[data-testid="user-id-input"]').setValue('90001')
-    await wrapper.find('[data-testid="create-item-button"]').trigger('click')
-    await flushPromises()
-
-    expect(apiMocks.postItem).toHaveBeenCalledWith({}, 90001)
-    expect(apiMocks.putLabel).toHaveBeenCalledWith('Q1000', 'en', 'E2E Item', 90001)
-    expect(apiMocks.getItem).toHaveBeenCalledWith('Q1000')
-
-    const itemSection = wrapper.find('[data-testid="item-section"]')
-    expect(itemSection.exists()).toBe(true)
-    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('E2E Item')
-    expect(wrapper.find('[data-testid="no-statements"]').exists()).toBe(true)
+    const link = wrapper.find('[data-testid="item-history-link"]')
+    expect(link.attributes('href')).toBe('/Q42/history')
   })
 
-  it('adds a statement and renders property and value', async () => {
+  it('adds a statement and renders human-readable property and value', async () => {
+    loginState(90001)
     await router.push('/?entity=Q1')
     apiMocks.getItem
       .mockResolvedValueOnce(itemPayload('Q1', 'Test', []))
       .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
-    apiMocks.getLabelWithFallback.mockResolvedValue('Test')
+    apiMocks.getLabelWithFallback.mockImplementation(async (id) => {
+      if (id === 'P31') return 'instance of'
+      if (id === 'Q5') return 'human'
+      return ''
+    })
     apiMocks.getStatement.mockResolvedValue({
       schema: '1.0',
       hash: 777,
@@ -148,11 +129,6 @@ describe('App', () => {
       datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
     })
     apiMocks.postStatement.mockResolvedValue({ success: true })
-    apiMocks.getLabelWithFallback.mockImplementation(async (id) => {
-      if (id === 'P31') return 'instance of'
-      if (id === 'Q5') return 'human'
-      return ''
-    })
 
     const wrapper = await mountApp()
     await flushPromises()
@@ -165,14 +141,13 @@ describe('App', () => {
 
     expect(apiMocks.postStatement).toHaveBeenCalledTimes(1)
     expect(apiMocks.getSnak).toHaveBeenCalledWith(555)
-    const [, body, userId] = apiMocks.postStatement.mock.calls[0]
+    const [, body] = apiMocks.postStatement.mock.calls[0]
     expect(body.claim.mainsnak.property).toBe('P31')
     expect(body.claim.mainsnak.datavalue).toEqual({
       value: { id: 'Q5' },
       type: 'wikibase-item',
     })
     expect(body.claim.type).toBe('statement')
-    expect(userId).toBe(90001)
 
     const statement = wrapper.find('[data-testid="statement"]')
     expect(statement.exists()).toBe(true)
@@ -180,163 +155,14 @@ describe('App', () => {
     expect(wrapper.find('[data-testid="statement-value"]').text()).toBe('human')
   })
 
-  it('shows the error banner when item creation fails', async () => {
-    await router.push('/create-item')
-    apiMocks.postItem.mockRejectedValue(new Error('POST failed: 500'))
-
-    const wrapper = await mountApp()
-    await wrapper.find('[data-testid="item-label-input"]').setValue('X')
-    await wrapper.find('[data-testid="create-item-button"]').trigger('click')
-    await flushPromises()
-
-    const banner = wrapper.find('[data-testid="error-banner"]')
-    expect(banner.exists()).toBe(true)
-    expect(banner.text()).toContain('500')
-  })
-
-  it('updates the URL with ?entity=<id> after creating an item', async () => {
-    await router.push('/create-item')
-    apiMocks.postItem.mockResolvedValue('Q1234')
-    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
-    apiMocks.getItem.mockResolvedValue(itemPayload('Q1234', 'Named'))
-
-    const wrapper = await mountApp()
-    await wrapper.find('[data-testid="item-label-input"]').setValue('Named')
-    await wrapper.find('[data-testid="create-item-button"]').trigger('click')
-    await flushPromises()
-
-    expect(window.location.search).toBe('?entity=Q1234')
-  })
-})
-
-describe('App > create property', () => {
-  it('posts a property, sets its label, and loads it', async () => {
-    await router.push('/create-property')
-    apiMocks.postProperty.mockResolvedValue('P30000')
-    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
-    apiMocks.getItem.mockResolvedValue(itemPayload('P30000', 'instance of'))
-    apiMocks.getLabelWithFallback.mockResolvedValue('instance of')
-
-    const wrapper = await mountApp()
-    await wrapper.find('[data-testid="property-label-input"]').setValue('instance of')
-    await wrapper.find('[data-testid="create-property-button"]').trigger('click')
-    await flushPromises()
-
-    expect(apiMocks.postProperty).toHaveBeenCalledWith({}, 90001)
-    expect(apiMocks.putLabel).toHaveBeenCalledWith('P30000', 'en', 'instance of', 90001)
-    expect(apiMocks.getItem).toHaveBeenCalledWith('P30000')
-    expect(wrapper.find('[data-testid="item-label"]').text()).toBe('instance of')
-    expect(window.location.search).toBe('?entity=P30000')
-  })
-})
-
-describe('App > create lexeme', () => {
-  it('posts a lexeme with lemmas and loads it', async () => {
-    await router.push('/create-lexeme')
-    apiMocks.postLexeme.mockResolvedValue('L77')
-    apiMocks.getItem.mockResolvedValue(itemPayload('L77', 'answer'))
-    apiMocks.getLabelWithFallback.mockResolvedValue('')
-
-    const wrapper = await mountApp()
-    await wrapper.find('[data-testid="lemma-input"]').setValue('answer')
-    await wrapper.find('[data-testid="lexeme-language-input"]').setValue('Q1860')
-    await wrapper.find('[data-testid="lexeme-category-input"]').setValue('Q1084')
-    await wrapper.find('[data-testid="create-lexeme-button"]').trigger('click')
-    await flushPromises()
-
-    expect(apiMocks.postLexeme).toHaveBeenCalledWith(
-      {
-        type: 'lexeme',
-        lemmas: { en: { language: 'en', value: 'answer' } },
-        language: 'Q1860',
-        lexical_category: 'Q1084',
-      },
-      90001
-    )
-    expect(apiMocks.getItem).toHaveBeenCalledWith('L77')
-    expect(wrapper.find('[data-testid="item-section"]').exists()).toBe(true)
-    expect(window.location.search).toBe('?entity=L77')
-  })
-})
-
-describe('App > entity history', () => {
-  beforeEach(async () => {
+  it('shows a log-in hint instead of the statement form when logged out', async () => {
     await router.push('/?entity=Q1')
-    apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test', []))
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test'))
     apiMocks.getLabelWithFallback.mockResolvedValue('Test')
-    apiMocks.getDescription.mockResolvedValue(null)
-    apiMocks.getAliases.mockResolvedValue([])
-  })
-
-  it('loads and renders the revision history', async () => {
-    apiMocks.getEntityHistory.mockResolvedValue([
-      { revision_id: 2, created_at: '2026-01-02T00:00:00Z', user_id: 90001, edit_summary: 'Added label' },
-      { revision_id: 1, created_at: '2026-01-01T00:00:00Z', user_id: 90001, edit_summary: '' },
-    ])
 
     const wrapper = await mountApp()
-    await flushPromises()
-
-    const rows = wrapper.findAll('[data-testid="history-row"]')
-    expect(rows).toHaveLength(2)
-    expect(wrapper.find('[data-testid="history-revision"]').text()).toBe('2')
-    expect(wrapper.find('[data-testid="history-summary"]').text()).toBe('Added label')
-  })
-
-  it('views an old revision and goes back to current', async () => {
-    apiMocks.getEntityHistory.mockResolvedValue([
-      { revision_id: 2, created_at: '', user_id: 1, edit_summary: 'edit' },
-      { revision_id: 1, created_at: '', user_id: 1, edit_summary: 'create' },
-    ])
-    apiMocks.getEntityRevision.mockResolvedValue(itemPayload('Q1', 'Old label'))
-
-    const wrapper = await mountApp()
-    await flushPromises()
-    await wrapper.find('[data-testid="history-view"]').trigger('click')
-    await flushPromises()
-
-    expect(apiMocks.getEntityRevision).toHaveBeenCalledWith('Q1', 2)
-    expect(wrapper.find('[data-testid="revision-banner"]').text()).toContain('Viewing revision 2')
-
-    await wrapper.find('[data-testid="back-to-current"]').trigger('click')
-    await flushPromises()
-    expect(apiMocks.getItem).toHaveBeenCalledWith('Q1')
-    expect(wrapper.find('[data-testid="revision-banner"]').exists()).toBe(false)
-  })
-
-  it('shows a diff against the previous revision', async () => {
-    apiMocks.getEntityHistory.mockResolvedValue([
-      { revision_id: 2, created_at: '', user_id: 1, edit_summary: 'edit' },
-      { revision_id: 1, created_at: '', user_id: 1, edit_summary: 'create' },
-    ])
-    apiMocks.getEntityRevision
-      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [11]))
-      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [10]))
-    apiMocks.getStatement.mockResolvedValue({
-      schema: '1.0',
-      hash: 11,
-      statement: {
-        mainsnak: { property: 'P31', datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' } },
-        type: 'statement',
-        rank: 'normal',
-      },
-    })
-    apiMocks.getSnak.mockResolvedValue({
-      property: 'P31',
-      datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
-    })
-
-    const wrapper = await mountApp()
-    await flushPromises()
-    await wrapper.find('[data-testid="history-diff"]').trigger('click')
-    await flushPromises()
-
-    expect(apiMocks.getEntityRevision).toHaveBeenCalledWith('Q1', 2)
-    expect(apiMocks.getEntityRevision).toHaveBeenCalledWith('Q1', 1)
-    const diffView = wrapper.find('[data-testid="diff-view"]')
-    expect(diffView.exists()).toBe(true)
-    expect(wrapper.find('[data-testid="diff-added"]').text()).toContain('P31: Q5')
-    expect(wrapper.find('[data-testid="diff-removed"]').text()).toContain('− P31: Q5')
+    expect(wrapper.find('[data-testid="statement-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="login-required-edit"]').exists()).toBe(true)
   })
 })
 

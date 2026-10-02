@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID, createPropertyViaApi } from './helpers.js'
+import { createPropertyViaApi, registerViaUi } from './helpers.js'
 
 test('create a lexeme via the UI', async ({ page }) => {
+  await registerViaUi(page)
   const lemma = `e2elexeme${Date.now()}`
 
   await page.goto('/create-lexeme')
@@ -20,6 +21,7 @@ test('create a lexeme via the UI', async ({ page }) => {
 })
 
 test('create a lexeme and add a statement via the UI', async ({ page, request }) => {
+  await registerViaUi(page)
   // The statement add validates property existence, so create one first.
   const propertyId = await createPropertyViaApi(request)
 

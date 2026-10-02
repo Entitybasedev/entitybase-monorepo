@@ -1,27 +1,29 @@
 <template>
-  <section class="panel" data-testid="create-property-section">
+  <section class="card card-body mb-3" data-testid="create-property-section">
     <h2>Create property</h2>
-    <div class="row">
-      <label for="property-label-input">Label (en)</label>
-      <input
-        id="property-label-input"
-        v-model="propertyLabel"
-        data-testid="property-label-input"
-        placeholder="instance of"
-      />
-    </div>
-    <div v-if="!isLoggedIn" class="row">
-      <label for="user-id-input">User ID</label>
-      <input id="user-id-input" v-model.number="userId" data-testid="user-id-input" type="number" />
-    </div>
-    <button
-      :disabled="!propertyLabel || creatingProperty"
-      data-testid="create-property-button"
-      @click="createProperty"
-    >
-      {{ creatingProperty ? 'Creating…' : 'Create property' }}
-    </button>
-    <section v-if="error" class="error" data-testid="error-banner">{{ error }}</section>
+    <section v-if="!isLoggedIn" class="login-required" data-testid="login-required">
+      <p>You need to log in to create entities.</p>
+      <router-link to="/login" data-testid="login-required-link">Log in</router-link>
+    </section>
+    <template v-else>
+      <div class="row">
+        <label for="property-label-input">Label (en)</label>
+        <input
+          id="property-label-input"
+          v-model="propertyLabel"
+          data-testid="property-label-input"
+          placeholder="instance of"
+        />
+      </div>
+      <button class="btn btn-primary btn-sm"
+        :disabled="!propertyLabel || creatingProperty"
+        data-testid="create-property-button"
+        @click="createProperty"
+      >
+        {{ creatingProperty ? 'Creating…' : 'Create property' }}
+      </button>
+    </template>
+    <section v-if="error" class="alert alert-danger" data-testid="error-banner">{{ error }}</section>
   </section>
 </template>
 
@@ -30,10 +32,9 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { postProperty, putLabel } from '../api.js'
 import { language } from '../settings.js'
-import { isLoggedIn, userId as authUserId } from '../auth.js'
+import { isLoggedIn } from '../auth.js'
 
 const router = useRouter()
-const userId = ref(authUserId.value || 90001)
 const propertyLabel = ref('')
 const creatingProperty = ref(false)
 const error = ref('')
@@ -42,8 +43,8 @@ async function createProperty() {
   creatingProperty.value = true
   error.value = ''
   try {
-    const entityId = await postProperty({}, userId.value)
-    await putLabel(entityId, language.value, propertyLabel.value, userId.value)
+    const entityId = await postProperty({})
+    await putLabel(entityId, language.value, propertyLabel.value)
     await router.push({ path: '/', query: { entity: entityId } })
   } catch (e) {
     error.value = String(e.message || e)
