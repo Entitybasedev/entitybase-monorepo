@@ -68,6 +68,7 @@ def register(request: RegisterRequest, req: Request) -> AuthResponse:
     )
     if not getattr(credentials, "success", False):
         raise_validation_error("Failed to store credentials", status_code=500)
+    logger.info(f"Registered new user: {request.username} (user {user_id})")
 
     token = _issue_token(user_id, request.username)
     return AuthResponse(token=token, user_id=user_id, username=request.username)
