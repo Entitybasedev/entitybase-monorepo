@@ -111,12 +111,8 @@ The database is reset between tests, providing a clean state for each test run.
 
 ### End-to-end (E2E) Tests
 
-E2E tests need docker to be able to access mysql.
-The database is reset between tests, providing a clean state for each test run.
-
-   ```bash
-   ./run-e2e-tests.sh
-   ```
+E2E tests are Playwright tests in the repo root (`e2e-ui/`) — see the
+repository root documentation.
 
 ## Makefile Commands
 
@@ -151,16 +147,6 @@ This project uses a Makefile for common development tasks. Run `make help` to se
 | `make test-unit-03` | Unit tests: infrastructure, rdf_builder |
 | `make test-unit-04` | Unit tests: rest_api |
 
-#### End-to-End Tests
-
-| Command | Description |
-|---------|-------------|
-| `make test-e2e` | Run all e2e tests |
-| `make test-e2e-01` | E2E tests: basics |
-| `make test-e2e-02` | E2E tests: terms |
-| `make test-e2e-03` | E2E tests: user features |
-| `make test-e2e-04` | E2E tests: advanced |
-
 #### Contract Tests
 
 | Command | Description |
@@ -181,9 +167,9 @@ This project uses a Makefile for common development tasks. Run `make help` to se
 
 | Command | Description |
 |---------|-------------|
-| `make tests` | Run all tests (unit → e2e → contract → integration) |
-| `make lint-test-fast` | Run lint + unit tests + e2e tests |
-| `make lint-test-all` | Run lint + all tests (unit → e2e → contract → integration) |
+| `make tests` | Run all tests (unit → contract → integration) |
+| `make lint-test-fast` | Run lint + unit tests + contract tests |
+| `make lint-test-all` | Run lint + all tests (unit → contract → integration) |
 | `make coverage` | Run tests with coverage report |
 
 ## Development Workflow

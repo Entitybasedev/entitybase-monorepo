@@ -12,7 +12,7 @@ docker compose --file "$COMPOSE_FILE" down -v 2>/dev/null || true
 
 echo "📦 Building docker images..."
 docker compose --file "$COMPOSE_FILE" build \
-  api idworker integration e2e create-buckets create-tables
+  api idworker integration create-buckets create-tables
 
 echo "🚀 Starting infrastructure services..."
 docker compose --file "$COMPOSE_FILE" up -d mysql minio redpanda

@@ -6,17 +6,16 @@ Primary Test Framework:
 - pytest-mock for mocking
 - pytest-cov for coverage reporting
 Test Organization:
-- Four distinct test categories with pytest markers:
+- Three distinct test categories with pytest markers:
   - @pytest.mark.unit - Unit tests
   - @pytest.mark.integration - Integration tests
   - @pytest.mark.contract - Contract tests (API schema validation)
-  - @pytest.mark.e2e - End-to-end tests
 - Directory hierarchy mirrors src/models/ structure (see Section 4)
 Test Patterns:
 - Unit tests: Use mocks (unittest.mock, pytest-mock) for all external dependencies
 - Integration tests: Use ASGITransport with FastAPI app for API endpoint testing
 - Contract tests: Use ASGITransport to validate API responses match OpenAPI schema
-- E2E tests: Use ASGITransport with FastAPI app for end-to-end workflow testing
+- E2E tests: Playwright tests live in the repo root (e2e-ui/), not in the backend
 2. Test Coverage Analysis
 Current Coverage Threshold:
 - Target: 50% minimum coverage
@@ -50,11 +49,6 @@ Integration Tests (~15 test files):
 ├── S3 storage
 ├── Worker processes
 └── Infrastructure components
-E2E Tests (~4 test files):
-├── Entity lifecycle workflows
-├── User workflows
-└── Endorsements
-
 Contract Tests (New):
 ├── API schema validation
 ├── Response structure verification
@@ -64,7 +58,6 @@ Directory Hierarchy:
 - tests/unit/models/ mirrors src/models/ structure
 - tests/integration/models/ mirrors src/models/ structure
 - tests/contract/ - Contract tests (flat structure)
-- tests/e2e/models/ mirrors src/models/ structure
 - Each subdirectory in src/models/ has corresponding test directories
 - See Section 4 for detailed hierarchy guidelines
 
@@ -106,10 +99,7 @@ tests/contract/               # Contract tests (flat structure)
 ├── conftest.py              # Contract test fixtures
 └── test_*_contract.py       # Contract test files
 
-tests/e2e/models/
-├── infrastructure/           # E2E tests for infrastructure
-├── internal_representation/  # E2E tests for business logic
-└── rest_api/                 # E2E workflow tests
+# Note: E2E tests are Playwright tests in the repo root (e2e-ui/)
 ```
 
 **Key Principles:**
@@ -117,13 +107,12 @@ tests/e2e/models/
 - Maintain consistent naming and organization across test types
 - Unit tests in `tests/unit/models/` use mocks for external dependencies
 - Integration tests in `tests/integration/models/` use ASGITransport for API endpoints
-- E2E tests in `tests/e2e/models/` use ASGITransport for workflow testing
 
 5. Test Configuration & Infrastructure
 Current Setup:
-- Separate conftest.py files for unit, integration, contract, and e2e tests
+- Separate conftest.py files for unit, integration, and contract tests
 - Mock fixtures for external dependencies in unit tests
-- ASGITransport fixtures for integration, contract, and e2e tests
+- ASGITransport fixtures for integration and contract tests
 - pytest-asyncio for async test support
 
 Key Fixtures:
@@ -131,7 +120,6 @@ Key Fixtures:
 - `tests/unit/conftest.py` - Unit test fixtures and mocks
 - `tests/integration/conftest.py` - Integration test fixtures with ASGITransport
 - `tests/contract/conftest.py` - Contract test fixtures with ASGITransport
-- `tests/e2e/conftest.py` - E2E test fixtures with ASGITransport
 
 6. Test Documentation
 Current State:

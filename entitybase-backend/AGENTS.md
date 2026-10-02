@@ -358,8 +358,9 @@ tests/
 ├── integration/        # Integration tests
 │   └── models/
 │       └── rest_api/   # API integration tests
-├── contract/           # Contract tests (API schema validation)
-└── e2e/               # End-to-end tests
+└── contract/           # Contract tests (API schema validation)
+
+# Note: E2E tests are Playwright tests in the repo root (e2e-ui/)
 ```
 
 ### Performance Considerations
@@ -453,17 +454,12 @@ just radon       # Run radon complexity checker
 just vulture     # Run vulture dead code checker
 
 # Testing
-just tests                    # Run all tests (unit -> E2E -> integration)
+just tests                    # Run all tests (unit -> contract -> integration)
 just test-unit               # Run all unit tests
 just test-unit-01            # Run unit tests (config, data, services, validation, json_parser)
 just test-unit-02            # Run unit tests (internal_representation, workers)
 just test-unit-03            # Run unit tests (infrastructure, rdf_builder)
 just test-unit-04            # Run unit tests (rest_api)
-just test-e2e                # Run all e2e tests
-just test-e2e-01             # Run e2e tests (basics)
-just test-e2e-02             # Run e2e tests (terms)
-just test-e2e-03             # Run e2e tests (user features)
-just test-e2e-04             # Run e2e tests (advanced)
 just test-contract           # Run contract tests (API schema validation, requires docker)
 just test-integration        # Run all integration tests
 just test-integration-01      # Run integration tests (first 50)
@@ -473,8 +469,8 @@ just test-integration-04      # Run integration tests (late 50b)
 just coverage                 # Run tests with coverage report
 
 # Combined commands
-just lint-test-all   # Run lint + all tests (unit -> E2E -> contract -> integration)
-just lint-test-fast # Run lint + fast tests (unit -> e2e)
+just lint-test-all   # Run lint + all tests (unit -> contract -> integration)
+just lint-test-fast # Run lint + fast tests (unit -> contract)
 ```
 
 ## Landing the Plane (Session Completion)

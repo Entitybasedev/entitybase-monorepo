@@ -102,7 +102,6 @@ log_cli_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 markers = [
     "unit: marks tests as unit tests",
     "integration: marks tests as integration tests",
-    "e2e: marks tests as e2e tests",
     "contract: marks tests as contract tests",
 ]
 

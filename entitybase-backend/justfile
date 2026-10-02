@@ -40,22 +40,6 @@ test-unit-03:
 test-unit-04:
     ./scripts/shell/run-unit-04-rest-api.sh
 
-# E2E tests (requires Docker: mysql, rustfs)
-
-test-e2e: test-e2e-01 test-e2e-02 test-e2e-03 test-e2e-04
-
-test-e2e-01:
-    ./scripts/shell/run-e2e-01-basics.sh
-
-test-e2e-02:
-    ./scripts/shell/run-e2e-02-terms.sh
-
-test-e2e-03:
-    ./scripts/shell/run-e2e-03-user.sh
-
-test-e2e-04:
-    ./scripts/shell/run-e2e-04-advanced.sh
-
 # Integration tests (requires running API)
 
 test-integration: test-integration-01 test-integration-02 test-integration-03 test-integration-04
@@ -79,9 +63,9 @@ test-contract:
 
 # Combined test targets
 
-test-fast: test-unit test-e2e test-contract
+test-fast: test-unit test-contract
 
-tests: test-unit test-e2e test-contract test-integration
+tests: test-unit test-contract test-integration
 
 lint-test-all: lint tests
 
