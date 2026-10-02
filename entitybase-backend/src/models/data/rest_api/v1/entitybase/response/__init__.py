@@ -92,6 +92,7 @@ from .terms import (
     TermHashResponse,
     TermHashesResponse,
     TermsByType,
+    TermsForLanguageResponse,
     TermsPerLanguage,
     TermsResponse,
 )
@@ -236,6 +237,7 @@ __all__ = [
     "TermHashResponse",
     "TermHashesResponse",
     "TermsByType",
+    "TermsForLanguageResponse",
     "TermsPerLanguage",
     "TermsResponse",
     "ThankItemResponse",

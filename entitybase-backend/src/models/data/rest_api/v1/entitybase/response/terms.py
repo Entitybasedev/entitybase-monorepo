@@ -17,6 +17,19 @@ class LabelsResponse(BaseModel):
     labels: dict[str, str] = Field(..., description="Labels per language")
 
 
+class TermsForLanguageResponse(BaseModel):
+    """Response model for all terms (label, description, aliases) in one language."""
+
+    language: str = Field(..., description="Language code of the returned terms")
+    label: str = Field(default="", description="Label text in this language")
+    description: str = Field(
+        default="", description="Description text in this language"
+    )
+    aliases: list[str] = Field(
+        default_factory=list, description="Aliases in this language"
+    )
+
+
 class DescriptionResponse(BaseModel):
     """Response model for entity descriptions."""
 

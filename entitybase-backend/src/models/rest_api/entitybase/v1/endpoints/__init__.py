@@ -8,6 +8,7 @@ from . import (
     entities_aliases,
     entities_descriptions,
     entities_labels,
+    entities_terms,
     items,
     lexeme_forms,
     lexeme_senses,
@@ -43,6 +44,7 @@ v1_router.include_router(entities.router, tags=["entities"])
 v1_router.include_router(entities_labels.router, tags=["entities"])
 v1_router.include_router(entities_descriptions.router, tags=["entities"])
 v1_router.include_router(entities_aliases.router, tags=["entities"])
+v1_router.include_router(entities_terms.router, tags=["entities"])
 v1_router.include_router(statements.router, tags=["statements"])
 v1_router.include_router(redirects.redirects_router, tags=["redirects"])
 v1_router.include_router(watchlist.watchlist_router, tags=["watchlist"])
