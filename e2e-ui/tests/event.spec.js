@@ -23,11 +23,20 @@ async function produceEntityChange(entityId, revisionId) {
     return
   }
   const { execSync } = await import('node:child_process')
-  // rpk reads the record value from stdin; it requires a trailing newline
-  execSync(`${COMPOSE} exec -T redpanda rpk topic produce entity_change`, {
-    cwd: '..',
-    input: payload + '\n',
-  })
+  // rpk reads the record value from stdin; it requires a trailing newline.
+  // Fall back to the root compose project when the CI stack isn't running.
+  try {
+    execSync(`${COMPOSE} exec -T redpanda rpk topic produce entity_change`, {
+      cwd: '..',
+      input: payload + '\n',
+    })
+  } catch (error) {
+    if (!String(error).includes('is not running')) throw error
+    execSync('docker compose exec -T redpanda rpk topic produce entity_change', {
+      cwd: '..',
+      input: payload + '\n',
+    })
+  }
 }
 
 test('change stream tab shows topics, connection status and events', async ({

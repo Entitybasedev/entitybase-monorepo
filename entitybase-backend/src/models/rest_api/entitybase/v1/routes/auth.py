@@ -39,15 +39,29 @@ def register(request: RegisterRequest, req: Request) -> AuthResponse:
 
     user_id = request.user_id
     if user_id <= 0:
-        user_id = repo.get_next_user_id()
-    if repo.user_exists(user_id):
-        raise_validation_error(
-            f"User {user_id} already exists", status_code=400
-        )
-
-    created = repo.create_user(user_id)
-    if not getattr(created, "success", False):
-        raise_validation_error("Failed to create user", status_code=500)
+        # Auto-assign: retry on collisions (concurrent registrations can
+        # compute the same next id)
+        for _ in range(5):
+            candidate = repo.get_next_user_id()
+            if repo.user_exists(candidate):
+                continue
+            created = repo.create_user(candidate)
+            if not getattr(created, "success", False):
+                continue
+            user_id = candidate
+            break
+        else:
+            raise_validation_error(
+                "Could not assign a user ID, try again", status_code=503
+            )
+    else:
+        if repo.user_exists(user_id):
+            raise_validation_error(
+                f"User {user_id} already exists", status_code=400
+            )
+        created = repo.create_user(user_id)
+        if not getattr(created, "success", False):
+            raise_validation_error("Failed to create user", status_code=500)
 
     credentials = repo.create_credentials(
         user_id, request.username, hash_password(request.password)

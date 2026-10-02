@@ -33,9 +33,20 @@ export async function createPropertyViaApi(request, label = 'instance of') {  co
  * immediately). Creating and editing requires being logged in.
  */
 export async function registerViaUi(page) {
-  await page.goto('/register')
-  await page.getByTestId('username-input').fill(`e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
-  await page.getByTestId('password-input').fill('e2e-password')
-  await page.getByTestId('auth-submit').click()
-  await page.waitForURL(/\/$/)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.goto('/register')
+    await page
+      .getByTestId('username-input')
+      .fill(`e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+    await page.getByTestId('password-input').fill('e2e-password')
+    await page.getByTestId('auth-submit').click()
+    try {
+      await page.waitForURL(/\/$/, { timeout: 10_000 })
+      return
+    } catch {
+      // Registration failed (e.g. concurrent registration race); retry
+      // with a fresh username
+    }
+  }
+  throw new Error('registerViaUi: could not register after retries')
 }
