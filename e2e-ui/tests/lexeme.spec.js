@@ -46,7 +46,10 @@ test('create a lexeme and add a statement via the UI', async ({ page, request })
 
   const statement = page.getByTestId('statement').first()
   await expect(statement).toBeVisible()
-  await expect(statement.getByTestId('statement-property')).toHaveText(propertyId)
+  // Statements are grouped under an anchored property header
+  const group = page.getByTestId('statement-group').first()
+  await expect(group).toHaveAttribute('id', propertyId)
+  await expect(group.getByTestId('statement-property')).toHaveText(propertyId)
   await expect(statement.getByTestId('statement-value')).toHaveText('Q5')
   await expect(statement.getByTestId('statement-value')).toBeVisible()
 })

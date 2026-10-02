@@ -29,6 +29,16 @@ export async function createPropertyViaApi(request, label = 'instance of') {  co
 
 
 /**
+ * Read the entity ID from the current page URL. Entity pages live at
+ * /entity/<qid> (older ?entity=<qid> links redirect there).
+ */
+export function entityIdFromUrl(page) {
+  const path = new URL(page.url()).pathname
+  const match = path.match(/\/entity\/([QPLE]\d+)/)
+  return match ? match[1] : null
+}
+
+/**
  * Register a fresh account via the UI (registration logs the user in
  * immediately). Creating and editing requires being logged in.
  */

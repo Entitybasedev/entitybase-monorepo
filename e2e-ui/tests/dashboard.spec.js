@@ -30,7 +30,8 @@ test('statements on an entity are grouped by property with anchors', async ({
   page,
   request,
 }) => {
-  const propertyId = await createPropertyViaApi(request, 'instance of')
+  const firstProperty = await createPropertyViaApi(request, 'instance of')
+  const secondProperty = await createPropertyViaApi(request, 'country')
   await registerViaUi(page)
 
   await page.goto('/create-item')
@@ -38,25 +39,31 @@ test('statements on an entity are grouped by property with anchors', async ({
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
 
-  for (const value of ['Q5', 'Q1']) {
+  for (const [propertyId, value] of [
+    [firstProperty, 'Q5'],
+    [secondProperty, 'Q30'],
+  ]) {
+    // Wait until the previous save finished: the button shows its idle label
+    // again (and the inputs, which the save clears, are ready for new values)
+    await expect(page.getByTestId('add-statement-button')).toHaveText('Add statement')
     await page.getByTestId('statement-property-input').fill(propertyId)
     await page.getByTestId('statement-value-input').fill(value)
     await page.getByTestId('add-statement-button').click()
-    await expect(page.getByTestId('statement')).toHaveCount(
-      value === 'Q5' ? 1 : 2
-    )
   }
 
-  const group = page.getByTestId('statement-group').first()
-  await expect(group).toHaveAttribute('id', propertyId)
-  await expect(group.getByTestId('statement-group-count')).toHaveText('2')
-  await expect(group.getByTestId('statement')).toHaveCount(2)
+  // One anchored group per property, each with its own value
+  const groups = page.getByTestId('statement-group')
+  await expect(groups).toHaveCount(2)
+  await expect(page.getByTestId('statement')).toHaveCount(2)
+  await expect(page.getByTestId('statement-group-count')).toHaveText(['1', '1'])
 
-  // The group is linkable by fragment
-  const groupId = await group.getAttribute('id')
-  await page.goto(`${new URL(page.url()).pathname}#${groupId}`)
-  await expect(page.getByTestId('statement-group').first()).toHaveAttribute(
+  const ids = await groups.evaluateAll((nodes) => nodes.map((n) => n.id))
+  expect(ids).toEqual([firstProperty, secondProperty])
+
+  // Each group is linkable by fragment
+  await page.goto(`${new URL(page.url()).pathname}#${secondProperty}`)
+  await expect(page.getByTestId('statement-group').last()).toHaveAttribute(
     'id',
-    groupId
+    secondProperty
   )
 })

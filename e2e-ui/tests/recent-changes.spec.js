@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { registerViaUi } from './helpers.js'
+import { entityIdFromUrl, registerViaUi } from './helpers.js'
 
 test('recent changes is in the menu and lists the new entity', async ({
   page,
@@ -14,7 +14,7 @@ test('recent changes is in the menu and lists the new entity', async ({
 
   const itemSection = page.getByTestId('item-section')
   await expect(itemSection).toBeVisible()
-  const entityId = new URL(page.url()).searchParams.get('entity')
+  const entityId = entityIdFromUrl(page)
   expect(entityId).toMatch(/^Q\d+$/)
 
   // Find the page via the menu
@@ -35,7 +35,7 @@ test('recent changes rows link back to the entity', async ({ page }) => {
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
-  const entityId = new URL(page.url()).searchParams.get('entity')
+  const entityId = entityIdFromUrl(page)
 
   await page.getByTestId('nav-recent').click()
   const row = page
@@ -45,7 +45,7 @@ test('recent changes rows link back to the entity', async ({ page }) => {
 
   await row.getByTestId('recent-entity').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
-  expect(new URL(page.url()).searchParams.get('entity')).toBe(entityId)
+  expect(entityIdFromUrl(page)).toBe(entityId)
 })
 
 test('hide imports filter is available', async ({ page }) => {

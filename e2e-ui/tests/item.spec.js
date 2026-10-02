@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID, API_URL, createPropertyViaApi, registerViaUi } from './helpers.js'
+import {
+  USER_ID,
+  API_URL,
+  createPropertyViaApi,
+  entityIdFromUrl,
+  registerViaUi,
+} from './helpers.js'
 
 test('create a property via the UI', async ({ page }) => {
   await registerViaUi(page)
@@ -56,7 +62,10 @@ test('create an item and add a statement via the UI', async ({ page, request }) 
 
   const statement = page.getByTestId('statement').first()
   await expect(statement).toBeVisible()
-  await expect(statement.getByTestId('statement-property')).toHaveText(propertyId)
+  // Statements are grouped under an anchored property header
+  const group = page.getByTestId('statement-group').first()
+  await expect(group).toHaveAttribute('id', propertyId)
+  await expect(group.getByTestId('statement-property')).toHaveText(propertyId)
   await expect(statement.getByTestId('statement-value')).toHaveText('Q5')
   await expect(statement.getByTestId('statement-value')).toBeVisible()
 })
@@ -97,7 +106,7 @@ test('item history shows revisions, views an old revision and diffs it', async (
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
-  const entityId = new URL(page.url()).searchParams.get('entity')
+  const entityId = entityIdFromUrl(page)
 
   await page.getByTestId('statement-property-input').fill(propertyId)
   await page.getByTestId('statement-value-input').fill('Q5')

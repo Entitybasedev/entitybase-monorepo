@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { createPropertyViaApi, registerViaUi } from './helpers.js'
+import { createPropertyViaApi, entityIdFromUrl, registerViaUi } from './helpers.js'
 
 test('entity list is reachable from the menu and lists created entities', async ({
   page,
@@ -12,7 +12,7 @@ test('entity list is reachable from the menu and lists created entities', async 
   await page.getByTestId('item-label-input').fill(label)
   await page.getByTestId('create-item-button').click()
   await expect(page.getByTestId('item-section')).toBeVisible()
-  const entityId = new URL(page.url()).searchParams.get('entity')
+  const entityId = entityIdFromUrl(page)
   expect(entityId).toMatch(/^Q\d+$/)
 
   // Find the page via the menu
