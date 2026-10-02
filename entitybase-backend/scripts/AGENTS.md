@@ -76,7 +76,7 @@ The `update-docs.sh` script generates documentation by calling other scripts and
 
 ```bash
 ./scripts/shell/run-scc.sh                  # Code statistics
-./scripts/shell/count-tests.sh              # Test counts
+../scripts/count-tests.sh                   # Test counts (whole repo)
 ./scripts/shell/count-words.sh              # Word counts
 python scripts/doc/extract_endpoints.py     # API endpoints
 python scripts/doc/generate_*.py            # Various architecture docs
