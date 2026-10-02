@@ -38,7 +38,6 @@ from .entity.patch import (
     SitelinkPatchRequest,
     StatePatchRequest,
 )
-from .entity.patch_statement import PatchStatementRequest
 from .entity.remove_statement import RemoveStatementRequest
 from .misc import CleanupOrphanedRequest
 from .snak import SnakRequest
@@ -87,7 +86,6 @@ __all__ = [
     "LexemeUpdateRequest",
     "MarkCheckedRequest",
     "MostUsedStatementsRequest",
-    "PatchStatementRequest",
     "RedirectRevertRequest",
     "RemoveStatementRequest",
     "SenseCreateRequest",

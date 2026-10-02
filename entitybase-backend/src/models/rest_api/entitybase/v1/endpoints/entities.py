@@ -10,9 +10,6 @@ from models.data.rest_api.v1.entitybase.request import AddPropertyRequest
 from models.data.rest_api.v1.entitybase.request import AddStatementRequest
 from models.data.rest_api.v1.entitybase.request import EntityDeleteRequest
 from models.data.rest_api.v1.entitybase.request import (
-    PatchStatementRequest,
-)
-from models.data.rest_api.v1.entitybase.request import (
     RemoveStatementRequest,
 )
 from models.data.rest_api.v1.entitybase.request.entity.entity_status import (
@@ -431,32 +428,6 @@ async def remove_entity_statement(
     result = await handler.remove_statement(
         entity_id,
         statement_hash,
-        headers,
-    )
-    if not isinstance(result, OperationResult):
-        raise_validation_error("Invalid response type", status_code=500)
-    return result
-
-
-@router.patch(
-    "/entities/{entity_id}/statements/{statement_hash}",
-    response_model=OperationResult[RevisionIdResult],
-)
-async def patch_entity_statement(
-    entity_id: str,
-    statement_hash: str,
-    request: PatchStatementRequest,
-    req: Request,
-    headers: EditHeadersType,
-) -> OperationResult[RevisionIdResult]:
-    """Replace a statement by hash with new claim data."""
-    state = req.app.state.state_handler
-    validate_state_clients(state)
-    handler = EntityStatementService(state=state)
-    result = await handler.patch_statement(
-        entity_id,
-        statement_hash,
-        request,
         headers,
     )
     if not isinstance(result, OperationResult):

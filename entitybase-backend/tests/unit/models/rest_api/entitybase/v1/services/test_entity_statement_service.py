@@ -51,25 +51,6 @@ class TestEntityStatementService:
 
         mock_cursor.execute.assert_called()
 
-    # patch_statement tests
-
-    @pytest.mark.asyncio
-    async def test_patch_statement_not_found(self) -> None:
-        """Test patching statement when it doesn't exist."""
-        mock_state = MagicMock()
-        mock_vitess = MagicMock()
-        mock_state.db_client = mock_vitess
-
-        service = EntityStatementService(state=mock_state)
-        current_data = MagicMock()
-        current_data.data = {"claims": {}}
-
-        replaced = service._find_and_replace_statement(
-            current_data.data, "99999", {"new": "data"}
-        )
-
-        assert replaced is False
-
     # _validate_property_id (static)
     def test_validate_property_id_valid(self) -> None:
         """Test validating valid property ID."""
@@ -108,36 +89,6 @@ class TestEntityStatementService:
 
         assert "P31" not in result.properties
         assert "P31" not in result.property_counts.root
-
-    # _find_and_replace_statement (static)
-    def test_find_and_replace_statement_found(self) -> None:
-        """Test finding and replacing statement."""
-        current_data = {
-            "claims": {"P31": [{"mainsnak": {"datavalue": {"value": "Q146"}}}]}
-        }
-        from models.internal_representation.statement_hasher import StatementHasher
-
-        old_stmt = {"mainsnak": {"datavalue": {"value": "Q146"}}}
-        stmt_hash = StatementHasher.compute_hash(old_stmt)
-
-        replaced = EntityStatementService._find_and_replace_statement(
-            current_data, str(stmt_hash), {"mainsnak": {"datavalue": {"value": "Q515"}}}
-        )
-
-        assert replaced is True
-        assert (
-            current_data["claims"]["P31"][0]["mainsnak"]["datavalue"]["value"] == "Q515"
-        )
-
-    def test_find_and_replace_statement_not_found(self) -> None:
-        """Test finding statement when hash not found."""
-        current_data = {"claims": {"P31": [{"test": "data"}]}}
-
-        replaced = EntityStatementService._find_and_replace_statement(
-            current_data, "99999", {"new": "data"}
-        )
-
-        assert replaced is False
 
     # _fetch_revision_data
 

@@ -68,6 +68,10 @@ def merge_statement_state_with_previous(
     `hashes.statements` from those claims alone therefore drops every
     statement that was already on the entity, so keep the previous
     revision's hashes, properties and counts and add the new ones.
+
+    This can only add statements. Removing or replacing one must go
+    through EntityStatementService.remove_statement, which rewrites the
+    revision's hash list directly instead of merging.
     """
     if not previous_revision:
         return hash_result

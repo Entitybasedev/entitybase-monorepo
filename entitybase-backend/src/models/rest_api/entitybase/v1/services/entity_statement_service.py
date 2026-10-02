@@ -12,7 +12,6 @@ from models.data.rest_api.v1.entitybase.request import (
     AddPropertyRequest,
     AddStatementRequest,
     EntityChangeType,
-    PatchStatementRequest,
     UserActivityType,
 )
 from models.data.rest_api.v1.entitybase.response import (
@@ -23,7 +22,6 @@ from models.data.rest_api.v1.entitybase.response import (
 from models.infrastructure.s3.revision.revision_data import RevisionData
 from models.infrastructure.s3.exceptions import S3NotFoundError
 from models.infrastructure.db.repositories.statement import StatementRepository
-from models.internal_representation.statement_hasher import StatementHasher
 from models.rest_api.entitybase.v1.handlers.entity.handler import EntityHandler
 from models.rest_api.entitybase.v1.handlers.entity.read import EntityReadHandler
 from models.rest_api.entitybase.v1.service import Service
@@ -181,39 +179,6 @@ class EntityStatementService(Service):
         add_property_request = AddPropertyRequest(claims=[claim])
         return await self.add_property(
             entity_id, property_id, add_property_request, edit_headers, validator
-        )
-
-    async def patch_statement(
-        self,
-        entity_id: str,
-        statement_hash: str,
-        request: PatchStatementRequest,
-        edit_headers: EditHeaders,
-        validator: Any | None = None,
-    ) -> OperationResult[RevisionIdResult]:
-        """Replace a statement by hash with new claim data."""
-        logger.info(f"Entity {entity_id}: Patching statement {statement_hash}")
-        current_data = self._fetch_current_entity_data(entity_id)
-        replaced = self._find_and_replace_statement(
-            current_data.data, statement_hash, request.claim
-        )
-        if not replaced:
-            return OperationResult(success=False, error="Statement not found in entity")
-        entity_response = await self._process_entity_update(
-            entity_id,
-            current_data.data,
-            edit_headers,
-            validator,
-        )
-        self._log_activity(
-            edit_headers,
-            entity_id,
-            entity_response.revision_id,
-            EntityChangeType.STATEMENT_PATCH,
-        )
-        return OperationResult(
-            success=True,
-            data=RevisionIdResult(revision_id=entity_response.revision_id),
         )
 
     # Private validation methods
@@ -384,26 +349,6 @@ class EntityStatementService(Service):
                 f"Failed to store updated revision: {e}", status_code=400
             )
         return new_revision_id
-
-    @staticmethod
-    def _find_and_replace_statement(
-        current_data: dict[str, Any],
-        statement_hash: str,
-        claim: dict,
-    ) -> bool:
-        """Find and replace statement by hash."""
-        replaced = False
-        if "claims" in current_data:
-            for property_id, claim_list in current_data["claims"].items():
-                for i, stmt in enumerate(claim_list):
-                    stmt_hash = StatementHasher.compute_hash(stmt)
-                    if str(stmt_hash) == statement_hash:
-                        claim_list[i] = claim
-                        replaced = True
-                        break
-                if replaced:
-                    break
-        return replaced
 
     async def _process_entity_update(
         self,
