@@ -7,16 +7,6 @@
         <li class="nav-item">
           <router-link
             class="nav-link"
-            :class="{ active: isActive('/') }"
-            data-testid="nav-entities"
-            :to="{ path: '/', query: navQuery }"
-          >
-            Entities
-          </router-link>
-        </li>
-        <li class="nav-item">
-          <router-link
-            class="nav-link"
             :class="{ active: isActive('/list') }"
             data-testid="nav-list"
             to="/list"
@@ -170,23 +160,15 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import UserMenu from './components/UserMenu.vue'
 import { language, showQid, SUPPORTED_LANGUAGES } from './settings.js'
 
 const route = useRoute()
 
-// Preserve the current entity when switching tabs back to Entities
-const navQuery = computed(() => {
-  const entity = typeof route.query.entity === 'string' ? route.query.entity : ''
-  return entity ? { entity } : {}
-})
-
 function isActive(path) {
-  return path === '/'
-    ? route.path === '/'
-    : route.path.startsWith(path)
+  return route.path.startsWith(path)
 }
 </script>
 
