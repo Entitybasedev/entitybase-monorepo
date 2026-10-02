@@ -21,6 +21,7 @@ from models.infrastructure.s3.exceptions import S3NotFoundError
 from models.rest_api.entitybase.v1.handlers.entity.handler import (
     EntityHandler,
     RevisionResult,
+    merge_statement_state_with_previous,
 )
 from models.data.infrastructure.s3.hashes.hash_maps import HashMaps
 from models.data.infrastructure.s3.hashes.sitelinks_hashes import SitelinkHashes
@@ -385,3 +386,61 @@ class TestEntityHandler:
 
         with pytest.raises(Exception):
             await EntityHandler._build_entity_response(ctx, result)
+
+
+class TestMergeStatementStateWithPrevious:
+    """Adding statements must not drop the statements already stored."""
+
+    def test_keeps_previous_statements_when_adding_new_ones(self) -> None:
+        previous = {
+            "hashes": {"statements": [111, 222]},
+            "properties": ["P31"],
+            "property_counts": {"P31": 2},
+        }
+        new = StatementHashResult(
+            statements=[333],
+            properties=["P31", "P17"],
+            counts={"P31": 1, "P17": 1},
+        )
+
+        merged = merge_statement_state_with_previous(previous, new)
+
+        assert merged.statements == [111, 222, 333]
+        assert merged.properties == ["P31", "P17"]
+        assert merged.property_counts.root == {"P31": 3, "P17": 1}
+
+    def test_deduplicates_statements_already_present(self) -> None:
+        previous = {
+            "hashes": {"statements": [111, 222]},
+            "properties": ["P31"],
+            "property_counts": {"P31": 2},
+        }
+        new = StatementHashResult(
+            statements=[222, 333],
+            properties=["P31"],
+            counts={"P31": 2},
+        )
+
+        merged = merge_statement_state_with_previous(previous, new)
+
+        assert merged.statements == [111, 222, 333]
+        assert merged.property_counts.root == {"P31": 4}
+
+    def test_returns_new_result_unchanged_without_previous_revision(self) -> None:
+        new = StatementHashResult(statements=[1], properties=["P31"], counts={"P31": 1})
+
+        merged = merge_statement_state_with_previous(None, new)
+
+        assert merged.statements == [1]
+        assert merged.properties == ["P31"]
+        assert merged.property_counts.root == {"P31": 1}
+
+    def test_entity_without_statements_gains_only_the_new_one(self) -> None:
+        previous = {"hashes": {}, "properties": [], "property_counts": {}}
+        new = StatementHashResult(
+            statements=[42], properties=["P31"], counts={"P31": 1}
+        )
+
+        merged = merge_statement_state_with_previous(previous, new)
+
+        assert merged.statements == [42]

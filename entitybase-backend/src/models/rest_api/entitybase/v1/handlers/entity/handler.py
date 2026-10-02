@@ -2,13 +2,14 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from models.config.settings import settings
 from models.data.infrastructure.s3 import SitelinkHashes
 from models.data.infrastructure.s3.entity_state import EntityState
 from models.data.infrastructure.s3.enums import EditType, EditData
 from models.data.infrastructure.s3.hashes.hash_maps import HashMaps
+from models.data.infrastructure.s3.property_counts import PropertyCounts
 from models.data.infrastructure.s3.hashes.statements_hashes import StatementsHashes
 from models.data.infrastructure.stream.change_type import ChangeType
 from models.data.rest_api.v1.entitybase.request.entity import PreparedRequestData
@@ -44,8 +45,76 @@ def merge_hash_map(previous: dict | None, computed: Any) -> Any:
     return type(computed)(root=merged)
 
 
+def _property_counts_map(value: Any) -> dict[str, int]:
+    """Normalise property counts to a plain dict.
+
+    Counts arrive either as a stored JSON object or as a PropertyCounts
+    root model, depending on where they are read from.
+    """
+    root = getattr(value, "root", None)
+    source = root if isinstance(root, dict) else value
+    if not isinstance(source, dict):
+        return {}
+    return {str(key): int(count) for key, count in source.items()}
+
+
+def merge_statement_state_with_previous(
+    previous_revision: dict | None, hash_result: StatementHashResult
+) -> StatementHashResult:
+    """Merge statements already stored on the entity with newly hashed ones.
+
+    A revision only persists statement hashes, while the incoming request
+    data carries just the claims touched by this edit. Rebuilding
+    `hashes.statements` from those claims alone therefore drops every
+    statement that was already on the entity, so keep the previous
+    revision's hashes, properties and counts and add the new ones.
+    """
+    if not previous_revision:
+        return hash_result
+
+    statements: list[int] = []
+    seen: set[int] = set()
+    previous_hashes = previous_revision.get("hashes") or {}
+    for statement_hash in [
+        *(previous_hashes.get("statements") or []),
+        *hash_result.statements,
+    ]:
+        value = int(statement_hash)
+        if value not in seen:
+            seen.add(value)
+            statements.append(value)
+
+    properties: list[str] = []
+    for property_id in [
+        *(previous_revision.get("properties") or []),
+        *hash_result.properties,
+    ]:
+        if property_id not in properties:
+            properties.append(property_id)
+
+    counts: dict[str, int] = {}
+    for source in (
+        _property_counts_map(previous_revision.get("property_counts")),
+        _property_counts_map(hash_result.property_counts),
+    ):
+        for property_id, count in source.items():
+            counts[property_id] = counts.get(property_id, 0) + int(count)
+
+    return cast(
+        StatementHashResult,
+        hash_result.model_copy(
+            update={
+                "statements": statements,
+                "properties": properties,
+                "property_counts": PropertyCounts(counts),
+            }
+        ),
+    )
+
+
 def merge_term_maps_with_previous(term_hashes: HashMaps, previous: Any) -> HashMaps:
     """Merge the previous revision's term hash maps (dict) into new maps."""
+
     def merged(existing: Any, previous_map: dict | None) -> Any:
         merged_map = dict(previous_map or {})
         if existing is not None and existing.root:
@@ -226,6 +295,16 @@ class EntityHandler(Handler):
                     previous.get("sitelinks"), sitelink_hashes
                 )
 
+            # Same rule for statements: the claims in this edit are hashed
+            # into hash_result, so merge them with the statements already on
+            # the entity instead of replacing them.
+            hash_result = merge_statement_state_with_previous(
+                self._previous_revision_data(
+                    ctx.entity_id, ctx.db_client, head_revision_id
+                ),
+                hash_result,
+            )
+
             # Build revision data
             logger.debug(
                 f"_create_revision_new: building revision data for {ctx.entity_id}"
@@ -288,6 +367,19 @@ class EntityHandler(Handler):
             return revision.revision.get("hashes", {})
         except Exception as e:
             logger.warning(f"Could not load previous revision hashes: {e}")
+            return None
+
+    def _previous_revision_data(
+        self, entity_id: str, db_client: Any, head_revision_id: int
+    ) -> Any | None:
+        """Load the previous head revision data (hashes, properties, counts)."""
+        if not head_revision_id:
+            return None
+        try:
+            revision = self.state.read_revision_data(entity_id, head_revision_id)
+            return revision.revision
+        except Exception as e:
+            logger.warning(f"Could not load previous revision: {e}")
             return None
 
     async def _hash_terms_new(self, ctx: RevisionContext) -> HashMaps:
@@ -458,15 +550,21 @@ class EntityHandler(Handler):
 
         try:
             from models.data.infrastructure.s3.revision_data import S3RevisionData
-            from models.infrastructure.db.repositories.revision import RevisionRepository
-            from models.infrastructure.db.repositories.revision_data import RevisionDataRepository
+            from models.infrastructure.db.repositories.revision import (
+                RevisionRepository,
+            )
+            from models.infrastructure.db.repositories.revision_data import (
+                RevisionDataRepository,
+            )
 
             internal_id = ctx.db_client.id_resolver.resolve_id(ctx.entity_id)
             if not internal_id:
                 raise_validation_error("Entity not found", status_code=404)
 
             revision_repo = RevisionRepository(db_client=ctx.db_client)
-            content_hash = revision_repo.get_content_hash(internal_id, result.revision_id)
+            content_hash = revision_repo.get_content_hash(
+                internal_id, result.revision_id
+            )
             if content_hash == 0:
                 raise_validation_error("Revision not found", status_code=404)
 

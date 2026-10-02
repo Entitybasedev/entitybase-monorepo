@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from models.data.infrastructure.s3 import EntityState
 from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
@@ -143,6 +143,69 @@ class UpdateTransaction(EntityTransaction):
             logger.warning(f"Could not load previous revision hashes: {e}")
             return None
 
+    def _previous_revision_data(
+        self, entity_id: str, head_revision_id: int
+    ) -> dict[str, Any] | None:
+        """Load the previous head revision, or None when unavailable."""
+        if not head_revision_id:
+            return None
+        try:
+            revision = self.state.read_revision_data(entity_id, head_revision_id)
+            return cast(dict[str, Any], revision.revision)
+        except Exception as e:
+            logger.warning(f"Could not load previous revision: {e}")
+            return None
+
+    @staticmethod
+    def _merge_statement_state(
+        previous_revision: dict[str, Any] | None,
+        hash_result: StatementHashResult,
+    ) -> tuple[list[int], list[str], Any]:
+        """Combine already-stored statements with the newly hashed ones.
+
+        Adding a statement only hashes the incoming claims, so the
+        statements already on the entity must be merged back in. Returns
+        the merged statement hashes, the merged property list and the
+        merged property counts.
+        """
+        statements = [int(h) for h in hash_result.statements]
+        properties = list(hash_result.properties)
+        counts = dict(hash_result.property_counts)
+
+        if not previous_revision:
+            return statements, properties, counts
+
+        previous_hashes = previous_revision.get("hashes", {}) or {}
+        previous_statements = [
+            int(h) for h in (previous_hashes.get("statements") or [])
+        ]
+        merged_statements: list[int] = []
+        seen: set[int] = set()
+        for statement_hash in [*previous_statements, *statements]:
+            if statement_hash not in seen:
+                seen.add(statement_hash)
+                merged_statements.append(statement_hash)
+
+        merged_properties: list[str] = []
+        for property_id in [
+            *(previous_revision.get("properties") or []),
+            *properties,
+        ]:
+            if property_id not in merged_properties:
+                merged_properties.append(property_id)
+
+        merged_counts: dict[str, int] = {}
+        for source in (
+            previous_revision.get("property_counts") or {},
+            counts,
+        ):
+            for property_id, count in source.items():
+                merged_counts[property_id] = merged_counts.get(property_id, 0) + int(
+                    count
+                )
+
+        return merged_statements, merged_properties, merged_counts
+
     async def create_revision(
         self,
         entity_id: str,
@@ -164,6 +227,7 @@ class UpdateTransaction(EntityTransaction):
         from models.data.infrastructure.s3.hashes.statements_hashes import (
             StatementsHashes,
         )
+        from models.data.infrastructure.s3.property_counts import PropertyCounts
         from models.infrastructure.s3.revision.revision_data import RevisionData
         from models.config.settings import settings
 
@@ -196,6 +260,22 @@ class UpdateTransaction(EntityTransaction):
             hs.hash_aliases(request_data.aliases),
         )
 
+        # Like terms, the request data only carries the statements touched by
+        # this edit, so merge the statements already stored on the entity
+        # instead of replacing them.
+        (
+            statement_hashes,
+            statement_properties,
+            statement_property_counts,
+        ) = self._merge_statement_state(
+            self._previous_revision_data(entity_id, head_revision_id),
+            hash_result,
+        )
+        logger.info(
+            f"[UpdateTransaction] Statement hashes for {entity_id}: "
+            f"{len(statement_hashes)} total"
+        )
+
         created_at = datetime.now(timezone.utc).isoformat()
 
         logger.debug("Creating RevisionData object")
@@ -203,10 +283,10 @@ class UpdateTransaction(EntityTransaction):
         revision_data = RevisionData(
             revision_id=new_revision_id,
             entity_type=entity_type,
-            properties=hash_result.properties,
-            property_counts=hash_result.property_counts,
+            properties=statement_properties,
+            property_counts=PropertyCounts(statement_property_counts),
             hashes=HashMaps(
-                statements=StatementsHashes(root=hash_result.statements),
+                statements=StatementsHashes(root=statement_hashes),
                 sitelinks=sitelink_hashes,
                 labels=labels_hashes,
                 descriptions=descriptions_hashes,
@@ -261,8 +341,13 @@ class UpdateTransaction(EntityTransaction):
             created_at=created_at,
         )
 
-        from models.infrastructure.db.repositories.revision_data import RevisionDataRepository
-        RevisionDataRepository(db_client=self.state.db_client).store(content_hash, s3_revision_data.model_dump(mode="json"))
+        from models.infrastructure.db.repositories.revision_data import (
+            RevisionDataRepository,
+        )
+
+        RevisionDataRepository(db_client=self.state.db_client).store(
+            content_hash, s3_revision_data.model_dump(mode="json")
+        )
 
         self.operations.append(
             lambda: self._rollback_revision(entity_id, new_revision_id)
@@ -384,8 +469,13 @@ class UpdateTransaction(EntityTransaction):
             created_at=created_at,
         )
 
-        from models.infrastructure.db.repositories.revision_data import RevisionDataRepository
-        RevisionDataRepository(db_client=self.state.db_client).store(content_hash, s3_revision_data.model_dump(mode="json"))
+        from models.infrastructure.db.repositories.revision_data import (
+            RevisionDataRepository,
+        )
+
+        RevisionDataRepository(db_client=self.state.db_client).store(
+            content_hash, s3_revision_data.model_dump(mode="json")
+        )
 
         self.operations.append(
             lambda: self._rollback_revision(entity_id, new_revision_id)

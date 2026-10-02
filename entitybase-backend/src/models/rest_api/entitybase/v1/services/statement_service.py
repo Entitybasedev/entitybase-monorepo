@@ -109,6 +109,7 @@ class StatementService(Service):
             result = StatementHashResult(
                 statements=statements,
                 properties=properties,
+                property_counts=property_counts,
                 full_statements=full_statements,
             )
             return OperationResult(success=True, data=result)
