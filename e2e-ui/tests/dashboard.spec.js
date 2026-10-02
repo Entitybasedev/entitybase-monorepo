@@ -43,12 +43,12 @@ test('statements on an entity are grouped by property with anchors', async ({
     [firstProperty, 'Q5'],
     [secondProperty, 'Q30'],
   ]) {
-    // Wait until the previous save finished: the button shows its idle label
-    // again (and the inputs, which the save clears, are ready for new values)
-    await expect(page.getByTestId('add-statement-button')).toHaveText('Add statement')
     await page.getByTestId('statement-property-input').fill(propertyId)
     await page.getByTestId('statement-value-input').fill(value)
     await page.getByTestId('add-statement-button').click()
+    // Saving reloads the entity, which briefly empties the statement list;
+    // wait for the button to go idle again so the reload has finished
+    await expect(page.getByTestId('add-statement-button')).toHaveText('Add statement')
   }
 
   // One anchored group per property, each with its own value
