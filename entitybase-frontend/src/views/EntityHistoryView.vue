@@ -74,14 +74,14 @@
           </li>
         </ul>
       </template>
-      <button class="btn btn-primary btn-sm" data-testid="diff-close" @click="diff = null">Close diff</button>
+      <button class="btn btn-primary btn-sm" data-testid="diff-close" @click="closeDiff">Close diff</button>
     </div>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   getEntityHistory,
   getEntityRevision,
@@ -94,8 +94,14 @@ import {
 import { computeEntityDiff } from '../entityDiff.js'
 
 const route = useRoute()
+const router = useRouter()
 
 const entityId = computed(() => String(route.params.entityId ?? ''))
+
+// Diff revisions come from the URL when present (/history/<new>/<old>)
+const urlNewRev = computed(() => Number(route.params.newRev) || 0)
+const urlOldRev = computed(() => Number(route.params.oldRev) || 0)
+const hasUrlDiff = computed(() => urlNewRev.value > 0 && urlOldRev.value > 0)
 
 const history = ref([])
 const historyOffset = ref(0)
@@ -146,31 +152,57 @@ function backToCurrent() {
   viewingRevision.value = null
 }
 
-async function diffWithPrevious(revisionId) {
+// Diff buttons navigate to the shareable diff URL; the watcher computes
+function diffWithPrevious(revisionId) {
+  const idx = history.value.findIndex((e) => e.revision_id === revisionId)
+  const older = history.value[idx + 1]
+  if (!older) return
+  return router.push(
+    `/${entityId.value}/history/${revisionId}/${older.revision_id}`
+  )
+}
+
+async function computeDiff(newRev, oldRev) {
   error.value = ''
-  diff.value = null
   try {
-    const idx = history.value.findIndex((e) => e.revision_id === revisionId)
-    const older = history.value[idx + 1]
-    const [newRev, oldRev] = await Promise.all([
-      getEntityRevision(entityId.value, revisionId),
-      getEntityRevision(entityId.value, older.revision_id),
+    const [newRevData, oldRevData] = await Promise.all([
+      getEntityRevision(entityId.value, newRev),
+      getEntityRevision(entityId.value, oldRev),
     ])
-    const result = await computeEntityDiff(oldRev, newRev, {
+    const result = await computeEntityDiff(oldRevData, newRevData, {
       resolveLabels: resolveLabelHashes,
       resolveDescriptions: resolveDescriptionHashes,
       resolveAliases: resolveAliasHashes,
       getStatement,
       getSnak,
     })
-    diff.value = { ...result, oldRev: older.revision_id, newRev: revisionId }
+    diff.value = { ...result, oldRev, newRev }
   } catch (e) {
     error.value = String(e.message || e)
   }
 }
 
-onMounted(() => {
-  return loadHistory(0)
+function closeDiff() {
+  diff.value = null
+  if (hasUrlDiff.value) {
+    return router.push(`/${entityId.value}/history`)
+  }
+}
+
+// Compute (or clear) the diff when the diff URL changes
+watch(hasUrlDiff, async () => {
+  if (hasUrlDiff.value) {
+    await computeDiff(urlNewRev.value, urlOldRev.value)
+  } else {
+    diff.value = null
+  }
+})
+
+onMounted(async () => {
+  await loadHistory(0)
+  if (hasUrlDiff.value) {
+    await computeDiff(urlNewRev.value, urlOldRev.value)
+  }
 })
 </script>
 

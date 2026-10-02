@@ -29,6 +29,20 @@ from models.rest_api.entitybase.v1.services.statement_service import StatementSe
 logger = logging.getLogger(__name__)
 
 
+def merge_hash_map(previous: dict | None, computed: Any) -> Any:
+    """Merge previous revision hashes with newly computed ones.
+
+    `previous` is the raw hash map from the previous RevisionRecord
+    (None when there is no previous revision); `computed` is the freshly
+    hashed RootModel for the terms touched by this update. Computed
+    values win; untouched entries keep their previous hashes.
+    """
+    merged: dict = dict(previous or {})
+    if computed is not None and getattr(computed, "root", None):
+        merged.update(computed.root)
+    return type(computed)(root=merged)
+
+
 class UpdateTransaction(EntityTransaction):
     """Transaction for updating entities."""
 
@@ -116,6 +130,19 @@ class UpdateTransaction(EntityTransaction):
 
         return hash_data
 
+    def _previous_revision_hashes(
+        self, entity_id: str, head_revision_id: int
+    ) -> Any | None:
+        """Load the previous head revision's hash maps for term merging."""
+        if not head_revision_id:
+            return None
+        try:
+            revision = self.state.read_revision_data(entity_id, head_revision_id)
+            return revision.revision.get("hashes", {})
+        except Exception as e:
+            logger.warning(f"Could not load previous revision hashes: {e}")
+            return None
+
     async def create_revision(
         self,
         entity_id: str,
@@ -147,10 +174,27 @@ class UpdateTransaction(EntityTransaction):
 
         logger.debug("Hashing terms")
         hs = HashService(state=self.state)
-        sitelink_hashes = hs.hash_sitelinks(request_data.sitelinks)
-        labels_hashes = hs.hash_labels(request_data.labels)
-        descriptions_hashes = hs.hash_descriptions(request_data.descriptions)
-        aliases_hashes = hs.hash_aliases(request_data.aliases)
+
+        # The update payload only carries value maps for the terms touched
+        # by this edit; the previous head revision holds the hash maps for
+        # everything else. Merge so untouched terms are not dropped.
+        previous = self._previous_revision_hashes(entity_id, head_revision_id)
+        sitelink_hashes = merge_hash_map(
+            previous.get("sitelinks") if previous else None,
+            hs.hash_sitelinks(request_data.sitelinks),
+        )
+        labels_hashes = merge_hash_map(
+            previous.get("labels") if previous else None,
+            hs.hash_labels(request_data.labels),
+        )
+        descriptions_hashes = merge_hash_map(
+            previous.get("descriptions") if previous else None,
+            hs.hash_descriptions(request_data.descriptions),
+        )
+        aliases_hashes = merge_hash_map(
+            previous.get("aliases") if previous else None,
+            hs.hash_aliases(request_data.aliases),
+        )
 
         created_at = datetime.now(timezone.utc).isoformat()
 

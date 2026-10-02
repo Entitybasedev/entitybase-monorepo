@@ -32,6 +32,35 @@ from ...services.statement_service import StatementService
 
 logger = logging.getLogger(__name__)
 
+
+def merge_hash_map(previous: dict | None, computed: Any) -> Any:
+    """Merge previous revision hashes with newly computed ones.
+
+    Computed values win; untouched entries keep their previous hashes.
+    """
+    merged: dict = dict(previous or {})
+    if computed is not None and getattr(computed, "root", None):
+        merged.update(computed.root)
+    return type(computed)(root=merged)
+
+
+def merge_term_maps_with_previous(term_hashes: HashMaps, previous: Any) -> HashMaps:
+    """Merge the previous revision's term hash maps (dict) into new maps."""
+    def merged(existing: Any, previous_map: dict | None) -> Any:
+        merged_map = dict(previous_map or {})
+        if existing is not None and existing.root:
+            merged_map.update(existing.root)
+        return type(existing)(root=merged_map) if existing is not None else None
+
+    return HashMaps(
+        labels=merged(term_hashes.labels, previous.get("labels")),
+        descriptions=merged(term_hashes.descriptions, previous.get("descriptions")),
+        aliases=merged(term_hashes.aliases, previous.get("aliases")),
+        sitelinks=term_hashes.sitelinks,
+        statements=term_hashes.statements,
+    )
+
+
 EDIT_TYPE_TO_CHANGE_TYPE = {
     EditType.MANUAL_CREATE.value: ChangeType.CREATION,
     "manual-create": ChangeType.CREATION,
@@ -185,6 +214,18 @@ class EntityHandler(Handler):
             logger.debug(f"_create_revision_new: hashing sitelinks for {ctx.entity_id}")
             sitelink_hashes = await self._hash_sitelinks_new(ctx)
 
+            # The update payload only carries value maps for the terms touched
+            # by this edit; the previous head revision holds the hash maps for
+            # everything else. Merge so untouched terms are not dropped.
+            previous = self._previous_revision_hashes(
+                ctx.entity_id, ctx.db_client, head_revision_id
+            )
+            if previous is not None:
+                term_hashes = merge_term_maps_with_previous(term_hashes, previous)
+                sitelink_hashes = merge_hash_map(
+                    previous.get("sitelinks"), sitelink_hashes
+                )
+
             # Build revision data
             logger.debug(
                 f"_create_revision_new: building revision data for {ctx.entity_id}"
@@ -235,6 +276,19 @@ class EntityHandler(Handler):
                 f"Failed to create revision for {ctx.entity_id}: {e}", exc_info=True
             )
             return RevisionResult(success=False, error=str(e))
+
+    def _previous_revision_hashes(
+        self, entity_id: str, db_client: Any, head_revision_id: int
+    ) -> Any | None:
+        """Load the previous head revision's hash maps for term merging."""
+        if not head_revision_id:
+            return None
+        try:
+            revision = self.state.read_revision_data(entity_id, head_revision_id)
+            return revision.revision.get("hashes", {})
+        except Exception as e:
+            logger.warning(f"Could not load previous revision hashes: {e}")
+            return None
 
     async def _hash_terms_new(self, ctx: RevisionContext) -> HashMaps:
         """Hash entity terms (labels, descriptions, aliases)."""

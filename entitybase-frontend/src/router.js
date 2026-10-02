@@ -25,6 +25,12 @@ const router = createRouter({
       name: 'history',
       component: EntityHistoryView,
     },
+    {
+      // Shareable diff URL: revision <newRev> vs <oldRev>
+      path: '/:entityId([QPLE]\\d+)/history/:newRev(\\d+)/:oldRev(\\d+)',
+      name: 'history-diff',
+      component: EntityHistoryView,
+    },
     { path: '/create-item', name: 'create-item', component: CreateItemView },
     {
       path: '/create-property',
