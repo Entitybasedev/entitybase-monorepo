@@ -120,6 +120,44 @@ class UserRepository(Repository):
                     raise_validation_error(f"Invalid user data: {e}", status_code=400)
             return None
 
+    def list_users(self, limit: int = 10, offset: int = 0) -> List[dict]:
+        """List users with username and activity, paginated.
+
+        Returns a list of dicts with user_id, username, created_at and
+        last_activity.
+        """
+        logger.debug(f"Listing users: limit={limit}, offset={offset}")
+        try:
+            with self.db_client.cursor as cursor:
+                cursor.execute(
+                    """
+                    SELECT u.user_id, COALESCE(c.username, ''),
+                           u.created_at, u.last_activity
+                    FROM users u
+                    LEFT JOIN user_credentials c ON u.user_id = c.user_id
+                    ORDER BY u.user_id
+                    LIMIT %s OFFSET %s
+                    """,
+                    (limit, offset),
+                )
+                rows = cursor.fetchall()
+
+                users = []
+                for row in rows:
+                    users.append(
+                        {
+                            "user_id": int(row[0]),
+                            "username": row[1] or "",
+                            "created_at": str(row[2]) if row[2] else "",
+                            "last_activity": str(row[3]) if row[3] else "",
+                        }
+                    )
+                logger.debug(f"Found {len(users)} users")
+                return users
+        except Exception as e:
+            logger.error(f"Failed to list users: {e}")
+            return []
+
     def update_user_activity(self, user_id: int) -> OperationResult:
         """Update user's last activity timestamp."""
         if user_id <= 0:

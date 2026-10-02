@@ -22,6 +22,10 @@ from models.data.rest_api.v1.entitybase.response.user_settings import (
     SettingsStoredResponse,
     UserSettingsResponse,
 )
+from models.data.rest_api.v1.entitybase.response.user_list import (
+    UserListItem,
+    UserListResponse,
+)
 
 users_router = APIRouter(tags=["users"])
 
@@ -66,6 +70,24 @@ async def create_user(request: UserCreateRequest, req: Request) -> UserCreateRes
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@users_router.get("/users", response_model=UserListResponse)
+def list_users(
+    req: Request,
+    limit: int = Query(10, ge=1, le=100, description="Maximum users to return"),
+    offset: int = Query(0, ge=0, description="Number of users to skip"),
+) -> UserListResponse:
+    """List users with usernames and activity, paginated."""
+    state = req.app.state.state_handler
+    validate_state_clients(state)
+    rows = state.db_client.user_repository.list_users(
+        limit=limit, offset=offset
+    )
+    return UserListResponse(
+        users=[UserListItem.model_validate(row) for row in rows],
+        count=len(rows),
+    )
 
 
 @users_router.get("/users/stat", response_model=UserStatsResponse)

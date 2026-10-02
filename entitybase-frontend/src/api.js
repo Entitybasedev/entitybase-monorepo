@@ -126,6 +126,14 @@ export async function getStreamHealth() {
   return unwrap(res, 'GET stream health')
 }
 
+// --- User list ---
+
+export async function getUserList(limit = 10, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const res = await fetch(`${BASE}/v1/users?${params}`)
+  return unwrap(res, 'GET user list')
+}
+
 // --- Entity list ---
 
 export async function getEntityList(entityType, limit = 10, offset = 0) {

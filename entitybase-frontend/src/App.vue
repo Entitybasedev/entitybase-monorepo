@@ -27,6 +27,16 @@
         <li class="nav-item">
           <router-link
             class="nav-link"
+            :class="{ active: isActive('/list-users') }"
+            data-testid="nav-users"
+            to="/list-users"
+          >
+            Users
+          </router-link>
+        </li>
+        <li class="nav-item">
+          <router-link
+            class="nav-link"
             :class="{ active: isActive('/recent') }"
             data-testid="nav-recent"
             to="/recent"

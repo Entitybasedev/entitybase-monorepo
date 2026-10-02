@@ -221,6 +221,23 @@ class MockUserRepository:
             return max(self._registered) + 1
         return 90001
 
+    def list_users(self, limit: int = 10, offset: int = 0) -> list[dict]:
+        """List users with usernames, paginated by user ID."""
+        ids = sorted(self._registered)
+        page = ids[offset : offset + limit]
+        username_by_user = {
+            cred["user_id"]: name for name, cred in self._credentials.items()
+        }
+        return [
+            {
+                "user_id": uid,
+                "username": username_by_user.get(uid, ""),
+                "created_at": "",
+                "last_activity": "",
+            }
+            for uid in page
+        ]
+
     def is_watchlist_enabled(self, user_id: int) -> bool:
         return False
 

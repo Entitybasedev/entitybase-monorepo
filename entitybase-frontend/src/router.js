@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import EntitiesView from './views/EntitiesView.vue'
 import EntityHistoryView from './views/EntityHistoryView.vue'
 import EntityListView from './views/EntityListView.vue'
+import UserListView from './views/UserListView.vue'
 import CreateItemView from './views/CreateItemView.vue'
 import CreatePropertyView from './views/CreatePropertyView.vue'
 import CreateLexemeView from './views/CreateLexemeView.vue'
@@ -18,6 +19,7 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'entities', component: EntitiesView },
     { path: '/list', name: 'list', component: EntityListView },
+    { path: '/list-users', name: 'list-users', component: UserListView },
     {
       path: '/:entityId([QPLE]\\d+)/history',
       name: 'history',

@@ -75,6 +75,14 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && url.pathname === '/v1/auth/login') {
       return json(200, { token: 'mock-token', user_id: 90001, username: jsonBody.username })
     }
+    if (req.method === 'GET' && url.pathname === '/v1/users') {
+      const limit = Number(url.searchParams.get('limit') ?? 10)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      // The import user (0) plus any registered users; mock keeps a static set
+      const users = [{ user_id: 0, username: 'import', created_at: '', last_activity: '' }]
+      const page = users.slice(offset, offset + limit)
+      return json(200, { users: page, count: page.length })
+    }
     if (req.method === 'POST' && url.pathname === '/v1/users') {
       return json(200, { user_id: jsonBody.user_id })
     }

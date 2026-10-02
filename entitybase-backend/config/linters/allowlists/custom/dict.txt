@@ -17,6 +17,7 @@ src/models/infrastructure/db/storage/base.py:46
 src/models/infrastructure/db/storage/base.py:65
 src/models/infrastructure/db/repositories/revision_data.py:24
 # JSON preferences payloads and raw query rows; no schema model justified
-src/models/infrastructure/db/repositories/user.py:221
-src/models/infrastructure/db/repositories/user.py:301
-src/models/infrastructure/db/repositories/user.py:359
+src/models/infrastructure/db/repositories/user.py:123
+src/models/infrastructure/db/repositories/user.py:259
+src/models/infrastructure/db/repositories/user.py:339
+src/models/infrastructure/db/repositories/user.py:397

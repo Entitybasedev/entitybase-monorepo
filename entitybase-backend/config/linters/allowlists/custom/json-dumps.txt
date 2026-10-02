@@ -18,6 +18,6 @@ src/models/infrastructure/db/repositories/user.py:374
 # plain (non-Pydantic) dicts: JWT segments and opaque preferences blobs
 src/models/rest_api/entitybase/v1/services/auth_service.py:75
 src/models/rest_api/entitybase/v1/services/auth_service.py:76
-src/models/infrastructure/db/repositories/user.py:332
-src/models/infrastructure/db/repositories/user.py:541
-src/models/infrastructure/db/repositories/user.py:542
+src/models/infrastructure/db/repositories/user.py:370
+src/models/infrastructure/db/repositories/user.py:579
+src/models/infrastructure/db/repositories/user.py:580
