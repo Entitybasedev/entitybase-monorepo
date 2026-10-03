@@ -58,20 +58,25 @@ def _property_counts_map(value: Any) -> dict[str, int]:
     return {str(key): int(count) for key, count in source.items()}
 
 
+def _sum_property_counts(stored: Any, computed: Any) -> dict[str, int]:
+    """Add the counts already stored on the entity to this edit's counts."""
+    counts: dict[str, int] = {}
+    for source in (_property_counts_map(stored), _property_counts_map(computed)):
+        for property_id, count in source.items():
+            counts[property_id] = counts.get(property_id, 0) + int(count)
+    return counts
+
+
 def merge_statement_state_with_previous(
     previous_revision: dict | None, hash_result: StatementHashResult
 ) -> StatementHashResult:
     """Merge statements already stored on the entity with newly hashed ones.
 
-    A revision only persists statement hashes, while the incoming request
-    data carries just the claims touched by this edit. Rebuilding
-    `hashes.statements` from those claims alone therefore drops every
-    statement that was already on the entity, so keep the previous
-    revision's hashes, properties and counts and add the new ones.
-
-    This can only add statements. Removing or replacing one must go
-    through EntityStatementService.remove_statement, which rewrites the
-    revision's hash list directly instead of merging.
+    A revision persists statement hashes, while the request data carries
+    only the claims this edit touched, so rebuilding the hash list from
+    those claims alone would drop the existing statements. This can only
+    add: removing one goes through EntityStatementService.remove_statement,
+    which rewrites the hash list directly instead of merging.
     """
     if not previous_revision:
         return hash_result
@@ -96,15 +101,11 @@ def merge_statement_state_with_previous(
         if property_id not in properties:
             properties.append(property_id)
 
-    counts: dict[str, int] = {}
-    for source in (
-        _property_counts_map(previous_revision.get("property_counts")),
-        _property_counts_map(hash_result.property_counts),
-    ):
-        for property_id, count in source.items():
-            counts[property_id] = counts.get(property_id, 0) + int(count)
+    counts = _sum_property_counts(
+        previous_revision.get("property_counts"), hash_result.property_counts
+    )
 
-    return cast(
+    merged = cast(
         StatementHashResult,
         hash_result.model_copy(
             update={
@@ -114,6 +115,11 @@ def merge_statement_state_with_previous(
             }
         ),
     )
+    logger.debug(
+        f"Merged statement state: {len(hash_result.statements)} new, "
+        f"{len(statements)} total, {len(properties)} properties"
+    )
+    return merged
 
 
 def merge_term_maps_with_previous(term_hashes: HashMaps, previous: Any) -> HashMaps:
@@ -578,6 +584,10 @@ class EntityHandler(Handler):
                 raise_validation_error("Revision data not found", status_code=404)
 
             revision = S3RevisionData.model_validate(data)
+            logger.debug(
+                f"Building entity response for {ctx.entity_id} "
+                f"revision {result.revision_id} (content hash {content_hash})"
+            )
             return EntityResponse(
                 id=ctx.entity_id,
                 rev_id=result.revision_id,

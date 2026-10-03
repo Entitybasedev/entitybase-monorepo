@@ -204,6 +204,11 @@ class UpdateTransaction(EntityTransaction):
                     count
                 )
 
+        logger.info(
+            f"[UpdateTransaction] Merged statement state: "
+            f"{len(hash_result.statements)} new, {len(merged_statements)} total, "
+            f"{len(merged_properties)} properties"
+        )
         return merged_statements, merged_properties, merged_counts
 
     async def create_revision(
