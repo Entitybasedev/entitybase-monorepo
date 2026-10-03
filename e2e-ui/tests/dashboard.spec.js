@@ -48,7 +48,9 @@ test('statements on an entity are grouped by property with anchors', async ({
     await page.getByTestId('add-statement-button').click()
     // Saving reloads the entity, which briefly empties the statement list;
     // wait for the button to go idle again so the reload has finished
-    await expect(page.getByTestId('add-statement-button')).toHaveText('Add statement')
+    await expect(page.getByTestId('add-statement-button')).toHaveText('Add statement', {
+      timeout: 30_000,
+    })
   }
 
   // One anchored group per property, each with its own value

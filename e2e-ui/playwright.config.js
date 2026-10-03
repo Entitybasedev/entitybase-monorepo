@@ -5,7 +5,10 @@ const FRONTEND_PORT = process.env.FRONTEND_PORT || '8085'
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 30_000,
+  // Saving an entity reloads it, which takes several round trips; under
+  // parallel load that regularly exceeds the 5s default
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   // The backend occasionally takes longer than the per-test timeout while
   // saving an entity under parallel load, so retry once before failing
   retries: 1,
