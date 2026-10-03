@@ -107,6 +107,10 @@ class RevisionContext(BaseModel):
     entity_type: EntityType
     edit_type: EditType | None = Field(default=None)
     edit_summary: str = ""
+    user_id: str = Field(
+        default="0",
+        description="ID of the user the edit is attributed to, for change events",
+    )
     base_revision_id: int = 0
     is_creation: bool = False
     db_client: Any

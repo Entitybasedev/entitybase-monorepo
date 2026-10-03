@@ -444,3 +444,76 @@ class TestMergeStatementStateWithPrevious:
         merged = merge_statement_state_with_previous(previous, new)
 
         assert merged.statements == [42]
+
+
+class TestPublishEvents:
+    """The change event must carry the user id from the revision context."""
+
+    @pytest.mark.asyncio
+    async def test_publishes_event_with_context_user_id(self, monkeypatch) -> None:
+        from models.rest_api.entitybase.v1.handlers.entity.handler import RevisionResult
+
+        # settings.streaming_enabled is a read-only property, so patch the
+        # module-level settings object the handler uses
+        monkeypatch.setattr(
+            "models.rest_api.entitybase.v1.handlers.entity.handler.settings",
+            MagicMock(streaming_enabled=True),
+        )
+        producer = MagicMock()
+        producer.config.topic = "entity_change"
+        producer.publish = AsyncMock()
+
+        ctx = RevisionContext(
+            entity_id="Q1",
+            request_data={},
+            entity_type=EntityType.ITEM,
+            edit_type=EditType.MANUAL_UPDATE,
+            edit_summary="Created item",
+            user_id="42",
+            is_creation=True,
+            db_client=MagicMock(),
+            s3_client=MagicMock(),
+            stream_producer=producer,
+        )
+
+        await EntityHandler._publish_events_new(
+            ctx, RevisionResult(success=True, revision_id=3)
+        )
+
+        producer.publish.assert_awaited_once()
+        event = producer.publish.await_args.args[0]
+        assert event.user_id == "42"
+        assert event.entity_id == "Q1"
+        assert event.revision_id == 3
+        assert event.edit_summary == "Created item"
+
+    @pytest.mark.asyncio
+    async def test_defaults_to_the_import_user(self, monkeypatch) -> None:
+        from models.rest_api.entitybase.v1.handlers.entity.handler import RevisionResult
+
+        # settings.streaming_enabled is a read-only property, so patch the
+        # module-level settings object the handler uses
+        monkeypatch.setattr(
+            "models.rest_api.entitybase.v1.handlers.entity.handler.settings",
+            MagicMock(streaming_enabled=True),
+        )
+        producer = MagicMock()
+        producer.config.topic = "entity_change"
+        producer.publish = AsyncMock()
+
+        ctx = RevisionContext(
+            entity_id="L1",
+            request_data={},
+            entity_type=EntityType.LEXEME,
+            is_creation=True,
+            db_client=MagicMock(),
+            s3_client=MagicMock(),
+            stream_producer=producer,
+        )
+
+        await EntityHandler._publish_events_new(
+            ctx, RevisionResult(success=True, revision_id=1)
+        )
+
+        event = producer.publish.await_args.args[0]
+        assert event.user_id == "0"

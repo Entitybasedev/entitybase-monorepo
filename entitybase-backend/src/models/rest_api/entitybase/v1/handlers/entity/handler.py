@@ -207,6 +207,7 @@ class EntityHandler(Handler):
             entity_type=ctx.entity_type,
             edit_type=ctx.edit_type,
             edit_summary=ctx.edit_headers.x_edit_summary,
+            user_id=str(ctx.edit_headers.x_user_id),
             base_revision_id=ctx.edit_headers.x_base_revision_id,
             is_creation=ctx.is_creation,
             db_client=self.state.db_client,
@@ -539,7 +540,7 @@ class EntityHandler(Handler):
                 change_type = edit_type_to_change_type(
                     ctx.edit_type or EditType.UNSPECIFIED
                 )
-                user_id = str(ctx.edit_headers.x_user_id) if ctx.edit_headers else "0"
+                user_id = ctx.user_id or "0"
                 event = EntityChangeEvent(
                     id=ctx.entity_id,
                     rev=result.revision_id,
