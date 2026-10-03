@@ -422,10 +422,12 @@ watch(editLanguage, () => {
   loadDraftForLanguage()
 })
 
-function startLabelEdit() {
+// Open the editor only once the term for the chosen language is loaded,
+// otherwise the load resolves after the user has typed and resets the draft
+async function startLabelEdit() {
   editLanguage.value = language.value
+  labelDraft.value = (await getLabel(item.value.id, editLanguage.value)) ?? ''
   editingLabel.value = true
-  loadDraftForLanguage()
 }
 
 async function saveLabel() {
@@ -442,17 +444,19 @@ async function saveLabel() {
   }
 }
 
-function startDescriptionEdit() {
+async function startDescriptionEdit() {
   editLanguage.value = language.value
+  descriptionDraft.value =
+    (await getDescription(item.value.id, editLanguage.value)) ?? ''
   editingDescription.value = true
-  loadDraftForLanguage()
 }
 
-function startAliasesEdit() {
+async function startAliasesEdit() {
   editLanguage.value = language.value
   aliasDraft.value = ''
+  committedAliases.value =
+    (await getAliases(item.value.id, editLanguage.value)) ?? []
   editingAliases.value = true
-  loadDraftForLanguage()
 }
 
 // Commit the draft as slug chips: trim, drop blanks, dedupe

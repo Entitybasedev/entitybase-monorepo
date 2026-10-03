@@ -588,6 +588,41 @@ describe('App', () => {
     expect(wrapper.find('[data-testid="statement-remove-button"]').exists()).toBe(false)
   })
 
+  it('opens the alias editor only once the existing aliases are loaded', async () => {
+    // Regression: a slow load used to resolve after the user had typed and
+    // reset the draft, so the typed aliases were lost on save
+    loginState(90001)
+    await router.push('/entity/Q42')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'T'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('T')
+    apiMocks.getAliasesWithFallback.mockResolvedValue([])
+
+    let resolveAliases
+    apiMocks.getAliases.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAliases = resolve
+      })
+    )
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="edit-aliases-button"]').trigger('click')
+
+    // The editor stays closed while the existing aliases are loading
+    expect(wrapper.find('[data-testid="aliases-edit-input"]').exists()).toBe(false)
+
+    resolveAliases(['from server'])
+    await flushPromises()
+
+    const input = wrapper.find('[data-testid="aliases-edit-input"]')
+    expect(input.exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="alias-slugs"] [class*="chip"]')).toHaveLength(1)
+
+    // Typing now sticks: the draft is not reset by the (already finished) load
+    await input.setValue('typed alias')
+    await input.trigger('keyup.enter')
+    expect(wrapper.findAll('[data-testid="alias-slugs"] [class*="chip"]')).toHaveLength(2)
+  })
+
   it('shows a log-in hint instead of the statement form when logged out', async () => {
     await router.push('/?entity=Q1')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test'))
