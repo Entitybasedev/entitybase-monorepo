@@ -129,6 +129,24 @@ export async function getAliases(entityId, language) {
   return json.aliases ?? []
 }
 
+export async function getLexemeForms(entityId) {
+  const res = await fetch(
+    `${BASE}/v1/entities/lexemes/${encodeURIComponent(entityId)}/forms`
+  )
+  if (res.status === 404) return []
+  const json = await unwrap(res, `GET forms ${entityId}`)
+  return json.forms ?? []
+}
+
+export async function getLexemeSenses(entityId) {
+  const res = await fetch(
+    `${BASE}/v1/entities/lexemes/${encodeURIComponent(entityId)}/senses`
+  )
+  if (res.status === 404) return []
+  const json = await unwrap(res, `GET senses ${entityId}`)
+  return json.senses ?? []
+}
+
 export async function getEntityTerms(entityId, language) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/terms/${encodeURIComponent(language)}`
