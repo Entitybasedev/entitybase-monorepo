@@ -120,6 +120,9 @@ class Settings(BaseModel):
     general_stats_enabled: bool = True
     general_stats_schedule: str = "0 2 * * *"  # Daily at 2 AM
 
+    # Import a small demo dataset on startup when the instance is empty
+    demo_seed_enabled: bool = False
+
     # JSON dump worker
     json_dump_enabled: bool = True
     json_dump_schedule: str = "0 2 * * 0"  # Sunday 2AM UTC
@@ -277,6 +280,10 @@ class Settings(BaseModel):
         )
         self.general_stats_enabled = (
             os.getenv("GENERAL_STATS_ENABLED", str(self.general_stats_enabled)).lower()
+            == "true"
+        )
+        self.demo_seed_enabled = (
+            os.getenv("DEMO_SEED_ENABLED", str(self.demo_seed_enabled)).lower()
             == "true"
         )
         self.json_dump_enabled = (

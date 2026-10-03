@@ -96,6 +96,9 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - AUTH_SECRET=${AUTH_SECRET:-}
       - AUTH_TOKEN_EXPIRY_HOURS=${AUTH_TOKEN_EXPIRY_HOURS:-168}
+      # Import a small demo dataset (1 item, 1 property, 1 lexeme) when the
+      # instance is empty, so a fresh demo stack is not blank
+      - DEMO_SEED_ENABLED=${DEMO_SEED_ENABLED:-true}
     depends_on:
       mysql:
         condition: service_healthy

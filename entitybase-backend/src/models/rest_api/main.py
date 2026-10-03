@@ -158,6 +158,7 @@ async def lifespan(app_: FastAPI) -> AsyncGenerator[None, None]:
         await _create_database_tables(state_handler)
         _ensure_import_user(state_handler)
         _ensure_demo_user(state_handler)
+        await _ensure_demo_entities(state_handler)
         await _initialize_app_state(app_, state_handler)
         yield
     except Exception as e:
@@ -367,3 +368,22 @@ async def get_openapi() -> dict:
 async def redirect_to_docs() -> RedirectResponse:
     """Redirect to the OpenAPI docs."""
     return RedirectResponse(url="/docs")
+
+
+# Defined last on purpose: inserting helpers above shifts the line numbers of
+# the linter allowlists, which are line based.
+async def _ensure_demo_entities(state_handler: StateHandler) -> None:
+    """Seed a small demo dataset when the instance is empty.
+
+    Enabled with DEMO_SEED_ENABLED (on for the docker demo stack) so a fresh
+    instance has something to show. Seeding problems are logged and never
+    block startup.
+    """
+    if not settings.demo_seed_enabled:
+        return
+    from models.rest_api.entitybase.v1.services.demo_seed import seed_demo_entities
+
+    try:
+        await seed_demo_entities(state_handler)
+    except Exception as e:
+        logger.warning(f"Could not seed demo entities: {e}")
