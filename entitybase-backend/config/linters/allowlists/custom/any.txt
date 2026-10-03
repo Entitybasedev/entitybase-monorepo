@@ -93,6 +93,4 @@ src/models/infrastructure/sqlite/client.py:93
 src/models/infrastructure/sqlite/client.py:102
 src/models/infrastructure/sqlite/client.py:111
 # Generic hash-map merge helpers (RootModel passthrough)
-src/models/rest_api/entitybase/v1/handlers/entity/handler.py:36
-src/models/rest_api/entitybase/v1/handlers/entity/handler.py:49
 src/models/rest_api/entitybase/v1/handlers/entity/update_transaction.py:32

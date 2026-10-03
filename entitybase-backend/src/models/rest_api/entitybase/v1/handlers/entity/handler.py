@@ -8,8 +8,15 @@ from models.config.settings import settings
 from models.data.infrastructure.s3 import SitelinkHashes
 from models.data.infrastructure.s3.entity_state import EntityState
 from models.data.infrastructure.s3.enums import EditType, EditData
+from models.data.infrastructure.s3.hashes.aliases_hashes import AliasesHashes
+from models.data.infrastructure.s3.hashes.descriptions_hashes import (
+    DescriptionsHashes,
+)
 from models.data.infrastructure.s3.hashes.hash_maps import HashMaps
+from models.data.infrastructure.s3.hashes.labels_hashes import LabelsHashes
+from models.data.infrastructure.s3.hashes.sitelinks_hashes import SitelinkHashes
 from models.data.infrastructure.s3.property_counts import PropertyCounts
+from models.data.infrastructure.s3.revision_data import S3RevisionData
 from models.data.infrastructure.s3.hashes.statements_hashes import StatementsHashes
 from models.data.infrastructure.stream.change_type import ChangeType
 from models.data.rest_api.v1.entitybase.request.entity import PreparedRequestData
@@ -34,7 +41,9 @@ from ...services.statement_service import StatementService
 logger = logging.getLogger(__name__)
 
 
-def merge_hash_map(previous: dict | None, computed: Any) -> Any:
+def merge_hash_map(
+    previous: dict | None, computed: Any
+) -> LabelsHashes | DescriptionsHashes | AliasesHashes | SitelinkHashes:
     """Merge previous revision hashes with newly computed ones.
 
     Computed values win; untouched entries keep their previous hashes.
@@ -42,11 +51,14 @@ def merge_hash_map(previous: dict | None, computed: Any) -> Any:
     merged: dict = dict(previous or {})
     if computed is not None and getattr(computed, "root", None):
         merged.update(computed.root)
-    return type(computed)(root=merged)
+    return cast(
+        LabelsHashes | DescriptionsHashes | AliasesHashes | SitelinkHashes,
+        type(computed)(root=merged),
+    )
 
 
-def _property_counts_map(value: Any) -> dict[str, int]:
-    """Normalise property counts to a plain dict.
+def _as_property_counts(value: Any) -> PropertyCounts:
+    """Normalise stored or computed counts into a PropertyCounts model.
 
     Counts arrive either as a stored JSON object or as a PropertyCounts
     root model, depending on where they are read from.
@@ -54,17 +66,20 @@ def _property_counts_map(value: Any) -> dict[str, int]:
     root = getattr(value, "root", None)
     source = root if isinstance(root, dict) else value
     if not isinstance(source, dict):
-        return {}
-    return {str(key): int(count) for key, count in source.items()}
+        return PropertyCounts({})
+    return PropertyCounts({str(key): int(count) for key, count in source.items()})
 
 
-def _sum_property_counts(stored: Any, computed: Any) -> dict[str, int]:
+def _sum_property_counts(stored: Any, computed: Any) -> PropertyCounts:
     """Add the counts already stored on the entity to this edit's counts."""
     counts: dict[str, int] = {}
-    for source in (_property_counts_map(stored), _property_counts_map(computed)):
+    for source in (
+        _as_property_counts(stored).root,
+        _as_property_counts(computed).root,
+    ):
         for property_id, count in source.items():
             counts[property_id] = counts.get(property_id, 0) + int(count)
-    return counts
+    return PropertyCounts(counts)
 
 
 def merge_statement_state_with_previous(
@@ -111,7 +126,7 @@ def merge_statement_state_with_previous(
             update={
                 "statements": statements,
                 "properties": properties,
-                "property_counts": PropertyCounts(counts),
+                "property_counts": counts,
             }
         ),
     )
@@ -125,7 +140,9 @@ def merge_statement_state_with_previous(
 def merge_term_maps_with_previous(term_hashes: HashMaps, previous: Any) -> HashMaps:
     """Merge the previous revision's term hash maps (dict) into new maps."""
 
-    def merged(existing: Any, previous_map: dict | None) -> Any:
+    def merged(
+        existing: Any, previous_map: dict | None
+    ) -> LabelsHashes | DescriptionsHashes | AliasesHashes | SitelinkHashes | None:
         merged_map = dict(previous_map or {})
         if existing is not None and existing.root:
             merged_map.update(existing.root)
@@ -308,10 +325,11 @@ class EntityHandler(Handler):
             # Same rule for statements: the claims in this edit are hashed
             # into hash_result, so merge them with the statements already on
             # the entity instead of replacing them.
+            previous_revision = self._previous_revision_data(
+                ctx.entity_id, ctx.db_client, head_revision_id
+            )
             hash_result = merge_statement_state_with_previous(
-                self._previous_revision_data(
-                    ctx.entity_id, ctx.db_client, head_revision_id
-                ),
+                previous_revision.revision if previous_revision else None,
                 hash_result,
             )
 
@@ -381,13 +399,15 @@ class EntityHandler(Handler):
 
     def _previous_revision_data(
         self, entity_id: str, db_client: Any, head_revision_id: int
-    ) -> Any | None:
+    ) -> S3RevisionData | None:
         """Load the previous head revision data (hashes, properties, counts)."""
         if not head_revision_id:
             return None
         try:
-            revision = self.state.read_revision_data(entity_id, head_revision_id)
-            return revision.revision
+            return cast(
+                S3RevisionData,
+                self.state.read_revision_data(entity_id, head_revision_id),
+            )
         except Exception as e:
             logger.warning(f"Could not load previous revision: {e}")
             return None

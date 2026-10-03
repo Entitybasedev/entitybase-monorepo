@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, cast
 
 from models.data.infrastructure.s3 import EntityState
+from models.data.infrastructure.s3.revision_data import S3RevisionData
 from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
 from models.data.infrastructure.s3.enums import MetadataType
 from models.data.infrastructure.stream.change_type import ChangeType
@@ -145,13 +146,15 @@ class UpdateTransaction(EntityTransaction):
 
     def _previous_revision_data(
         self, entity_id: str, head_revision_id: int
-    ) -> dict[str, Any] | None:
+    ) -> S3RevisionData | None:
         """Load the previous head revision, or None when unavailable."""
         if not head_revision_id:
             return None
         try:
-            revision = self.state.read_revision_data(entity_id, head_revision_id)
-            return cast(dict[str, Any], revision.revision)
+            return cast(
+                S3RevisionData,
+                self.state.read_revision_data(entity_id, head_revision_id),
+            )
         except Exception as e:
             logger.warning(f"Could not load previous revision: {e}")
             return None
@@ -268,12 +271,13 @@ class UpdateTransaction(EntityTransaction):
         # Like terms, the request data only carries the statements touched by
         # this edit, so merge the statements already stored on the entity
         # instead of replacing them.
+        previous_revision = self._previous_revision_data(entity_id, head_revision_id)
         (
             statement_hashes,
             statement_properties,
             statement_property_counts,
         ) = self._merge_statement_state(
-            self._previous_revision_data(entity_id, head_revision_id),
+            previous_revision.revision if previous_revision else None,
             hash_result,
         )
         logger.info(
