@@ -20,6 +20,13 @@ from models.rest_api.entitybase.v1.services.auth_service import create_token
 EXISTING_USER_IDS = {42, 90099}
 
 
+def auth_middleware() -> type:
+    """The app's real auth middleware."""
+    from models.rest_api.main import AuthMiddleware
+
+    return AuthMiddleware
+
+
 def build_client() -> AsyncClient:
     """An app with the real middleware and router, and a stubbed database."""
     from models.data.common import OperationResult
@@ -45,9 +52,7 @@ def build_client() -> AsyncClient:
     app.state.state_handler = state
     app.include_router(users_router, prefix="/v1")
 
-    from models.rest_api.main import AuthMiddleware
-
-    app.add_middleware(AuthMiddleware)
+    app.add_middleware(auth_middleware())
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
@@ -169,6 +174,27 @@ async def test_public_user_lookup_still_works() -> None:
         response = await client.get("/v1/users/42")
 
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_deleted_account_settings_return_404() -> None:
+    """A token outlives its account: the owner check passes, the lookup fails."""
+    app = FastAPI()
+    state = MagicMock()
+    state.db_client.user_repository.user_exists.return_value = False
+    app.state.state_handler = state
+    app.include_router(users_router, prefix="/v1")
+    app.add_middleware(auth_middleware())
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            "/v1/users/42/settings",
+            headers={"Authorization": f"Bearer {token_for(42)}"},
+        )
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
