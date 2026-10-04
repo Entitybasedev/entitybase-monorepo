@@ -52,6 +52,7 @@ as Server-Sent Events to the frontend's **Change stream** tab.
 | `entitybase-frontend/` | Vue SPA: entities + change stream tabs |
 | `kafka2sse-backend/` | SSE change-stream backend (Kafka → SSE) |
 | `e2e-ui/` | Playwright e2e tests |
+| `*_worker/` | Background workers, one project each (JSON/TTL dumps, entity diff, watchlist, stats). They talk to the database directly and are disabled by default |
 | `scripts/` | Build, health check and dev mock helpers |
 
 ## Quick Start
@@ -104,6 +105,7 @@ just e2e             # Playwright e2e against the running docker stack
 | `just e2e` | Playwright e2e against the running stack |
 | `just e2e-mock` | Playwright e2e against mock backends (no docker) |
 | `just frontend` | Run the frontend dev server |
+| `just test-workers` | Run the unit tests of every worker project |
 
 ## Services (docker compose)
 
@@ -122,8 +124,9 @@ startup, so a fresh cluster works out of the box.
 ## Continuous Integration
 
 GitHub Actions run lint + unit/contract/integration tests per backend,
-frontend unit tests, and the Playwright e2e suite against the real
-docker stack. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
+frontend unit tests, the unit tests of each worker project, and the
+Playwright e2e suite against the real docker stack.
+See [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## License
 

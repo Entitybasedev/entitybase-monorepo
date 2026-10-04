@@ -181,45 +181,27 @@ flowchart TB
 
 ### 4. Background Workers
 
-#### ID Generation Worker
-- **File**: `src/models/workers/id_generation/id_generation_worker.py`
-- **Purpose**: Reserves ID ranges for high-throughput entity creation
-- **Schedule**: Continuous (no scheduled interval)
+Every worker is a standalone top-level project (e.g. `json_dump_worker/`), next to
+`entitybase-backend/`. A worker talks to the database (and the S3-compatible object
+store) directly, never through the API, and ships disabled: it is only started by a
+deployment that sets its `*_enabled` flag.
 
-#### Entity Diff Worker
-- **File**: `src/models/workers/entity_diff/entity_diff_worker.py`
-- **Purpose**: Computes RDF diffs between entity revisions
-- **Output**: Streams to `wikibase.entity_diff` Redpanda topic
+| Worker | Purpose | Schedule |
+|--------|---------|----------|
+| `json_dump_worker` | Writes periodic JSON dumps of the entity store | Sunday 2 AM UTC |
+| `ttl_dump_worker` | Writes periodic TTL dumps of the entity store | Sunday 3 AM UTC |
+| `entity_diff_worker` | Computes RDF diffs between entity revisions, streams them to `entitybase.entity_diff` | On entity change events |
+| `incremental_rdf_worker` | Emits incremental RDF diffs to the stream | On entity change events |
+| `watchlist_consumer_worker` | Consumes `entitybase.entity_change`, creates watchlist notifications | On entity change events |
+| `notification_cleanup_worker` | Cleans up old watchlist notifications | Configurable |
+| `backlink_statistics_worker` | Computes backlink statistics for entities | Daily 2 AM |
+| `user_stats_worker` | Computes daily user statistics | Daily 2 AM |
+| `general_stats_worker` | Computes daily general wiki statistics | Daily 2 AM |
+| `elasticsearch_indexer_worker` | Indexes entities into Elasticsearch | On entity change events |
 
-#### Backlink Statistics Worker
-- **File**: `src/models/workers/backlink_statistics/backlink_statistics_worker.py`
-- **Purpose**: Computes backlink statistics for entities
-- **Schedule**: Daily at 2 AM (`0 2 * * *`)
-
-#### User Stats Worker
-- **File**: `src/models/workers/user_stats/user_stats_worker.py`
-- **Purpose**: Computes daily user statistics
-- **Schedule**: Daily at 2 AM (`0 2 * * *`)
-
-#### General Stats Worker
-- **File**: `src/models/workers/general_stats/general_stats_worker.py`
-- **Purpose**: Computes daily general wiki statistics
-- **Schedule**: Daily at 2 AM (`0 2 * * *`)
-
-#### Watchlist Consumer Worker
-- **File**: `src/models/workers/watchlist_consumer/main.py`
-- **Purpose**: Consumes entity change events, creates watchlist notifications
-- **Consumes**: Redpanda topic `entitybase.entity_change`
-
-#### Notification Cleanup Worker
-- **File**: `src/models/workers/notification_cleanup/main.py`
-- **Purpose**: Cleans up old watchlist notifications
-- **Schedule**: Configurable
-
-#### Dev Worker
-- **File**: `src/models/workers/dev/__main__.py`
-- **Purpose**: Development tools (bucket creation, table creation)
-- **Commands**: `create_buckets`, `create_tables`
+The backend keeps only what the workers share: the `Worker` base classes and the
+dump types in `entitybase-backend/src/models/workers/`, plus the development CLI
+(`models.workers.dev`) for bucket, table and topic setup.
 
 **Documentation**: See `WORKERS.md` for detailed worker documentation.
 

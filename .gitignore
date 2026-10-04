@@ -4,3 +4,14 @@ test-results/
 playwright-report/
 .e2e-user-id
 site/
+
+# generated documentation site
+.docs-site/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# local secrets
+.env

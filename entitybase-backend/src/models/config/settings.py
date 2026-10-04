@@ -112,19 +112,19 @@ class Settings(BaseModel):
     api_description: str = ""
 
     # workers
-    backlink_stats_enabled: bool = True
+    backlink_stats_enabled: bool = False
     backlink_stats_schedule: str = "0 2 * * *"  # Daily at 2 AM
     backlink_stats_top_limit: int = 100
-    user_stats_enabled: bool = True
+    user_stats_enabled: bool = False
     user_stats_schedule: str = "0 2 * * *"  # Daily at 2 AM
-    general_stats_enabled: bool = True
+    general_stats_enabled: bool = False
     general_stats_schedule: str = "0 2 * * *"  # Daily at 2 AM
 
     # Import a small demo dataset on startup when the instance is empty
     demo_seed_enabled: bool = False
 
     # JSON dump worker
-    json_dump_enabled: bool = True
+    json_dump_enabled: bool = False
     json_dump_schedule: str = "0 2 * * 0"  # Sunday 2AM UTC
     s3_dump_bucket: str = "wikibase-dumps"
     json_dump_batch_size: int = 1000
@@ -132,7 +132,7 @@ class Settings(BaseModel):
     json_dump_generate_checksums: bool = True
 
     # TTL dump worker
-    ttl_dump_enabled: bool = True
+    ttl_dump_enabled: bool = False
     ttl_dump_schedule: str = "0 3 * * 0"  # Sunday 3AM UTC (after JSON dump)
     ttl_dump_batch_size: int = 1000
     ttl_dump_parallel_workers: int = 50

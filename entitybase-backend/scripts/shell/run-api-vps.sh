@@ -3,7 +3,7 @@ cd "$(dirname "$0")/../.."
 set -e
 
 echo "🚀 Starting Docker services (MySQL, MinIO, Redpanda)..."
-docker compose -f docker-compose.tests.yml up -d mysql minio redpanda
+docker compose -f docker-compose.tests.yml up -d mysql rustfs redpanda
 
 echo "⏳ Waiting for services to be healthy..."
 sleep 30

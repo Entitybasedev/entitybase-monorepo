@@ -17,21 +17,22 @@ services:
     mem_limit: 512m
     cpus: 0.5
 
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    command: server /data --console-address ":9001"
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs
+    command: /data
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      - MINIO_ROOT_USER=fakekey
-      - MINIO_ROOT_PASSWORD=fakesecret
-      - MINIO_DEFAULT_BUCKETS=testbucket
+      - RUSTFS_ACCESS_KEY=fakekey
+      - RUSTFS_SECRET_KEY=fakesecret
+      - RUSTFS_ADDRESS=:9000
+      - RUSTFS_CONSOLE_ADDRESS=:9001
     volumes:
       - /data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -69,13 +70,13 @@ services:
       context: .
       dockerfile: docker/containers/Dockerfile.api
     environment:
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: fakekey
-      MINIO_SECRET_KEY: fakesecret
+      S3_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY: fakekey
+      S3_SECRET_KEY: fakesecret
       PYTHONPATH: /app/src
       CI: "true"
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
     command: python -m models.workers.dev buckets setup
     mem_limit: 512m
@@ -100,186 +101,6 @@ services:
     mem_limit: 512m
     cpus: 0.5
 
-  json-dump-worker:
-    container_name: json-dump-worker
-    build:
-      context: .
-      dockerfile: docker/containers/Dockerfile.dump-workers
-    ports:
-      - "8002:8002"
-    environment:
-      WORKER_ID: json_dump_worker_1
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_DATABASE: entitybase
-      DB_USER: root
-      DB_PASSWORD: ""
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: fakekey
-      S3_SECRET_KEY: fakesecret
-      S3_DUMP_BUCKET: wikibase-dumps
-      JSON_DUMP_ENABLED: "true"
-      JSON_DUMP_SCHEDULE: "0 2 * * 0"
-      JSON_DUMP_BATCH_SIZE: "1000"
-      JSON_DUMP_PARALLEL_WORKERS: "50"
-      JSON_DUMP_COMPRESSION: "true"
-      JSON_DUMP_GENERATE_CHECKSUMS: "true"
-      LOG_LEVEL: "INFO"
-      CI: "true"
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-buckets:
-        condition: service_completed_successfully
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    mem_limit: 1g
-    cpus: 0.5
-    command: ["python", "-m", "models.workers.json_dumps.json_dump_worker"]
-
-  ttl-dump-worker:
-    container_name: ttl-dump-worker
-    build:
-      context: .
-      dockerfile: docker/containers/Dockerfile.dump-workers
-    ports:
-      - "8003:8003"
-    environment:
-      WORKER_ID: ttl_dump_worker_1
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_DATABASE: entitybase
-      DB_USER: root
-      DB_PASSWORD: ""
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: fakekey
-      S3_SECRET_KEY: fakesecret
-      S3_DUMP_BUCKET: wikibase-dumps
-      TTL_DUMP_ENABLED: "true"
-      TTL_DUMP_SCHEDULE: "0 3 * * 0"
-      TTL_DUMP_BATCH_SIZE: "1000"
-      TTL_DUMP_PARALLEL_WORKERS: "50"
-      TTL_DUMP_COMPRESSION: "true"
-      TTL_DUMP_GENERATE_CHECKSUMS: "true"
-      LOG_LEVEL: "INFO"
-      PROPERTY_REGISTRY_PATH: /app/src/properties
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-      create-buckets:
-        condition: service_completed_successfully
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    mem_limit: 1g
-    cpus: 0.5
-    command: ["python", "-m", "models.workers.ttl_dumps.ttl_dump_worker"]
-
-  backlink-stats-worker:
-    container_name: backlink-stats-worker
-    build:
-      context: .
-      dockerfile: docker/containers/Dockerfile.dump-workers
-    ports:
-      - "8004:8004"
-    environment:
-      WORKER_ID: backlink_stats_worker_1
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_DATABASE: entitybase
-      DB_USER: root
-      DB_PASSWORD: ""
-      BACKLINK_STATS_ENABLED: "true"
-      BACKLINK_STATS_SCHEDULE: "0 2 * * *"
-      BACKLINK_STATS_TOP_LIMIT: "100"
-      LOG_LEVEL: "INFO"
-      CI: "true"
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    mem_limit: 512m
-    cpus: 0.25
-    command: ["python", "-m", "models.workers.backlink_statistics.backlink_statistics_worker"]
-
-  general-stats-worker:
-    container_name: general-stats-worker
-    build:
-      context: .
-      dockerfile: docker/containers/Dockerfile.dump-workers
-    ports:
-      - "8005:8005"
-    environment:
-      WORKER_ID: general_stats_worker_1
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_DATABASE: entitybase
-      DB_USER: root
-      DB_PASSWORD: ""
-      GENERAL_STATS_ENABLED: "true"
-      GENERAL_STATS_SCHEDULE: "0 2 * * *"
-      LOG_LEVEL: "INFO"
-      CI: "true"
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8005/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    mem_limit: 512m
-    cpus: 0.25
-    command: ["python", "-m", "models.workers.general_stats.general_stats_worker"]
-
-  user-stats-worker:
-    container_name: user-stats-worker
-    build:
-      context: .
-      dockerfile: docker/containers/Dockerfile.dump-workers
-    ports:
-      - "8006:8006"
-    environment:
-      WORKER_ID: user_stats_worker_1
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_DATABASE: entitybase
-      DB_USER: root
-      DB_PASSWORD: ""
-      USER_STATS_ENABLED: "true"
-      USER_STATS_SCHEDULE: "0 2 * * *"
-      LOG_LEVEL: "INFO"
-      CI: "true"
-    depends_on:
-      create-tables:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8006/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    mem_limit: 512m
-    cpus: 0.25
-    command: ["python", "-m", "models.workers.user_stats.user_stats_worker"]
-
   api:
     build:
       context: .
@@ -288,7 +109,7 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
       mariadb:
         condition: service_healthy
@@ -297,7 +118,7 @@ services:
       create-tables:
         condition: service_completed_successfully
     environment:
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: fakekey
       S3_SECRET_KEY: fakesecret
       S3_BUCKET: testbucket

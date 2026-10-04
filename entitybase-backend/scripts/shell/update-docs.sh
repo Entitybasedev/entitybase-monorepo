@@ -10,7 +10,7 @@ git log --date=short --format='%ad' | sort | uniq -c | awk '{sum+=$1; count++} E
 # ./scripts/shell/run-coverage.sh
 # python scripts/doc/update-coverage-stats.py
 uv run python scripts/doc/extract_endpoints.py
-uv run python scripts/doc/generate_workers_overview.py > docs/ARCHITECTURE/WORKERS.md
+uv run python scripts/doc/generate_workers_overview.py > ../docs/ARCHITECTURE/WORKERS.md
 uv run python scripts/doc/generate_services_overview.py > docs/ARCHITECTURE/SERVICES.md
 uv run python scripts/doc/generate_api_models_overview.py > docs/ARCHITECTURE/API_MODELS.md
 uv run python scripts/doc/generate_database_schema_overview.py > docs/ARCHITECTURE/DATABASE_SCHEMA.md

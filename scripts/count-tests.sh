@@ -36,6 +36,24 @@ echo "- Integration: $K2S_INTEGRATION"
 echo "- Contract: $K2S_CONTRACT"
 echo ""
 
+# --- workers: pytest (one project per top-level worker directory) ---
+echo "## workers"
+WORKER_UNIT=0
+WORKER_INTEGRATION=0
+for worker in $(ls -d *_worker 2>/dev/null); do
+  [ -d "$worker/tests" ] || continue
+  WORKER_ALL=$(grep -rhE "^\s*(async )?def test_" "$worker/tests" --include="*.py" | wc -l)
+  if [ -d "$worker/tests/integration" ]; then
+    WORKER_INTEGRATION=$((WORKER_INTEGRATION + $(grep -rhE "^\s*(async )?def test_" "$worker/tests/integration" --include="*.py" | wc -l)))
+  fi
+  WORKER_UNIT=$((WORKER_UNIT + WORKER_ALL))
+done
+# the integration tests are counted in both numbers, subtract once for the unit total
+WORKER_UNIT=$((WORKER_UNIT - WORKER_INTEGRATION))
+echo "- Unit: $WORKER_UNIT"
+echo "- Integration: $WORKER_INTEGRATION"
+echo ""
+
 # --- entitybase-frontend: vitest ---
 echo "## entitybase-frontend"
 FRONTEND_TESTS=$(grep -rcE "^\s*(it|test)\(" entitybase-frontend/src/__tests__ --include="*.test.js" \
@@ -55,6 +73,6 @@ echo "- Files: $E2E_FILES"
 echo ""
 
 # --- Total ---
-TOTAL=$((BACKEND_OVERALL + K2S_OVERALL + FRONTEND_TESTS + E2E_TESTS))
+TOTAL=$((BACKEND_OVERALL + K2S_OVERALL + WORKER_UNIT + WORKER_INTEGRATION + FRONTEND_TESTS + E2E_TESTS))
 echo "- Total: $TOTAL"
 echo ""

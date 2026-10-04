@@ -6,7 +6,10 @@ src/
     ├── data
     │   ├── config
     │   ├── infrastructure
+    │   │   ├── db
+    │   │   │   └── records
     │   │   ├── elasticsearch
+    │   │   ├── meilisearch
     │   │   ├── s3
     │   │   │   └── hashes
     │   │   ├── stream
@@ -21,9 +24,14 @@ src/
     │   │               └── entity
     │   └── workers
     ├── infrastructure
+    │   ├── db
+    │   │   ├── repositories
+    │   │   └── storage
     │   ├── s3
     │   │   ├── revision
     │   │   └── storage
+    │   ├── sqlite
+    │   │   └── repositories
     │   ├── stream
     │   └── vitess
     │       ├── repositories
@@ -50,22 +58,12 @@ src/
     │           ├── services
     │           └── utils
     ├── services
-    │   └── elasticsearch
+    │   ├── elasticsearch
+    │   └── meilisearch
     ├── utils
     ├── validation
     └── workers
-        ├── backlink_statistics
-        ├── dev
-        ├── elasticsearch_indexer
-        ├── entity_diff
-        ├── general_stats
-        ├── id_generation
-        ├── incremental_rdf
-        ├── json_dumps
-        ├── notification_cleanup
-        ├── ttl_dumps
-        ├── user_stats
-        └── watchlist_consumer
+        └── dev
 
-66 directories
+64 directories
 ```

@@ -108,6 +108,17 @@ check-docs:
 health:
     timeout 120 ./scripts/health/check.sh
 
+# Workers live in their own top-level directories, one project each
+WORKER_DIRS := "backlink_statistics_worker elasticsearch_indexer_worker entity_diff_worker general_stats_worker incremental_rdf_worker json_dump_worker notification_cleanup_worker ttl_dump_worker user_stats_worker watchlist_consumer_worker"
+
+# Test every worker (each is a standalone project next to the backend)
+test-workers:
+    #!/usr/bin/env bash
+    for worker in {{WORKER_DIRS}}; do
+        echo "== $worker"
+        (cd "$worker" && uv run pytest -q) || exit 1
+    done
+
 # Repo statistics (currently: test counts only)
 statistics:
     ./scripts/count-tests.sh

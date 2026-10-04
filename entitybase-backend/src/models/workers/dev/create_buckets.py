@@ -34,11 +34,11 @@ sys.path.insert(0, src_path)
 
 
 class CreateBuckets(BaseModel):
-    """Development worker for MinIO bucket management and setup tasks."""
+    """Development worker for S3 (rustfs) bucket management and setup tasks."""
 
-    minio_endpoint: str = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
-    minio_access_key: str = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-    minio_secret_key: str = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+    s3_endpoint: str = os.getenv("S3_ENDPOINT", "http://localhost:9000")
+    s3_access_key: str = os.getenv("S3_ACCESS_KEY", "fakekey")
+    s3_secret_key: str = os.getenv("S3_SECRET_KEY", "fakesecret")
     required_buckets: List[str] = []
 
     def model_post_init(self, context: Any) -> None:
@@ -53,14 +53,14 @@ class CreateBuckets(BaseModel):
     def s3_client(self) -> Any:
         """Get S3 client with shared credentials for all buckets."""
         logger.info(
-            f"Creating S3 client with endpoint={self.minio_endpoint}, "
-            f"access_key={self.minio_access_key[:4]}..."
+            f"Creating S3 client with endpoint={self.s3_endpoint}, "
+            f"access_key={self.s3_access_key[:4]}..."
         )
         return _boto3.client(
             "s3",
-            endpoint_url=self.minio_endpoint,
-            aws_access_key_id=self.minio_access_key,
-            aws_secret_access_key=self.minio_secret_key,
+            endpoint_url=self.s3_endpoint,
+            aws_access_key_id=self.s3_access_key,
+            aws_secret_access_key=self.s3_secret_key,
         )
 
     async def ensure_buckets_exist(self) -> Dict[str, str]:
@@ -74,7 +74,7 @@ class CreateBuckets(BaseModel):
                 results[bucket] = "exists"
                 logger.info(f"Bucket already exists: {bucket}")
             except ClientError as e:
-                # Handle AWS/MinIO client errors
+                # Handle S3 client errors
                 error_code = e.response["Error"]["Code"]
                 if error_code in {"404", "NoSuchBucket"}:
                     # Bucket doesn't exist, create it

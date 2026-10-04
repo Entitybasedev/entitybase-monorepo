@@ -36,22 +36,22 @@ def setup_logging() -> None:
 def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Development worker for MinIO bucket management"
+        description="Development worker for S3 (rustfs) bucket management"
     )
     parser.add_argument(
         "--endpoint",
-        default=os.getenv("MINIO_ENDPOINT", "http://localhost:9000"),
-        help="MinIO endpoint URL",
+        default=os.getenv("S3_ENDPOINT", "http://localhost:9000"),
+        help="S3 endpoint URL",
     )
     parser.add_argument(
         "--access-key",
-        default=os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
-        help="MinIO access key",
+        default=os.getenv("S3_ACCESS_KEY", "fakekey"),
+        help="S3 access key",
     )
     parser.add_argument(
         "--secret-key",
-        default=os.getenv("MINIO_SECRET_KEY", "minioadmin"),
-        help="MinIO secret key",
+        default=os.getenv("S3_SECRET_KEY", "fakesecret"),
+        help="S3 secret key",
     )
 
     subparsers = parser.add_subparsers(dest="component", help="Component to manage")
@@ -129,9 +129,9 @@ def main() -> int:
 async def run_buckets_setup(args: argparse.Namespace) -> bool:
     """Run bucket setup operation."""
     create_buckets = CreateBuckets(
-        minio_endpoint=args.endpoint,
-        minio_access_key=args.access_key,
-        minio_secret_key=args.secret_key,
+        s3_endpoint=args.endpoint,
+        s3_access_key=args.access_key,
+        s3_secret_key=args.secret_key,
     )
     results = await create_buckets.run_setup()
     print(f"Buckets setup completed: {results['setup_status']}")
@@ -141,9 +141,9 @@ async def run_buckets_setup(args: argparse.Namespace) -> bool:
 async def run_buckets_health(args: argparse.Namespace) -> bool:
     """Run bucket health check operation."""
     create_buckets = CreateBuckets(
-        minio_endpoint=args.endpoint,
-        minio_access_key=args.access_key,
-        minio_secret_key=args.secret_key,
+        s3_endpoint=args.endpoint,
+        s3_access_key=args.access_key,
+        s3_secret_key=args.secret_key,
     )
     health_status = await create_buckets.bucket_health_check()
     print(f"Bucket health status: {health_status['overall_status']}")

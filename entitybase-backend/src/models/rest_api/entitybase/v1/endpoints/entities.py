@@ -145,7 +145,7 @@ async def get_entity_ttl_revision(
     ),
 ) -> Response:
     """Get Turtle (TTL) representation of a specific entity revision."""
-    from models.workers.entity_diff.rdf_serializer import RDFSerializer
+    from models.rest_api.entitybase.v1.services.rdf_serializer import RDFSerializer
 
     state = req.app.state.state_handler
     try:

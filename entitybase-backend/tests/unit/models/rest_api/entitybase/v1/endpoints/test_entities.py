@@ -18,7 +18,7 @@ class TestEntityTTLRevisionEndpoint:
     @pytest.mark.asyncio
     async def test_get_entity_ttl_revision_success(self, mock_entity_read_state):
         """Test getting TTL revision data successfully."""
-        from models.workers.entity_diff.rdf_serializer import RDFSerializer
+        from models.rest_api.entitybase.v1.services.rdf_serializer import RDFSerializer
 
         mock_state, mock_vitess, mock_s3 = mock_entity_read_state
 
@@ -71,7 +71,7 @@ class TestEntityTTLRevisionEndpoint:
         self, mock_entity_read_state
     ):
         """Test getting TTL revision with different format options."""
-        from models.workers.entity_diff.rdf_serializer import RDFSerializer
+        from models.rest_api.entitybase.v1.services.rdf_serializer import RDFSerializer
 
         mock_state, mock_vitess, mock_s3 = mock_entity_read_state
 

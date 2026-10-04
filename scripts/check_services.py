@@ -133,7 +133,7 @@ def main():
     print("=== Infrastructure ===")
     if not check_running_service("mysql"): overall_status = 1
     if not check_running_service("mysql-health"): overall_status = 1
-    if not check_running_service("minio"): overall_status = 1
+    if not check_running_service("rustfs"): overall_status = 1
     if not check_running_service("redpanda"): overall_status = 1
     if not check_running_service("redpanda-health"): overall_status = 1
     if not check_running_service("valkey"): overall_status = 1
@@ -146,19 +146,10 @@ def main():
     
     print("\n=== Core Services ===")
     if not check_running_service("entitybase-api"): overall_status = 1
-    if not check_running_service("idworker"): overall_status = 1
     if not check_running_service("kafka2sse-backend"): overall_status = 1
     if not check_running_service("kafka2sse-frontend"): overall_status = 1
     
-    print("\n=== Workers ===")
-    if not check_running_service("json-dump-worker"): overall_status = 1
-    if not check_running_service("ttl-dump-worker"): overall_status = 1
-    if not check_running_service("purge-worker"): overall_status = 1
-    if not check_running_service("backlink-stats-worker"): overall_status = 1
-    if not check_running_service("general-stats-worker"): overall_status = 1
-    if not check_running_service("user-stats-worker"): overall_status = 1
-    
-    print("\n=== Producers ===")
+        print("\n=== Producers ===")
     producers = check_api_producers()
     if not check_producer("entity_change", producers.get("entity_change", "unknown")): overall_status = 1
     if not check_producer("entitydiff", producers.get("entitydiff", "unknown")): overall_status = 1
@@ -167,12 +158,10 @@ def main():
     print("\n=== Elasticsearch ===")
     if not check_running_service("elasticsearch"): overall_status = 1
     if not check_running_service("elasticsearch-health"): overall_status = 1
-    if not check_running_service("elasticsearch-indexer-worker"): overall_status = 1
     
     print("\n=== Meilisearch ===")
     if not check_running_service("meilisearch"): overall_status = 1
     if not check_running_service("meilisearch-health"): overall_status = 1
-    if not check_running_service("meilisearch-indexer-worker"): overall_status = 1
     
     sys.exit(overall_status)
 

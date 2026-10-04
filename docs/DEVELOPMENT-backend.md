@@ -143,7 +143,7 @@ This project uses a Makefile for common development tasks. Run `make help` to se
 |---------|-------------|
 | `make test-unit` | Run all unit tests |
 | `make test-unit-01` | Unit tests: config, data, services, validation, json_parser |
-| `make test-unit-02` | Unit tests: internal_representation, workers |
+| `make test-unit-02` | Unit tests: internal_representation, worker base classes |
 | `make test-unit-03` | Unit tests: infrastructure, rdf_builder |
 | `make test-unit-04` | Unit tests: rest_api |
 

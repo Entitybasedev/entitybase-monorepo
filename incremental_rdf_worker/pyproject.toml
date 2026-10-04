@@ -1,0 +1,35 @@
+[project]
+name = "incremental_rdf_worker"
+version = "0.1.0"
+description = "Emits incremental RDF diffs to the stream."
+authors = [{name = "Entitybase Team"}]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "entitybase-backend",
+]
+
+[tool.uv.sources]
+# The worker shares the backend's data layer for now; it talks to the
+# database directly and does not import the API.
+entitybase-backend = { path = "../entitybase-backend" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/incremental_rdf_worker"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "../entitybase-backend/src"]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "unit: unit tests",
+    "integration: tests that need a running database",
+]

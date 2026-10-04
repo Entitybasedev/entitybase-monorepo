@@ -15,21 +15,21 @@ class TestCreateBuckets:
         """Test CreateBuckets initialization with defaults."""
         with patch("models.workers.dev.create_buckets.CreateBuckets.model_post_init"):
             worker = CreateBuckets()
-            assert worker.minio_endpoint == "http://localhost:9000"
-            assert worker.minio_access_key == "minioadmin"
-            assert worker.minio_secret_key == "minioadmin"
+            assert worker.s3_endpoint == "http://localhost:9000"
+            assert worker.s3_access_key == "fakekey"
+            assert worker.s3_secret_key == "fakesecret"
 
     def test_initialization_custom(self):
         """Test CreateBuckets initialization with custom values."""
         with patch("models.workers.dev.create_buckets.CreateBuckets.model_post_init"):
             worker = CreateBuckets(
-                minio_endpoint="http://custom:9000",
-                minio_access_key="custom_key",
-                minio_secret_key="custom_secret",
+                s3_endpoint="http://custom:9000",
+                s3_access_key="custom_key",
+                s3_secret_key="custom_secret",
             )
-            assert worker.minio_endpoint == "http://custom:9000"
-            assert worker.minio_access_key == "custom_key"
-            assert worker.minio_secret_key == "custom_secret"
+            assert worker.s3_endpoint == "http://custom:9000"
+            assert worker.s3_access_key == "custom_key"
+            assert worker.s3_secret_key == "custom_secret"
 
     def test_required_buckets_attribute(self):
         """Test required_buckets attribute exists."""
@@ -47,9 +47,9 @@ class TestCreateBuckets:
             worker.required_buckets = ["test"]
 
             dumped = worker.model_dump()
-            assert "minio_endpoint" in dumped
-            assert "minio_access_key" in dumped
-            assert "minio_secret_key" in dumped
+            assert "s3_endpoint" in dumped
+            assert "s3_access_key" in dumped
+            assert "s3_secret_key" in dumped
 
 
 class TestBucketHealthCheckResult:

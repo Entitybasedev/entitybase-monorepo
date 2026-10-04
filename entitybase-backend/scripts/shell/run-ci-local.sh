@@ -12,10 +12,10 @@ docker compose --file "$COMPOSE_FILE" down -v 2>/dev/null || true
 
 echo "📦 Building docker images..."
 docker compose --file "$COMPOSE_FILE" build \
-  api idworker integration create-buckets create-tables
+  api integration create-buckets create-tables
 
 echo "🚀 Starting infrastructure services..."
-docker compose --file "$COMPOSE_FILE" up -d mysql minio redpanda
+docker compose --file "$COMPOSE_FILE" up -d mysql rustfs redpanda
 
 echo "⏳ Waiting for MySQL..."
 until docker compose --file "$COMPOSE_FILE" exec -T mysql mysqladmin ping -h localhost --silent; do
@@ -25,7 +25,7 @@ done
 echo "✅ MySQL is ready"
 
 echo "⏳ Waiting for MinIO..."
-until curl -f http://localhost:9000/minio/health/live; do
+until curl -f http://localhost:9000/health; do
   echo "Waiting for MinIO..."
   sleep 2
 done
@@ -44,8 +44,6 @@ docker compose --file "$COMPOSE_FILE" run --rm create-tables
 echo "🪣 Setting up S3 buckets..."
 docker compose --file "$COMPOSE_FILE" run --rm create-buckets
 
-echo "👷 Starting idworker..."
-docker compose --file "$COMPOSE_FILE" up -d idworker
 
 echo "🚀 Starting API..."
 docker compose --file "$COMPOSE_FILE" up -d api
@@ -58,8 +56,6 @@ until curl -f http://localhost:8000/health; do
     echo "❌ TIMEOUT waiting for API!"
     echo "=== API logs ==="
     docker compose --file "$COMPOSE_FILE" logs --tail=100 api
-    echo "=== idworker logs ==="
-    docker compose --file "$COMPOSE_FILE" logs --tail=100 idworker
     echo "=== mysql logs ==="
     docker compose --file "$COMPOSE_FILE" logs --tail=50 mysql
     exit 1

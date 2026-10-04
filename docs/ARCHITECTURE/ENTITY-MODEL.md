@@ -240,24 +240,15 @@ MySQL Tables:
 
 1. **ID Stability**: Q123 never changes, maintains 100% ecosystem compatibility
 2. **Range-Based Allocation**: Efficient ID generation with minimal database contention
-3. **Worker-Assisted**: IdGenerationWorker pre-allocates ranges for low-latency allocation
+3. **Range-based**: Ranges are pre-allocated, so allocation stays off the hot path
 4. **Direct Usage**: Entity IDs used directly in all tables (no mapping layer)
 5. **Prefix Semantics**: Q/P/L/E prefixes indicate entity type throughout system
 
-## ID Generation Worker
+## ID Allocation
 
-**File**: `src/models/workers/id_generation/id_generation_worker.py`
-
-**Purpose**: Background worker that reserves ID ranges to ensure high-throughput entity creation.
-
-**Process**:
-1. Monitors `id_ranges` table
-2. When `next_id` approaches `current_range_end`, reserves new range
-3. Continuously polls to ensure ranges are always available
-4. Provides health checks for monitoring
-
-**Configuration**:
-- `WORKER_ID`: Unique worker identifier (default: auto-generated)
+Entity IDs are allocated in ranges from the `id_ranges` table, so creation never
+waits on a single row. The API allocates directly; there is no ID generation
+worker.
 
 ## Historical Note
 
@@ -267,4 +258,4 @@ Previous documentation described a hybrid ID strategy with `ulid-flake` internal
 
 - [STORAGE-ARCHITECTURE.md](DATABASE_SCHEMA.md) - MySQL storage design
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Overall system architecture
-- [WORKERS.md](./WORKERS.md) - Worker architecture including IdGenerationWorker
+- [WORKERS.md](./WORKERS.md) - The background workers

@@ -71,9 +71,9 @@ class TestDevWorkerCLI:
 
         assert result == 0
         mock_create_buckets.assert_called_once_with(
-            minio_endpoint="http://custom:9000",
-            minio_access_key="minioadmin",
-            minio_secret_key="minioadmin",
+            s3_endpoint="http://custom:9000",
+            s3_access_key="fakekey",
+            s3_secret_key="fakesecret",
         )
 
     @patch("models.workers.dev.__main__.run_buckets_setup")
