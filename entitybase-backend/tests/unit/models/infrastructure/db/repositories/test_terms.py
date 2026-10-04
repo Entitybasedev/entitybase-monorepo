@@ -49,6 +49,37 @@ class TestTermsRepository:
         assert result.success is False
         assert "DB error" in result.error
 
+    def test_insert_term_stores_the_enum_value(self):
+        """The term type is stored as the column's enum value."""
+        from models.infrastructure.db.repositories.terms import TermType
+
+        mock_db_client = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
+        mock_cursor.__exit__ = MagicMock(return_value=False)
+        mock_db_client.cursor = mock_cursor
+
+        repo = TermsRepository(db_client=mock_db_client)
+
+        repo.insert_term(12345, "test", TermType.LABEL)
+
+        _, params = mock_cursor.execute.call_args[0]
+        assert params[2] == TermType.LABEL.value
+
+    def test_insert_term_rejects_unknown_term_type(self):
+        """An unknown term type fails the insert instead of storing junk."""
+        mock_db_client = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
+        mock_cursor.__exit__ = MagicMock(return_value=False)
+        mock_db_client.cursor = mock_cursor
+
+        repo = TermsRepository(db_client=mock_db_client)
+
+        result = repo.insert_term(12345, "test", "nonsense")
+
+        assert result.success is False
+
     def test_increment_ref_count_success(self):
         """Test incrementing ref_count successfully."""
         mock_db_client = MagicMock()

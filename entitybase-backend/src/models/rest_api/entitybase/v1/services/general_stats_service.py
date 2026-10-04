@@ -12,6 +12,7 @@ from models.data.rest_api.v1.entitybase.response.terms import (
     TermsPerLanguage,
 )
 from models.rest_api.entitybase.v1.service import Service
+from models.infrastructure.db.repositories.terms import TERM_TYPE_PLURALS
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +72,11 @@ class GeneralStatsService(Service):
         """Count total references."""
         try:
             with self.state.db_client.cursor as cursor:
-                cursor.execute("SELECT COUNT(*) FROM references")
+                cursor.execute("SELECT COUNT(*) FROM refs")
                 result = cursor.fetchone()
                 return result[0] if result else 0
         except Exception:
-            logger.debug("references table does not exist, returning 0")
+            logger.debug("refs table does not exist, returning 0")
             return 0
 
     def get_total_items(self) -> int:
@@ -123,14 +124,18 @@ class GeneralStatsService(Service):
             return 0
 
     def get_total_terms(self) -> int:
-        """Count total terms."""
+        """Count total terms.
+
+        entity_terms holds one row per unique term text, so the number of
+        terms in use is the sum of the reference counts, not the row count.
+        """
         try:
             with self.state.db_client.cursor as cursor:
-                cursor.execute("SELECT COUNT(*) FROM terms")
+                cursor.execute("SELECT COALESCE(SUM(ref_count), 0) FROM entity_terms")
                 result = cursor.fetchone()
                 return result[0] if result else 0
         except Exception:
-            logger.debug("terms table does not exist, returning 0")
+            logger.debug("entity_terms table does not exist, returning 0")
             return 0
 
     def get_terms_per_language(self) -> TermsPerLanguage:
@@ -172,38 +177,23 @@ class GeneralStatsService(Service):
         return TermsPerLanguage(terms=terms_per_lang)
 
     def get_terms_by_type(self) -> TermsByType:
-        """Count terms by type (labels, descriptions, aliases)."""
-        data = {}
+        """Count terms by type (labels, descriptions, aliases).
+
+        Counts the terms in use per type, so a row is counted once per
+        reference rather than once per stored text.
+        """
+        counts: dict[str, int] = {}
         try:
             with self.state.db_client.cursor as cursor:
-                try:
-                    cursor.execute("SELECT 'labels' AS type, COUNT(*) FROM labels")
-                    result = cursor.fetchone()
-                    if result:
-                        data[result[0]] = result[1]
-                except Exception:
-                    logger.debug("labels table does not exist, skipping")
-
-                try:
-                    cursor.execute(
-                        "SELECT 'descriptions' AS type, COUNT(*) FROM descriptions"
-                    )
-                    result = cursor.fetchone()
-                    if result:
-                        data[result[0]] = result[1]
-                except Exception:
-                    logger.debug("descriptions table does not exist, skipping")
-
-                try:
-                    cursor.execute("SELECT 'aliases' AS type, COUNT(*) FROM aliases")
-                    result = cursor.fetchone()
-                    if result:
-                        data[result[0]] = result[1]
-                except Exception:
-                    logger.debug("aliases table does not exist, skipping")
+                cursor.execute(
+                    "SELECT term_type, COALESCE(SUM(ref_count), 0) "
+                    "FROM entity_terms GROUP BY term_type"
+                )
+                for term_type, count in cursor.fetchall():
+                    counts[TERM_TYPE_PLURALS.get(term_type, term_type)] = count
         except Exception as e:
             logger.debug(f"Error getting terms by type: {e}")
-        return TermsByType(counts=data)
+        return TermsByType(counts=counts)
 
     def compute_deduplication_stats(self) -> DeduplicationDatabaseStatsResponse:
         """Compute deduplication statistics for all data types."""
@@ -259,43 +249,12 @@ class GeneralStatsService(Service):
         )
 
     def _get_terms_deduplication_stats(self) -> DeduplicationStatsByType:
-        """Get deduplication stats for terms (labels, descriptions, aliases tables)."""
-        try:
-            with self.state.db_client.cursor as cursor:
-                total_unique = 0
-                total_ref_count = 0
+        """Get deduplication stats for terms.
 
-                for table in ["labels", "descriptions", "aliases"]:
-                    try:
-                        cursor.execute(
-                            f"SELECT COUNT(*), COALESCE(SUM(ref_count), 0) FROM {table}"
-                        )
-                        result = cursor.fetchone()
-                        if result:
-                            total_unique += result[0]
-                            total_ref_count += result[1]
-                    except Exception:
-                        logger.debug(f"{table} table does not exist, skipping")
-
-                if total_unique > 0:
-                    space_saved = total_ref_count - total_unique
-                    deduplication_factor = (
-                        (space_saved / total_ref_count * 100)
-                        if total_ref_count > 0
-                        else 0.0
-                    )
-                    return DeduplicationStatsByType(
-                        unique_hashes=total_unique,
-                        total_ref_count=total_ref_count,
-                        deduplication_factor=round(deduplication_factor, 2),
-                        space_saved=space_saved,
-                    )
-        except Exception as e:
-            logger.debug(f"Error getting terms deduplication stats: {e}")
-
-        return DeduplicationStatsByType(
-            unique_hashes=0,
-            total_ref_count=0,
-            deduplication_factor=0.0,
-            space_saved=0,
-        )
+        Labels, descriptions and aliases all live in entity_terms, keyed by
+        the hash of the term text with a ref_count of how often that text is
+        referenced. A text used as both a label and a description is therefore
+        a single row with ref_count 2, which is exactly the deduplication we
+        want to report.
+        """
+        return self._get_table_deduplication_stats("entity_terms")

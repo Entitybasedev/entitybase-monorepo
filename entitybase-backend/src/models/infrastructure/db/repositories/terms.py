@@ -1,6 +1,7 @@
 """Vitess terms repository for managing deduplicated terms."""
 
 import logging
+from enum import Enum
 from typing import List
 
 from models.data.common import OperationResult
@@ -10,11 +11,32 @@ from models.data.rest_api.v1.entitybase.response import TermsResponse
 logger = logging.getLogger(__name__)
 
 
+class TermType(str, Enum):
+    """Values of the entity_terms.term_type column."""
+
+    LABEL = "label"
+    ALIAS = "alias"
+    DESCRIPTION = "description"
+    FORM_REPRESENTATION = "form_representation"
+    SENSE_GLOSS = "sense_gloss"
+
+
+# Plural names used where terms are reported per type, matching the
+# MetadataType names used elsewhere for term categories.
+TERM_TYPE_PLURALS: dict[str, str] = {
+    TermType.LABEL.value: "labels",
+    TermType.ALIAS.value: "aliases",
+    TermType.DESCRIPTION.value: "descriptions",
+    TermType.FORM_REPRESENTATION.value: "form_representations",
+    TermType.SENSE_GLOSS.value: "sense_glosses",
+}
+
+
 class TermsRepository(Repository):
     """Repository for managing deduplicated terms (labels and aliases) in Vitess."""
 
     def insert_term(
-        self, hash_value: int, term: str, term_type: str
+        self, hash_value: int, term: str, term_type: str | TermType
     ) -> OperationResult:
         """Insert a term if it doesn't already exist, or increment ref_count."""
         if hash_value <= 0:
@@ -28,7 +50,7 @@ class TermsRepository(Repository):
                     VALUES (%s, %s, %s, 1)
                     ON DUPLICATE KEY UPDATE ref_count = ref_count + 1
                     """,
-                    (hash_value, term, term_type),
+                    (hash_value, term, TermType(term_type).value),
                 )
                 return OperationResult(success=True)
         except Exception as e:

@@ -49,7 +49,8 @@ test('an entity links to its history and its JSON and RDF data', async ({ page }
   // Both representations are really served
   const jsonResponse = await page.request.get(jsonHref)
   expect(jsonResponse.ok()).toBeTruthy()
-  expect((await jsonResponse.json()).id).toBe(entityId)
+  // The revision is wrapped in a data envelope
+  expect((await jsonResponse.json()).data.id).toBe(entityId)
   const rdfResponse = await page.request.get(rdfHref)
   expect(rdfResponse.ok()).toBeTruthy()
 })

@@ -1,5 +1,7 @@
 """Unit tests for general stats service."""
 
+import re
+
 import pytest
 from unittest.mock import MagicMock
 
@@ -145,9 +147,7 @@ class TestDeduplicationStats:
 
     def test_get_table_deduplication_stats_exception(self, service, mock_state):
         """Test _get_table_deduplication_stats handles exceptions."""
-        mock_state.db_client.cursor.__enter__.side_effect = Exception(
-            "Table not found"
-        )
+        mock_state.db_client.cursor.__enter__.side_effect = Exception("Table not found")
 
         result = service._get_table_deduplication_stats("nonexistent_table")
 
@@ -156,13 +156,9 @@ class TestDeduplicationStats:
         assert result.deduplication_factor == 0.0
 
     def test_get_terms_deduplication_stats(self, service, mock_state):
-        """Test _get_terms_deduplication_stats aggregates across tables."""
+        """Terms deduplicate across every row of the term ledger."""
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            [50, 100],
-            [30, 60],
-            [20, 40],
-        ]
+        mock_cursor.fetchone.return_value = [100, 200]
         mock_state.db_client.cursor.__enter__.return_value = mock_cursor
 
         result = service._get_terms_deduplication_stats()
@@ -172,8 +168,37 @@ class TestDeduplicationStats:
         assert result.deduplication_factor == 50.0
         assert result.space_saved == 100
 
-    def test_get_terms_deduplication_stats_no_tables(self, service, mock_state):
-        """Test _get_terms_deduplication_stats when tables don't exist."""
+    def test_get_terms_deduplication_counts_shared_term_text(self, service, mock_state):
+        """One text used as a label and a description is one hash, two refs.
+
+        entity_terms is keyed by the hash of the term text, so a text reused
+        across term types is a single row with ref_count 2.
+        """
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = [1, 2]
+        mock_state.db_client.cursor.__enter__.return_value = mock_cursor
+
+        result = service._get_terms_deduplication_stats()
+
+        assert result.unique_hashes == 1
+        assert result.total_ref_count == 2
+        assert result.deduplication_factor == 50.0
+        assert result.space_saved == 1
+
+    def test_get_terms_deduplication_stats_no_terms(self, service, mock_state):
+        """No terms yet means zeroed stats, not an error."""
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = [0, 0]
+        mock_state.db_client.cursor.__enter__.return_value = mock_cursor
+
+        result = service._get_terms_deduplication_stats()
+
+        assert result.unique_hashes == 0
+        assert result.total_ref_count == 0
+        assert result.deduplication_factor == 0.0
+
+    def test_get_terms_deduplication_stats_no_table(self, service, mock_state):
+        """Test _get_terms_deduplication_stats when the table doesn't exist."""
         mock_cursor = MagicMock()
         mock_cursor.fetchone.side_effect = Exception("Table not found")
         mock_state.db_client.cursor.__enter__.return_value = mock_cursor
@@ -186,6 +211,8 @@ class TestDeduplicationStats:
     def test_compute_deduplication_stats(self, service, mock_state):
         """Test compute_deduplication_stats returns stats for all types."""
         mock_cursor = MagicMock()
+        # One row per table: statements, qualifiers, refs, snaks, sitelinks
+        # and entity_terms
         mock_cursor.fetchone.side_effect = [
             [100, 500],
             [80, 400],
@@ -193,8 +220,6 @@ class TestDeduplicationStats:
             [40, 200],
             [30, 150],
             [50, 100],
-            [30, 60],
-            [20, 40],
         ]
         mock_state.db_client.cursor.__enter__.return_value = mock_cursor
 
@@ -205,7 +230,8 @@ class TestDeduplicationStats:
         assert result.references.unique_hashes == 60
         assert result.snaks.unique_hashes == 40
         assert result.sitelinks.unique_hashes == 30
-        assert result.terms.unique_hashes == 100
+        assert result.terms.unique_hashes == 50
+        assert result.terms.total_ref_count == 100
 
 
 class TestComputeDailyStats:
@@ -256,45 +282,35 @@ class TestExceptionHandling:
 
     def test_get_total_statements_exception(self, service, mock_state):
         """Test get_total_statements returns 0 on exception."""
-        mock_state.db_client.cursor.__enter__.side_effect = Exception(
-            "Table not found"
-        )
+        mock_state.db_client.cursor.__enter__.side_effect = Exception("Table not found")
 
         result = service.get_total_statements()
         assert result == 0
 
     def test_get_total_qualifiers_exception(self, service, mock_state):
         """Test get_total_qualifiers returns 0 on exception."""
-        mock_state.db_client.cursor.__enter__.side_effect = Exception(
-            "Table not found"
-        )
+        mock_state.db_client.cursor.__enter__.side_effect = Exception("Table not found")
 
         result = service.get_total_qualifiers()
         assert result == 0
 
     def test_get_total_references_exception(self, service, mock_state):
         """Test get_total_references returns 0 on exception."""
-        mock_state.db_client.cursor.__enter__.side_effect = Exception(
-            "Table not found"
-        )
+        mock_state.db_client.cursor.__enter__.side_effect = Exception("Table not found")
 
         result = service.get_total_references()
         assert result == 0
 
     def test_get_total_sitelinks_exception(self, service, mock_state):
         """Test get_total_sitelinks returns 0 on exception."""
-        mock_state.db_client.cursor.__enter__.side_effect = Exception(
-            "Table not found"
-        )
+        mock_state.db_client.cursor.__enter__.side_effect = Exception("Table not found")
 
         result = service.get_total_sitelinks()
         assert result == 0
 
     def test_get_total_terms_exception(self, service, mock_state):
         """Test get_total_terms returns 0 on exception."""
-        mock_state.db_client.cursor.__enter__.side_effect = Exception(
-            "Table not found"
-        )
+        mock_state.db_client.cursor.__enter__.side_effect = Exception("Table not found")
 
         result = service.get_total_terms()
         assert result == 0
@@ -387,12 +403,12 @@ class TestTermsByType:
         return svc
 
     def test_get_terms_by_type_success(self, service, mock_state):
-        """Test get_terms_by_type returns counts for each type."""
+        """Counts per term type, reported under their plural names."""
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            ["labels", 1000],
-            ["descriptions", 500],
-            ["aliases", 300],
+        mock_cursor.fetchall.return_value = [
+            ["label", 1000],
+            ["description", 500],
+            ["alias", 300],
         ]
         mock_state.db_client.cursor.__enter__.return_value = mock_cursor
 
@@ -402,27 +418,20 @@ class TestTermsByType:
         assert result.counts["descriptions"] == 500
         assert result.counts["aliases"] == 300
 
-    def test_get_terms_by_type_partial_tables(self, service, mock_state):
-        """Test get_terms_by_type handles missing tables gracefully."""
-        call_count = 0
-
-        def fetchone_side_effect():
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise Exception("labels table not found")
-            if call_count == 2:
-                raise Exception("descriptions table not found")
-            return ["aliases", 300]
-
+    def test_get_terms_by_type_includes_lexeme_terms(self, service, mock_state):
+        """Form representations and sense glosses are terms too."""
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = fetchone_side_effect
+        mock_cursor.fetchall.return_value = [
+            ["label", 2],
+            ["form_representation", 4],
+            ["sense_gloss", 6],
+        ]
         mock_state.db_client.cursor.__enter__.return_value = mock_cursor
 
         result = service.get_terms_by_type()
 
-        assert result.counts["aliases"] == 300
-        assert "labels" not in result.counts
+        assert result.counts["form_representations"] == 4
+        assert result.counts["sense_glosses"] == 6
 
     def test_get_terms_by_type_outer_exception(self, service, mock_state):
         """Test get_terms_by_type handles outer exception."""
@@ -432,3 +441,96 @@ class TestTermsByType:
 
         result = service.get_terms_by_type()
         assert result.counts == {}
+
+
+class TestStatsQueryTables:
+    """Stats queries must read tables that exist.
+
+    Terms live in entity_terms and references in refs. There are no
+    labels/descriptions/aliases/terms/references tables, so querying those
+    raised, was swallowed, and every such figure silently reported zero. These
+    tests assert the SQL, because mocked cursors are happy with any table name.
+    """
+
+    # Tables that exist and hold terms and references
+    TERMS_TABLE = "entity_terms"
+    REFERENCES_TABLE = "refs"
+
+    @pytest.fixture
+    def mock_state(self):
+        """Create a mock state object with a recording cursor."""
+        state = MagicMock()
+        state.db_client = MagicMock()
+        return state
+
+    @pytest.fixture
+    def cursor(self, mock_state):
+        """Mock cursor that records the SQL it is given."""
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = [1, 1]
+        mock_cursor.fetchall.return_value = []
+        mock_state.db_client.cursor.__enter__.return_value = mock_cursor
+        return mock_cursor
+
+    @pytest.fixture
+    def service(self, mock_state):
+        """Create service with mock state."""
+        from models.rest_api.entitybase.v1.services.general_stats_service import (
+            GeneralStatsService,
+        )
+
+        return GeneralStatsService(state=mock_state)
+
+    @staticmethod
+    def _sql(cursor):
+        """All SQL statements the cursor was asked to run."""
+        return [call.args[0] for call in cursor.execute.call_args_list]
+
+    def test_terms_deduplication_reads_the_term_ledger(
+        self, service, mock_state, cursor
+    ):
+        """Terms deduplication reads entity_terms, summing ref_count."""
+        service._get_terms_deduplication_stats()
+
+        sql = " ".join(self._sql(cursor))
+        assert f"FROM {self.TERMS_TABLE}" in sql
+        assert "SUM(ref_count)" in sql
+
+    def test_total_terms_reads_the_term_ledger(self, service, mock_state, cursor):
+        """Total terms reads entity_terms, summing ref_count."""
+        service.get_total_terms()
+
+        sql = " ".join(self._sql(cursor))
+        assert f"FROM {self.TERMS_TABLE}" in sql
+        assert "SUM(ref_count)" in sql
+
+    def test_terms_by_type_reads_the_term_ledger(self, service, mock_state, cursor):
+        """Terms by type groups the term ledger by term_type."""
+        service.get_terms_by_type()
+
+        sql = " ".join(self._sql(cursor))
+        assert f"FROM {self.TERMS_TABLE}" in sql
+        assert "GROUP BY term_type" in sql
+
+    def test_total_references_reads_the_refs_table(self, service, mock_state, cursor):
+        """References are counted from refs, not from a references table."""
+        service.get_total_references()
+
+        sql = " ".join(self._sql(cursor))
+        assert f"FROM {self.REFERENCES_TABLE}" in sql
+
+    def test_no_query_targets_a_table_that_does_not_exist(
+        self, service, mock_state, cursor
+    ):
+        """None of the stats queries may name a non-existent table."""
+        service.compute_deduplication_stats()
+        service.get_total_terms()
+        service.get_total_references()
+        service.get_terms_by_type()
+
+        missing = ("labels", "descriptions", "aliases", "references", "terms")
+        for statement in self._sql(cursor):
+            for table in missing:
+                assert not re.search(rf"\bFROM\s+{table}\b", statement), (
+                    f"{statement!r} reads the non-existent table {table!r}"
+                )

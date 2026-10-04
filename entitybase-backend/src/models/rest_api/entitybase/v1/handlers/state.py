@@ -275,13 +275,20 @@ class StateHandler(BaseModel):
 
     @property
     def property_registry(self) -> PropertyRegistry | None:
+        """Property registry, or None when none is configured.
+
+        RDF conversion falls back to an empty registry when this is None, so a
+        missing registry must not fail the request that asked for RDF.
+        """
         if self.cached_property_registry is None:
-            if self.property_registry_path is not None:
-                self.cached_property_registry = load_property_registry(
-                    self.settings.property_registry_path
+            path = self.property_registry_path
+            if path is None:
+                logger.warning(
+                    "No property registry available for RDF conversion; "
+                    "predicates will be emitted without property labels"
                 )
-            else:
-                raise_validation_error(message="No property registry path provided")
+                return None
+            self.cached_property_registry = load_property_registry(path)
         return self.cached_property_registry
 
     @property
@@ -337,10 +344,16 @@ class StateHandler(BaseModel):
 
     @property
     def property_registry_path(self) -> Path | None:
-        path_ = (
-            Path("test_data/properties")
-            if Path("test_data/properties").exists()
-            else None
-        )
+        # Configured via PROPERTY_REGISTRY_PATH; the local test data is used
+        # when running from a checkout. The API image ships no registry, so
+        # this is normally None.
+        path_ = self.settings.property_registry_path
+        if not path_.exists():
+            test_data_path = Path("test_data/properties")
+            if test_data_path.exists():
+                path_ = test_data_path
+            else:
+                logger.debug(f"Property registry path not found: {path_}")
+                return None
         logger.debug(f"Property registry path: {path_}")
         return path_
