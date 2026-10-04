@@ -5,6 +5,45 @@ from httpx import ASGITransport, AsyncClient
 
 sys.path.insert(0, "src")
 
+PASSWORD = "e2e-password"
+
+
+async def _registered_account(
+    client: AsyncClient, api_prefix: str, username: str
+) -> tuple[int, dict[str, str]]:
+    """Register an account and return its user id with auth headers.
+
+    Disabling a watchlist acts on one account's data, so it needs that
+    account's token; a bare X-User-ID header is not an identity.
+    """
+    response = await client.post(
+        f"{api_prefix}/auth/register",
+        json={"username": username, "password": PASSWORD},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    headers = {
+        "Authorization": f"Bearer {body['token']}",
+        "X-Edit-Summary": "test",
+    }
+    return int(body["user_id"]), headers
+
+
+async def _disable_watchlist(
+    client: AsyncClient, api_prefix: str, user_id: int, headers: dict[str, str]
+) -> None:
+    """Disable a watchlist, asserting that it took effect.
+
+    Without this assertion a rejected toggle leaves the watchlist enabled and
+    whatever depends on it being disabled fails somewhere else entirely.
+    """
+    response = await client.put(
+        f"{api_prefix}/users/{user_id}/watchlist/toggle",
+        json={"enabled": False},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
 
 @pytest.mark.asyncio
 @pytest.mark.integration
@@ -315,22 +354,15 @@ async def test_get_watchlist_user_disabled(
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        # Register user
-        await client.post(
-            f"{api_prefix}/users",
-            json={"user_id": 12345},
-            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        user_id, headers = await _registered_account(
+            client, api_prefix, "watchlist-get-disabled"
         )
 
         # Disable watchlist
-        await client.put(
-            f"{api_prefix}/users/12345/watchlist/toggle",
-            json={"enabled": False},
-            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
-        )
+        await _disable_watchlist(client, api_prefix, user_id, headers)
 
         # Try to get watchlist when disabled
-        response = await client.get(f"{api_prefix}/users/12345/watchlist")
+        response = await client.get(f"{api_prefix}/users/{user_id}/watchlist")
         assert response.status_code == 400
         assert "disabled" in response.json()["message"].lower()
 
@@ -344,25 +376,18 @@ async def test_add_watch_disabled_user(api_prefix: str, initialized_app: None) -
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        # Register user
-        await client.post(
-            f"{api_prefix}/users",
-            json={"user_id": 12345},
-            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        user_id, headers = await _registered_account(
+            client, api_prefix, "watchlist-add-disabled"
         )
 
         # Disable watchlist
-        await client.put(
-            f"{api_prefix}/users/12345/watchlist/toggle",
-            json={"enabled": False},
-            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
-        )
+        await _disable_watchlist(client, api_prefix, user_id, headers)
 
         # Try to add watch when disabled
         response = await client.post(
-            f"{api_prefix}/users/12345/watchlist",
+            f"{api_prefix}/users/{user_id}/watchlist",
             json={"entity_id": "Q42", "properties": ["P31"]},
-            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+            headers=headers,
         )
         assert response.status_code == 400
         assert "disabled" in response.json()["message"].lower()
@@ -379,21 +404,16 @@ async def test_get_notifications_disabled_user(
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        # Register user
-        await client.post(
-            f"{api_prefix}/users",
-            json={"user_id": 12345},
-            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
+        user_id, headers = await _registered_account(
+            client, api_prefix, "watchlist-notifications-disabled"
         )
 
         # Disable watchlist
-        await client.put(
-            f"{api_prefix}/users/12345/watchlist/toggle",
-            json={"enabled": False},
-            headers={"X-Edit-Summary": "test", "X-User-ID": "0"},
-        )
+        await _disable_watchlist(client, api_prefix, user_id, headers)
 
         # Try to get notifications when disabled
-        response = await client.get(f"{api_prefix}/users/12345/watchlist/notifications")
+        response = await client.get(
+            f"{api_prefix}/users/{user_id}/watchlist/notifications"
+        )
         assert response.status_code == 400
         assert "disabled" in response.json()["message"].lower()
