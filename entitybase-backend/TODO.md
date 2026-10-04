@@ -1,7 +1,5 @@
 # TODO
 
-- [ ] Add monitoring and metrics for worker health and range utilization
-- [ ] Fix todos in the codebase
 - [ ] Report terms per language in the stats service
   - `GeneralStatsService.get_terms_per_language()`
     (`src/models/rest_api/entitybase/v1/services/general_stats_service.py`) returns
