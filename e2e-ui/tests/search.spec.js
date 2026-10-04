@@ -1,53 +1,73 @@
 import { test, expect } from '@playwright/test'
 import { USER_ID } from './helpers.js'
 
-/**
- * Create an item with a unique label and return its ID and label.
- * Uniqueness matters: search is asynchronous, so an old entity with the same
- * label could satisfy the assertion before this one is indexed.
- */
-async function createItemWithLabel(request, label) {
-  const res = await request.post(`${process.env.API_URL || 'http://localhost:8083'}/v1/entities/items`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-User-ID': USER_ID,
-      'X-Edit-Summary': 'e2e search setup',
-    },
-    data: {
-      type: 'item',
-      labels: { en: { language: 'en', value: label } },
-      descriptions: { en: { language: 'en', value: 'Created for the search e2e test' } },
-      aliases: { en: [{ language: 'en', value: `${label} alias` }] },
-    },
-  })
+const API_URL = process.env.API_URL || 'http://localhost:8083'
+
+const EDIT_HEADERS = {
+  'Content-Type': 'application/json',
+  'X-User-ID': USER_ID,
+  'X-Edit-Summary': 'e2e search setup',
+}
+
+function edit(request, path, method, data) {
+  return request.fetch(`${API_URL}${path}`, { method, headers: EDIT_HEADERS, data })
+}
+
+async function createEntity(request, kind) {
+  const res = await edit(request, `/v1/entities/${kind}`, 'POST')
   expect(res.ok()).toBeTruthy()
   const body = await res.json()
-  const entityId = body.data?.entity_id ?? body.entity_id
+  return body.data?.entity_id ?? body.entity_id
+}
+
+async function setLabel(request, entityId, value) {
+  const res = await edit(request, `/v1/entities/${entityId}/labels/en`, 'PUT', {
+    language: 'en',
+    value,
+  })
+  expect(res.ok()).toBeTruthy()
+}
+
+async function setDescription(request, entityId, value) {
+  const res = await edit(request, `/v1/entities/${entityId}/descriptions/en`, 'PUT', {
+    language: 'en',
+    value,
+  })
+  expect(res.ok()).toBeTruthy()
+}
+
+async function setAliases(request, entityId, values) {
+  const res = await edit(
+    request,
+    `/v1/entities/${entityId}/aliases/en`,
+    'PUT',
+    values.map((value) => ({ language: 'en', value }))
+  )
+  expect(res.ok()).toBeTruthy()
+}
+
+/**
+ * Create an item with a unique label and return its ID.
+ *
+ * The create endpoints make an *empty* entity, so the terms are set with one
+ * request each afterwards - which is also what gets them into the search
+ * index. Uniqueness matters: search is asynchronous, so an older entity with
+ * the same label could satisfy an assertion before this one is indexed.
+ */
+async function createItemWithLabel(request, label, { description = '', aliases = [] } = {}) {
+  const entityId = await createEntity(request, 'items')
   expect(entityId).toMatch(/^Q\d+$/)
-  return { entityId, label }
+  await setLabel(request, entityId, label)
+  if (description) await setDescription(request, entityId, description)
+  if (aliases.length) await setAliases(request, entityId, aliases)
+  return entityId
 }
 
 async function createPropertyWithLabel(request, label) {
-  const res = await request.post(
-    `${process.env.API_URL || 'http://localhost:8083'}/v1/entities/properties`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-ID': USER_ID,
-        'X-Edit-Summary': 'e2e search setup',
-      },
-      data: {
-        type: 'property',
-        datatype: 'wikibase-item',
-        labels: { en: { language: 'en', value: label } },
-      },
-    }
-  )
-  expect(res.ok()).toBeTruthy()
-  const body = await res.json()
-  const entityId = body.data?.entity_id ?? body.entity_id
+  const entityId = await createEntity(request, 'properties')
   expect(entityId).toMatch(/^P\d+$/)
-  return { entityId, label }
+  await setLabel(request, entityId, label)
+  return entityId
 }
 
 async function search(page, term) {
@@ -67,7 +87,9 @@ test('search page is reachable from the menu and hints what can be searched', as
 
 test('a created item turns up in search and links to its page', async ({ page, request }) => {
   const label = `E2E Searchable ${Date.now()}`
-  const { entityId } = await createItemWithLabel(request, label)
+  const entityId = await createItemWithLabel(request, label, {
+    description: 'Created for the search e2e test',
+  })
 
   await page.goto('/search')
   await search(page, label)
@@ -90,7 +112,7 @@ test('a created item turns up in search and links to its page', async ({ page, r
 
 test('a created property is found on the properties tab', async ({ page, request }) => {
   const label = `E2E Search Property ${Date.now()}`
-  const { entityId } = await createPropertyWithLabel(request, label)
+  const entityId = await createPropertyWithLabel(request, label)
 
   await page.goto('/search')
   await page.getByTestId('search-type-property').click()
@@ -106,7 +128,7 @@ test('a created property is found on the properties tab', async ({ page, request
 test('an alias is searchable too', async ({ page, request }) => {
   const label = `E2E Alias Source ${Date.now()}`
   const alias = `${label} alternative`
-  const { entityId } = await createItemWithLabel(request, label)
+  const entityId = await createItemWithLabel(request, label, { aliases: [alias] })
 
   await page.goto('/search')
   await search(page, alias)
