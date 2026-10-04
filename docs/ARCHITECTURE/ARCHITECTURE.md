@@ -145,6 +145,11 @@ flowchart TB
 #### ID Generation
 - **EnumerationService**: Range-based ID allocation
 
+#### Search
+- **MeilisearchClient**: Query the entity search index (searchable: label, aliases, description; filterable: entity type)
+- **transformer (meilisearch)**: Build the indexed document from a revision, resolving its content-addressed terms
+- **MeilisearchIndexerWorker**: Keeps the index in step with the database (see Background Workers)
+
 ### 3. Repository Layer
 
 #### Metadata and Indexing Repositories
@@ -197,7 +202,8 @@ deployment that sets its `*_enabled` flag.
 | `backlink_statistics_worker` | Computes backlink statistics for entities | Daily 2 AM |
 | `user_stats_worker` | Computes daily user statistics | Daily 2 AM |
 | `general_stats_worker` | Computes daily general wiki statistics | Daily 2 AM |
-| `elasticsearch_indexer_worker` | Indexes entities into Elasticsearch | On entity change events |
+| `meilisearch_indexer_worker` | Indexes entities into the Meilisearch search index | On entity change events, plus a backfill on startup |
+| `elasticsearch_indexer_worker` | Indexes entities into Elasticsearch (dormant) | On entity change events |
 
 The backend keeps only what the workers share: the `Worker` base classes and the
 dump types in `entitybase-backend/src/models/workers/`, plus the development CLI

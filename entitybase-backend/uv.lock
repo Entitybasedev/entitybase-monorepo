@@ -346,6 +346,20 @@ wheels = [
 ]
 
 [[package]]
+name = "camel-converter"
+version = "5.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/fb/58f39ce79ec56e480ac86e4c6a7758d2ee7503c7e9c6f91f535dcbae81da/camel_converter-5.1.1.tar.gz", hash = "sha256:fd601b343695025e9d4ec316845d1fe6011cd2ded763397032feb1ef74855b7e", size = 50295, upload-time = "2026-08-25T01:03:26.402Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c9/9f/fcfe35d042eb4405d158aaba613dc712f18350c5e6ea3e2376c8a8dcbe10/camel_converter-5.1.1-py3-none-any.whl", hash = "sha256:7cf028484efd7cf0200a05812307e97e83f161af256552e8dfe5833150bab21c", size = 6968, upload-time = "2026-08-25T01:03:25.416Z" },
+]
+
+[package.optional-dependencies]
+pydantic = [
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -722,6 +736,7 @@ dependencies = [
     { name = "boto3" },
     { name = "fastapi" },
     { name = "jsonschema" },
+    { name = "meilisearch" },
     { name = "mypy-boto3-s3" },
     { name = "opensearch-py" },
     { name = "pydantic" },
@@ -797,6 +812,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.43.79,<2.0.0" },
     { name = "fastapi", specifier = ">=0.141.1,<1.0.0" },
     { name = "jsonschema", specifier = ">=4.26.0,<5.0.0" },
+    { name = "meilisearch", specifier = ">=0.40.0,<0.41.0" },
     { name = "mypy-boto3-s3", specifier = ">=1.43.66,<2.0.0" },
     { name = "opensearch-py", specifier = ">=3.2.0,<4.0.0" },
     { name = "pydantic", specifier = ">=2.13.4,<3.0.0" },
@@ -1427,6 +1443,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
+]
+
+[[package]]
+name = "meilisearch"
+version = "0.40.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "camel-converter", extra = ["pydantic"] },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/10/94/b69c53be760d49d38a3e933aabcc506e48938fc1834c32cbf23a8b795a33/meilisearch-0.40.0.tar.gz", hash = "sha256:4348ea6e4bacb4b1391b9b577956a03090ff9327d6ebcddcf479f39b2d4b5b05", size = 31259, upload-time = "2026-01-15T06:29:18.305Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/76/06/0f29c374f7fa14ad8843eb458e258dacc215e584c0d77523b7e7cf23c24b/meilisearch-0.40.0-py3-none-any.whl", hash = "sha256:ae7378e448f01116f4fcbd0029f5383a2b17ed971ba2241c631408c45c86ce9d", size = 31776, upload-time = "2026-01-15T06:29:15.851Z" },
 ]
 
 [[package]]

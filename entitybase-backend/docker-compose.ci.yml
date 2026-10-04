@@ -65,6 +65,23 @@ services:
     mem_limit: "1.5g"
     cpus: "1.0"
 
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: meilisearch
+    environment:
+      # No master key: the stack runs without search auth. Set
+      # MEILI_MASTER_KEY and MEILISEARCH_API_KEY for a protected instance.
+      MEILI_ENV: development
+    ports:
+      - "7700:7700"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+    cpus: 0.5
+
   api:
     build:
       context: .
@@ -110,6 +127,10 @@ services:
       ENVIRONMENT: "dev"
       USER_AGENT: "Entitybase/1.0 User:So9q"
       CI: "true"
+      MEILISEARCH_ENABLED: "true"
+      MEILISEARCH_HOST: meilisearch
+      MEILISEARCH_PORT: "7700"
+      MEILISEARCH_INDEX: entitybase
     command: uvicorn models.rest_api.main:app --host 0.0.0.0 --port 8000
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8000/health"]
@@ -119,6 +140,48 @@ services:
       start_period: 10s
     mem_limit: 1g
     cpus: 1.0
+
+  meilisearch-indexer-worker:
+    build:
+      context: ..
+      dockerfile: meilisearch_indexer_worker/Dockerfile
+    container_name: meilisearch-indexer-worker
+    ports:
+      - "8009:8009"
+    environment:
+      WORKER_ID: meilisearch_indexer_worker_1
+      MEILISEARCH_ENABLED: "true"
+      MEILISEARCH_HOST: meilisearch
+      MEILISEARCH_PORT: "7700"
+      MEILISEARCH_INDEX: entitybase
+      MEILISEARCH_CONSUMER_GROUP: entitybase-meilisearch-indexer
+      # The index starts empty: index what already exists before following
+      # the change stream, so search works right after startup
+      MEILISEARCH_REINDEX_ON_START: "true"
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: entitybase
+      DB_USER: root
+      DB_PASSWORD: ""
+      STREAMING_ENABLED: "true"
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_ENTITY_CHANGE_TOPIC: entity_change
+      LOG_LEVEL: "INFO"
+      CI: "true"
+    depends_on:
+      api:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    command: ["python", "-m", "meilisearch_indexer_worker"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8009/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 512m
+    cpus: 0.5
 
 volumes:
   redpanda-data: {}

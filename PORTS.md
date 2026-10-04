@@ -30,10 +30,8 @@ Host Port → Container Port (Service Name)
 
 | Host Port | Container Port | Service | Description |
 |-----------|----------------|---------|-------------|
-| 9200 | 9200 | elasticsearch | Search engine |
-| 9201 | 8080 | elasticsearch-health | ES health proxy |
-| 7700 | 7700 | meilisearch | Full-text search |
-| 7701 | 8080 | meilisearch-health | Meilisearch health proxy |
+| 7700 | 7700 | meilisearch | Entity search index |
+| 8009 | 8009 | meilisearch-indexer-worker | Keeps the index in step with the database |
 
 ## Mock servers (development only)
 

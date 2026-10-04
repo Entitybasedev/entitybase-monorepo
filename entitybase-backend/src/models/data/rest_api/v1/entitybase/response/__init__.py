@@ -68,6 +68,7 @@ from .qualifiers import (
     SnakResponse,
 )
 from .references import ReferenceResponse
+from .search import SearchHit, SearchResponse
 from .sitelinks import (
     AllSitelinksResponse,
     BatchSitelinksResponse,
@@ -180,6 +181,8 @@ __all__ = [
     "EntityHistoryEntry",
     "EntityJsonImportResponse",
     "EntityJsonResponse",
+    "SearchHit",
+    "SearchResponse",
     "EntityLabelsResponse",
     "EntityListing",
     "EntityListItem",

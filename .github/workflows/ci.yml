@@ -29,6 +29,7 @@ jobs:
           - incremental_rdf_worker
           - notification_cleanup_worker
           - watchlist_consumer_worker
+          - meilisearch_indexer_worker
     defaults:
       run:
         working-directory: ${{ matrix.worker }}
@@ -262,11 +263,12 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           docker compose -f entitybase-backend/docker-compose.ci.yml build api
+          docker compose -f entitybase-backend/docker-compose.ci.yml build meilisearch-indexer-worker
       - name: Start backend stack
         working-directory: ${{ github.workspace }}
         run: |
           docker compose -f entitybase-backend/docker-compose.ci.yml up -d \
-            mysql rustfs redpanda api
+            mysql rustfs redpanda meilisearch api meilisearch-indexer-worker
 
       - name: Wait for MySQL
         timeout-minutes: 2
@@ -280,6 +282,13 @@ jobs:
         run: |
           until curl -f http://localhost:9000/health; do
             echo "Waiting for RustFS..."; sleep 2
+          done
+      - name: Wait for Meilisearch
+        timeout-minutes: 2
+        working-directory: ${{ github.workspace }}
+        run: |
+          until curl -f http://localhost:7700/health; do
+            echo "Waiting for Meilisearch..."; sleep 2
           done
       - name: Create S3 bucket
         working-directory: ${{ github.workspace }}

@@ -205,6 +205,19 @@ export async function getUserList(limit = 10, offset = 0) {
   return unwrap(res, 'GET user list')
 }
 
+// --- Search ---
+
+export async function searchEntities(query, { type = '', limit = 20, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    q: query,
+    limit: String(limit),
+    offset: String(offset),
+  })
+  if (type) params.set('type', type)
+  const res = await fetch(`${BASE}/v1/search?${params}`)
+  return unwrap(res, 'GET search')
+}
+
 // --- Entity list ---
 
 export async function getEntityList(entityType, limit = 10, offset = 0) {

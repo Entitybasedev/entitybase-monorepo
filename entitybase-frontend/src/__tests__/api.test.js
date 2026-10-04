@@ -13,6 +13,7 @@ import {
   postProperty,
   postStatement,
   putLabel,
+  searchEntities,
 } from '../api.js'
 import { login, logout } from '../auth.js'
 
@@ -339,5 +340,39 @@ describe('getEntityTerms', () => {
       description: '',
       aliases: [],
     })
+  })
+})
+
+describe('searchEntities', () => {
+  it('GETs the search endpoint with the query and paging', async () => {
+    const body = { hits: [{ entity_id: 'Q42' }], estimated_total_hits: 1 }
+    fetchMock.mockResolvedValue(jsonResponse(body))
+
+    expect(await searchEntities('douglas', { limit: 5, offset: 10 })).toEqual(body)
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/search?q=douglas&limit=5&offset=10')
+  })
+
+  it('searches every type when no type is given', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ hits: [] }))
+
+    await searchEntities('douglas')
+
+    expect(fetchMock.mock.calls[0][0]).not.toContain('type=')
+  })
+
+  it('passes the entity type filter on', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ hits: [] }))
+
+    await searchEntities('douglas', { type: 'lexeme' })
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/search?q=douglas&limit=20&offset=0&type=lexeme')
+  })
+
+  it('encodes the query', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ hits: [] }))
+
+    await searchEntities('douglas adams & co')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('q=douglas+adams+%26+co')
   })
 })

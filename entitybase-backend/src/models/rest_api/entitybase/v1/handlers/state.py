@@ -13,6 +13,7 @@ from models.data.config.sqlite import SqliteConfig
 from models.data.config.stream import StreamConfig
 from models.data.config.mysql import MysqlConfig
 from models.infrastructure.s3.client import MyS3Client
+from models.services.meilisearch import MeilisearchClient
 from models.infrastructure.stream.producer import StreamProducerClient
 from models.infrastructure.db.client import MysqlClient
 from models.infrastructure.db.repositories.revision_data import RevisionDataRepository
@@ -50,6 +51,9 @@ class StateHandler(BaseModel):
         default=None, exclude=True
     )
     cached_user_change_stream_producer: StreamProducerClient | None = Field(
+        default=None, exclude=True
+    )
+    cached_meilisearch_client: MeilisearchClient | None = Field(
         default=None, exclude=True
     )
 
@@ -138,6 +142,29 @@ class StateHandler(BaseModel):
             )
             logger.debug("=== s3_client property: MyS3Client created ===")
         return self.cached_s3_client
+
+    @property
+    def meilisearch_client(self) -> MeilisearchClient:
+        """Get or create a cached MeilisearchClient.
+
+        Search is optional: when Meilisearch is not enabled or unreachable the
+        client stays unconnected and callers report it, rather than the API
+        failing to serve anything else.
+        """
+        if self.cached_meilisearch_client is None:
+            self.cached_meilisearch_client = MeilisearchClient(
+                host=self.settings.meilisearch_host,
+                port=self.settings.meilisearch_port,
+                api_key=self.settings.meilisearch_api_key,
+                index_name=self.settings.meilisearch_index,
+            )
+            self.cached_meilisearch_client.connect()
+        return self.cached_meilisearch_client
+
+    @property
+    def search_enabled(self) -> bool:
+        """Whether search is configured for this instance."""
+        return self.settings.meilisearch_enabled
 
     def read_revision_data(self, entity_id: str, revision_id: int) -> Any:
         """Read revision data from MariaDB.

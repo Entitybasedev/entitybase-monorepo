@@ -17,6 +17,16 @@
         <li class="nav-item">
           <router-link
             class="nav-link"
+            :class="{ active: isActive('/search') }"
+            data-testid="nav-search"
+            to="/search"
+          >
+            Search
+          </router-link>
+        </li>
+        <li class="nav-item">
+          <router-link
+            class="nav-link"
             :class="{ active: isActive('/list-users') }"
             data-testid="nav-users"
             to="/list-users"

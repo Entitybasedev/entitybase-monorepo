@@ -125,6 +125,34 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# --- meilisearch ---
+start_check "meilisearch"
+if is_running meilisearch; then
+    ANY_RUNNING=1
+    if timeout 10 curl -sf http://localhost:7700/health > /dev/null 2>&1; then
+        report healthy
+    else
+        fail "meilisearch" "health endpoint not responding on :7700"
+    fi
+else
+    report "meilisearch" not-running
+    FAILURES=$((FAILURES + 1))
+fi
+
+# --- meilisearch-indexer-worker ---
+start_check "meilisearch-indexer-worker"
+if is_running meilisearch-indexer-worker; then
+    ANY_RUNNING=1
+    if timeout 10 curl -sf http://localhost:8009/health > /dev/null 2>&1; then
+        report running
+    else
+        fail "meilisearch-indexer-worker" "not responding on :8009"
+    fi
+else
+    report "meilisearch-indexer-worker" not-running
+    FAILURES=$((FAILURES + 1))
+fi
+
 # --- entitybase-frontend ---
 start_check "entitybase-frontend"
 if is_running entitybase-frontend; then
@@ -140,7 +168,7 @@ else
 fi
 
 echo ""
-TOTAL=6
+TOTAL=8
 HEALTHY=$((TOTAL - FAILURES))
 if [ "$FAILURES" -eq 0 ]; then
     echo "${GREEN}${HEALTHY}/${TOTAL} healthy${RESET}"

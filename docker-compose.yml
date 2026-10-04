@@ -77,6 +77,23 @@ services:
     volumes:
       - ${VOLUMES_PATH}/redpanda-data:/var/lib/redpanda/data
 
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: meilisearch
+    environment:
+      # No master key: the stack runs without search auth. Set
+      # MEILI_MASTER_KEY and MEILISEARCH_API_KEY for a protected instance.
+      MEILI_ENV: development
+    ports:
+      - "7700:7700"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - entitybase-network
+
   entitybase-api:
     container_name: entitybase-api
     image: entitybase-api:latest
@@ -99,8 +116,15 @@ services:
       # Import a small demo dataset (1 item, 1 property, 1 lexeme) when the
       # instance is empty, so a fresh demo stack is not blank
       - DEMO_SEED_ENABLED=${DEMO_SEED_ENABLED:-true}
+      # Search: the API reads the Meilisearch index the indexer worker writes
+      - MEILISEARCH_ENABLED=true
+      - MEILISEARCH_HOST=meilisearch
+      - MEILISEARCH_PORT=7700
+      - MEILISEARCH_INDEX=entitybase
     depends_on:
       mysql:
+        condition: service_healthy
+      meilisearch:
         condition: service_healthy
     # Long start_period needed to initialize redpanda producers when STREAMING_ENABLED=true
     healthcheck:
@@ -161,6 +185,51 @@ services:
       start_period: 30s
     mem_limit: 512m
     cpus: 0.5
+    networks:
+      - entitybase-network
+
+  meilisearch-indexer-worker:
+    container_name: meilisearch-indexer-worker
+    build:
+      context: .
+      dockerfile: meilisearch_indexer_worker/Dockerfile
+    ports:
+      - "8009:8009"
+    environment:
+      - MEILISEARCH_ENABLED=true
+      - MEILISEARCH_HOST=meilisearch
+      - MEILISEARCH_PORT=7700
+      - MEILISEARCH_INDEX=entitybase
+      - MEILISEARCH_CONSUMER_GROUP=entitybase-meilisearch-indexer
+      # The index starts empty: index what already exists before following the
+      # change stream, so search works right after startup
+      - MEILISEARCH_REINDEX_ON_START=true
+      - DB_TYPE=mariadb
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=entitybase
+      - DB_USER=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-}
+      - STREAMING_ENABLED=true
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_ENTITY_CHANGE_TOPIC=${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      entitybase-api:
+        condition: service_started
+      meilisearch:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8009/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 512m
+    cpus: 0.5
+    restart: unless-stopped
     networks:
       - entitybase-network
 

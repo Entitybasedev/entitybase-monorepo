@@ -12,6 +12,7 @@ import CreatePropertyView from './views/CreatePropertyView.vue'
 import CreateLexemeView from './views/CreateLexemeView.vue'
 import LoginView from './views/LoginView.vue'
 import RecentChangesView from './views/RecentChangesView.vue'
+import SearchView from './views/SearchView.vue'
 import RegisterView from './views/RegisterView.vue'
 import SettingsView from './views/SettingsView.vue'
 import StatisticsView from './views/StatisticsView.vue'
@@ -32,6 +33,7 @@ const router = createRouter({
       component: EntitiesView,
     },
     { path: '/list', name: 'list', component: EntityListView },
+    { path: '/search', name: 'search', component: SearchView },
     { path: '/list-users', name: 'list-users', component: UserListView },
     {
       path: '/:entityId([QPLE]\\d+)/history',

@@ -1,0 +1,34 @@
+[project]
+name = "meilisearch-indexer-worker"
+version = "0.1.0"
+description = "Keeps the Meilisearch entity index in step with the database."
+authors = [{name = "Entitybase Team"}]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "entitybase-backend",
+]
+
+[tool.uv.sources]
+# The worker shares the backend's data layer for now; it reads revisions and
+# terms straight from MariaDB and does not import the API.
+entitybase-backend = { path = "../entitybase-backend" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/meilisearch_indexer_worker"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "../entitybase-backend/src"]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "unit: unit tests",
+    "integration: tests that need a running database",
+]

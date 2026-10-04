@@ -150,6 +150,14 @@ class Settings(BaseModel):
     elasticsearch_verify_certs: bool = True
     elasticsearch_consumer_group: str = "entitybase-elasticsearch-indexer"
 
+    # Meilisearch (entity search): API reads the index, the indexer worker writes it
+    meilisearch_enabled: bool = False
+    meilisearch_host: str = "localhost"
+    meilisearch_port: int = 7700
+    meilisearch_api_key: str = ""
+    meilisearch_index: str = "entitybase"
+    meilisearch_consumer_group: str = "entitybase-meilisearch-indexer"
+
     def model_post_init(self, context: Any) -> None:
         """Initialize all fields from environment variables.
 
@@ -360,6 +368,23 @@ class Settings(BaseModel):
         )
         self.elasticsearch_consumer_group = os.getenv(
             "ELASTICSEARCH_CONSUMER_GROUP", self.elasticsearch_consumer_group
+        )
+        self.meilisearch_enabled = (
+            os.getenv("MEILISEARCH_ENABLED", str(self.meilisearch_enabled)).lower()
+            == "true"
+        )
+        self.meilisearch_host = os.getenv("MEILISEARCH_HOST", self.meilisearch_host)
+        self.meilisearch_port = int(
+            os.getenv("MEILISEARCH_PORT", str(self.meilisearch_port))
+        )
+        self.meilisearch_api_key = os.getenv(
+            "MEILISEARCH_API_KEY", self.meilisearch_api_key
+        )
+        self.meilisearch_index = os.getenv(
+            "MEILISEARCH_INDEX", self.meilisearch_index
+        )
+        self.meilisearch_consumer_group = os.getenv(
+            "MEILISEARCH_CONSUMER_GROUP", self.meilisearch_consumer_group
         )
         logger.debug(
             f"Workers config loaded: backlink_stats_enabled={self.backlink_stats_enabled}, "

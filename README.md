@@ -52,7 +52,7 @@ as Server-Sent Events to the frontend's **Change stream** tab.
 | `entitybase-frontend/` | Vue SPA: entities + change stream tabs |
 | `kafka2sse-backend/` | SSE change-stream backend (Kafka → SSE) |
 | `e2e-ui/` | Playwright e2e tests |
-| `*_worker/` | Background workers, one project each (JSON/TTL dumps, entity diff, watchlist, stats). They talk to the database directly and are disabled by default |
+| `*_worker/` | Background workers, one project each (JSON/TTL dumps, entity diff, watchlist, stats, Meilisearch indexer). They talk to the database directly and are disabled by default |
 | `scripts/` | Build, health check and dev mock helpers |
 
 ## Quick Start

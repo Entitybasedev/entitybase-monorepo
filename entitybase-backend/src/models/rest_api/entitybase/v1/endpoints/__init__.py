@@ -16,6 +16,7 @@ from . import (
     properties,
     property_hashes,
     redirects,
+    search,
     statements,
     stats,
     watchlist,
@@ -49,5 +50,6 @@ v1_router.include_router(statements.router, tags=["statements"])
 v1_router.include_router(redirects.redirects_router, tags=["redirects"])
 v1_router.include_router(watchlist.watchlist_router, tags=["watchlist"])
 v1_router.include_router(stats.stats_router, tags=["statistics"])
+v1_router.include_router(search.router, tags=["search"])
 v1_router.include_router(property_hashes.property_hashes_router, tags=["properties"])
 v1_router.include_router(json_import.import_router, tags=["import"])

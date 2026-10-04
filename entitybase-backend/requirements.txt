@@ -31,6 +31,8 @@ botocore==1.43.103
     #   s3transfer
 cachetools==7.2.0
     # via pyld
+camel-converter==5.1.1
+    # via meilisearch
 certifi==2026.7.22
     # via
     #   opensearch-py
@@ -68,6 +70,8 @@ jsonschema-specifications==2025.9.1
     # via jsonschema
 lxml==6.1.3
     # via pyld
+meilisearch==0.40.0
+    # via entitybase-backend
 multidict==6.9.1
     # via
     #   aiohttp
@@ -95,6 +99,7 @@ protobuf==7.36.2
     # via opensearch-protobufs
 pydantic==2.13.5
     # via
+    #   camel-converter
     #   entitybase-backend
     #   fastapi
     #   pydantic-settings
@@ -129,6 +134,7 @@ referencing==0.37.0
 requests==2.34.2
     # via
     #   entitybase-backend
+    #   meilisearch
     #   mwoauth
     #   opensearch-py
     #   requests-oauthlib
