@@ -403,6 +403,19 @@ jobs:
             rpk topic consume entity_change --offset-start 0 2>/dev/null || \
           timeout 30 docker compose -f ../entitybase-backend/docker-compose.ci.yml exec -T redpanda \
             rpk topic consume entity_change -o 0 || true
+      - name: Show search stack logs on failure
+        if: failure()
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "=== meilisearch-indexer-worker ==="
+          docker compose -f entitybase-backend/docker-compose.ci.yml logs --tail=200 \
+            meilisearch-indexer-worker || true
+          echo "=== meilisearch ==="
+          docker compose -f entitybase-backend/docker-compose.ci.yml logs --tail=50 meilisearch || true
+          echo "=== indexed documents ==="
+          curl -sf "http://localhost:7700/indexes/entitybase/stats" || echo "no index yet"
+          echo
+          curl -sf "http://localhost:7700/indexes/entitybase/documents?limit=5" || true
       - name: Check frontend links
         if: always()
         working-directory: ${{ github.workspace }}

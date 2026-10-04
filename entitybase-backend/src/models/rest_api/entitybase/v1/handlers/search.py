@@ -6,6 +6,7 @@ the handler says so instead of failing the request silently.
 """
 
 import logging
+from typing import cast
 
 from models.data.infrastructure.meilisearch import MeilisearchDocumentResponse
 from models.data.infrastructure.s3.enums import MetadataType
@@ -148,7 +149,7 @@ class SearchHandler(Handler):
 
     def _connected_client(self) -> MeilisearchClient:
         """Get the Meilisearch client, or report search as unavailable."""
-        client = self.state.meilisearch_client
+        client = cast(MeilisearchClient, self.state.meilisearch_client)
         if client.index is None:
             raise_validation_error(
                 "Search is not available: Meilisearch is not reachable",

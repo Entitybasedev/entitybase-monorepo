@@ -183,14 +183,35 @@ class TestProcessMessage:
 
         assert worker.search_client.index_document.call_args.args[1].lastrevid == 9
 
-    async def test_removes_a_deletion(self, worker: MeilisearchIndexerWorker) -> None:
+    @pytest.mark.parametrize("change_type", ["soft_delete", "hard_delete"])
+    async def test_removes_a_deletion(
+        self, worker: MeilisearchIndexerWorker, change_type: str
+    ) -> None:
         """A delete event removes the document instead of indexing it."""
         await worker.process_message(
-            MagicMock(entity_id="Q42", revision_id=9, change_type="delete")
+            MagicMock(entity_id="Q42", revision_id=9, change_type=change_type)
         )
 
         worker.search_client.delete_document.assert_called_once_with("Q42")
         worker.search_client.index_document.assert_not_called()
+
+    @pytest.mark.parametrize("change_type", ["creation", "edit", "lock"])
+    async def test_indexes_other_change_types(
+        self, worker: MeilisearchIndexerWorker, change_type: str
+    ) -> None:
+        """Every change that is not a deletion keeps the entity indexed."""
+        await worker.process_message(
+            MagicMock(entity_id="Q42", revision_id=9, change_type=change_type)
+        )
+
+        assert indexed_ids(worker) == ["Q42"]
+        worker.search_client.delete_document.assert_not_called()
+
+    async def test_survives_a_broken_event(
+        self, worker: MeilisearchIndexerWorker
+    ) -> None:
+        """An event that cannot be handled does not raise."""
+        await worker.process_message(MagicMock(side_effect=RuntimeError("no entity_id")))
 
     async def test_skips_events_without_an_entity(
         self, worker: MeilisearchIndexerWorker

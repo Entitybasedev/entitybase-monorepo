@@ -40,6 +40,12 @@ logger = logging.getLogger(__name__)
 ENTITY_TYPES = ["item", "property", "lexeme"]
 HEALTH_PORT = 8009
 
+# How long to wait before reconnecting to the entity change stream
+CONSUMER_RETRY_SECONDS = 5
+
+# Change types that mean the entity is gone and must leave the index
+DELETE_CHANGE_TYPES = ["soft_delete", "hard_delete"]
+
 
 class MeilisearchIndexerWorker(Worker):
     """Indexes entity changes into Meilisearch."""
@@ -136,26 +142,43 @@ class MeilisearchIndexerWorker(Worker):
         )
 
     async def run(self) -> None:
-        """Consume entity changes and index them, until stopped."""
+        """Consume entity changes and index them, until stopped.
+
+        The stream is the worker's lifeline: if consuming breaks, the worker
+        reconnects and carries on instead of sitting there healthy but blind.
+        """
         if self.consumer is None:
             logger.warning("No consumer, nothing to do")
             return
 
-        async for event in self.consumer.consume_events():
-            await self.process_message(event)
+        while self.running:
+            try:
+                async for event in self.consumer.consume_events():
+                    await self.process_message(event)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error(f"Entity change stream broke, retrying: {e}")
+                await asyncio.sleep(CONSUMER_RETRY_SECONDS)
 
     async def process_message(self, message: EntityChangeEventData) -> None:
         """Index or remove one entity, based on the change it describes."""
-        entity_id = message.entity_id
-        if not entity_id:
-            logger.warning(f"Skipping event without an entity ID: {message}")
-            return
+        try:
+            entity_id = message.entity_id
+            if not entity_id:
+                logger.warning(f"Skipping event without an entity ID: {message}")
+                return
 
-        if message.change_type == "delete":
-            self.delete_entity(entity_id)
-            return
+            if message.change_type in DELETE_CHANGE_TYPES:
+                self.delete_entity(entity_id)
+                return
 
-        self.index_entity(entity_id, message.revision_id)
+            self.index_entity(entity_id, message.revision_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            # One bad event must not cost us the rest of the stream
+            logger.error(f"Could not handle {message}: {e}")
 
     def index_entity(self, entity_id: str, revision_id: int = 0) -> bool:
         """Index one entity from its stored revision.
