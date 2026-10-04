@@ -199,7 +199,7 @@ class EntityUpdateTermsMixin(BaseModel):
             await tx.publish_event(event_context, edit_context)
 
             if context.edit_headers.x_user_id:
-                activity_result = await (
+                activity_result = (
                     self.state.db_client.user_repository.log_user_activity(
                         user_id=context.edit_headers.x_user_id,
                         activity_type=UserActivityType.ENTITY_EDIT,
@@ -269,7 +269,7 @@ class EntityUpdateTermsMixin(BaseModel):
             await tx.publish_event(event_context, edit_context)
 
             if context.edit_headers.x_user_id:
-                activity_result = await (
+                activity_result = (
                     self.state.db_client.user_repository.log_user_activity(
                         user_id=context.edit_headers.x_user_id,
                         activity_type=UserActivityType.ENTITY_EDIT,
