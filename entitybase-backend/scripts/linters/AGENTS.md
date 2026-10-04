@@ -147,13 +147,20 @@ EXCLUDED_FILES = {
 Allowlist files live in `config/linters/allowlists/custom/<linter-name>.txt`:
 
 ```
-# Line-specific (with tolerance of ±2 lines)
-src/models/api/response.py:42
+# Function-specific (preferred: survives edits above the function)
+src/models/rest_api/main.py::get_openapi
+src/models/api/response.py::serialize
+
+# Line-specific (with tolerance of ±2 lines; goes stale as the file grows)
 src/models/api/request.py:15
 
 # File-wide (entire file excluded)
 src/models/internal/legacy.py
 ```
+
+Prefer naming the function. A line-number entry breaks as soon as anything
+above it is edited, and the failure then points at a function nobody touched,
+which is confusing and easy to "fix" by loosening the rule instead.
 
 ### Loading Allowlist
 
@@ -173,14 +180,28 @@ def load_allowlist() -> set:
 
 ### Using Allowlist
 
-```python
-from allowlist_utils import is_line_allowed
+Use `is_node_allowed()` in new linters. It accepts both entry styles, so an
+allowlist can be migrated from line numbers to function names one entry at a
+time:
 
-if is_line_allowed(self.file_path, node.lineno, self.allowlist):
+```python
+from allowlist_utils import is_node_allowed
+
+if is_node_allowed(self.file_path, node, self.allowlist):
     return  # Skip this violation
 ```
 
-The `is_line_allowed()` function has a default tolerance of ±2 lines to handle minor code changes.
+`is_node_allowed()` checks for a `file.py::function_name` entry first and falls
+back to `is_line_allowed()`, which has a default tolerance of ±2 lines. Use
+`is_line_allowed()` directly only if the check is not about a function
+definition.
+
+When reporting a fix for a violation, suggest the function form so the entry
+does not go stale:
+
+```python
+print(f"{file_path}::{func_name}")
+```
 
 ## Full Template
 

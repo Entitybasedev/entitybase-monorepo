@@ -10,7 +10,7 @@ from typing import List, Tuple
 
 sys.path.append(str(Path(__file__).parent.resolve()))
 
-from allowlist_utils import is_line_allowed
+from allowlist_utils import FUNCTION_SEPARATOR, is_node_allowed
 
 
 class DictReturnChecker(ast.NodeVisitor):
@@ -34,7 +34,7 @@ class DictReturnChecker(ast.NodeVisitor):
         if node.returns:
             return_annotation = self._get_annotation_string(node.returns)
             if self._is_dict_annotation(return_annotation):
-                if is_line_allowed(self.file_path, node.lineno, self.allowlist):
+                if is_node_allowed(self.file_path, node, self.allowlist):
                     return
                 func_name = node.name
                 self.violations.append(
@@ -133,7 +133,9 @@ def main() -> None:
         allowlist_entries = []
         for func_name, line_no, message, file_path in violations:
             print(f"{file_path}:{line_no}: {message}")
-            allowlist_entries.append(f"{file_path}:{line_no}")
+            # Name the function, not the line: a line number goes stale as soon
+            # as anything above it is edited
+            allowlist_entries.append(f"{file_path}{FUNCTION_SEPARATOR}{func_name}")
         allowlist_path = Path("config/linters/allowlists/custom/dict.txt")
         print(f"\nTo allowlist violations, add these entries to {allowlist_path}:")
         for entry in allowlist_entries:

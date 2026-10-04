@@ -1,23 +1,19 @@
 # Allowlist for dict return type violations
-# Format: file_path:line_number
-# These functions are allowed to return dict types
-src/models/infrastructure/vitess/storage/base.py:46
-src/models/infrastructure/vitess/storage/base.py:65
-src/models/rest_api/entitybase/v1/endpoints/debug.py:14
-src/models/rest_api/entitybase/v1/endpoints/debug.py:43
-src/models/rest_api/main.py:362
-src/models/rest_api/entitybase/v1/handlers/entity/revert.py:83
-src/models/rest_api/entitybase/v1/handlers/entity/revert.py:91
-src/models/internal_representation/statement_backlink_extractor.py:13
-src/models/json_parser/entity_parser.py:77
-src/models/rest_api/entitybase/v1/endpoints/lexeme_utils.py:69
-src/models/rest_api/entitybase/v1/endpoints/lexeme_utils.py:141
-src/models/rest_api/entitybase/v1/routes/resolve.py:196
-src/models/infrastructure/db/storage/base.py:46
-src/models/infrastructure/db/storage/base.py:65
-src/models/infrastructure/db/repositories/revision_data.py:24
+# Format: file_path::function_name
+# Prefer naming the function over a line number: a line moves as soon as
+# anything above it is edited, which turns an unrelated change into a lint
+# failure about a function nobody touched. These functions are allowed to
+# return dict types.
+src/models/internal_representation/statement_backlink_extractor.py::_collect_all_snaks
+src/models/json_parser/entity_parser.py::_extract_entity_from_dict
+src/models/rest_api/main.py::get_openapi
+src/models/rest_api/entitybase/v1/endpoints/lexeme_utils.py::_prepare_form_defaults
+src/models/rest_api/entitybase/v1/endpoints/lexeme_utils.py::_prepare_sense_defaults
+src/models/rest_api/entitybase/v1/routes/resolve.py::_reconstruct_reference_snaks
+src/models/infrastructure/db/storage/base.py::_load
+src/models/infrastructure/db/storage/base.py::_load_batch
+src/models/infrastructure/db/repositories/revision_data.py::load
 # JSON preferences payloads and raw query rows; no schema model justified
-src/models/infrastructure/db/repositories/user.py:123
-src/models/infrastructure/db/repositories/user.py:259
-src/models/infrastructure/db/repositories/user.py:339
-src/models/infrastructure/db/repositories/user.py:397
+src/models/infrastructure/db/repositories/user.py::list_users
+src/models/infrastructure/db/repositories/user.py::get_recent_changes
+src/models/infrastructure/db/repositories/user.py::get_ui_preferences

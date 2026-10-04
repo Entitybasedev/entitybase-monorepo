@@ -3,8 +3,66 @@
 Shared utility functions for linters that work with allowlists.
 """
 
+import ast
 from pathlib import Path
 from typing import Dict, List, Set
+
+# Allowlist entries may name a function instead of a line number:
+#   src/models/rest_api/main.py::get_openapi
+# A line number moves as soon as anything above it is edited, which turns an
+# unrelated change into a lint failure about a function nobody touched.
+FUNCTION_SEPARATOR = "::"
+
+
+def is_function_allowed(
+    file_path: str | Path,
+    func_name: str,
+    allowlist: Set[str],
+) -> bool:
+    """Check if a function is allowed by name.
+
+    Args:
+        file_path: Path to the file being checked
+        func_name: Name of the function being checked
+        allowlist: Set of "file.py::function_name" strings
+
+    Returns:
+        True if an entry names this function in this file
+    """
+    path = str(file_path)
+    for entry in allowlist:
+        if FUNCTION_SEPARATOR not in entry:
+            continue
+        entry_file, _, entry_name = entry.partition(FUNCTION_SEPARATOR)
+        if entry_file.strip() == path and entry_name.strip() == func_name:
+            return True
+    return False
+
+
+def is_node_allowed(
+    file_path: str | Path,
+    node: ast.AST,
+    allowlist: Set[str] | Dict[str, List[int]],
+    tolerance: int = 2,
+) -> bool:
+    """Check if an AST node is allowed, by function name or by line.
+
+    Prefer this over is_line_allowed in new linters: it keeps an allowlist
+    entry valid when the surrounding file changes.
+
+    Args:
+        file_path: Path to the file being checked
+        node: The function definition being checked
+        allowlist: Set of "file.py::name" or "file.py:line" strings
+        tolerance: Line tolerance used for line-based entries
+
+    Returns:
+        True if the node is allowed
+    """
+    func_name = getattr(node, "name", None)
+    if func_name is not None and is_function_allowed(file_path, func_name, allowlist):
+        return True
+    return is_line_allowed(file_path, getattr(node, "lineno", 0), allowlist, tolerance)
 
 
 def is_line_allowed(
