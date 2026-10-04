@@ -89,7 +89,7 @@
           >
             <td class="field-name" data-testid="statistics-deduplication-type">{{ type }}</td>
             <td data-testid="statistics-deduplication-unique">{{ format(d.unique_hashes) }}</td>
-            <td>{{ format(d.total_ref_count) }}</td>
+            <td data-testid="statistics-deduplication-refs">{{ format(d.total_ref_count) }}</td>
             <td data-testid="statistics-deduplication-factor">{{ dedupFactor(d.deduplication_factor) }}</td>
             <td data-testid="statistics-deduplication-saved">{{ format(d.space_saved) }}</td>
           </tr>
