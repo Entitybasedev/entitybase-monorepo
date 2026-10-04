@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deleteStatement,
+  entityJsonUrl,
+  entityRdfUrl,
   getItem,
   getAliases,
   getDescription,
@@ -262,6 +264,17 @@ describe('lexeme form and sense creation', () => {
     await expect(
       postLexemeSense('L42', { glosses: {} })
     ).rejects.toThrow(/400/)
+  })
+})
+
+describe('entity data URLs', () => {
+  it('points at the JSON and RDF representations of an entity', () => {
+    expect(entityJsonUrl('Q42')).toBe('/v1/entities/Q42.json')
+    expect(entityRdfUrl('Q42')).toBe('/v1/entities/Q42.ttl')
+  })
+
+  it('escapes ids that need it', () => {
+    expect(entityJsonUrl('L42')).toBe('/v1/entities/L42.json')
   })
 })
 

@@ -4,6 +4,8 @@ import { loginState, logoutState } from './helpers'
 
 const apiMocks = vi.hoisted(() => ({
   getItem: vi.fn(),
+  entityJsonUrl: (id) => `/v1/entities/${id}.json`,
+  entityRdfUrl: (id) => `/v1/entities/${id}.ttl`,
   getStatement: vi.fn(),
   getSnak: vi.fn(),
   getLabelWithFallback: vi.fn().mockResolvedValue(null),

@@ -29,6 +29,16 @@ async function unwrap(res, what) {
   return safeJsonParse(await res.text())
 }
 
+// Machine-readable views of an entity, for linking straight to the data:
+// the current revision as Wikibase-style JSON, and as RDF/Turtle.
+export function entityJsonUrl(entityId) {
+  return `${BASE}/v1/entities/${encodeURIComponent(entityId)}.json`
+}
+
+export function entityRdfUrl(entityId) {
+  return `${BASE}/v1/entities/${encodeURIComponent(entityId)}.ttl`
+}
+
 export async function postItem(_body) {
   const res = await fetch(`${BASE}/v1/entities/items`, {
     method: 'POST',

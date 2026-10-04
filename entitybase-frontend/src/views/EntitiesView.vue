@@ -30,17 +30,23 @@
       @reload="loadItem(item.id)"
     />
 
-    <p>
+    <p class="entity-links">
       <a :href="`/entity/${item.id}`" data-testid="item-permalink">Permalink</a>
-    </p>
-
-    <h3>History</h3>
-    <p>
+      ·
       <router-link
         :to="`/${item.id}/history`"
         data-testid="item-history-link"
-      >View history</router-link>
+      >History</router-link>
       ·
+      <a :href="entityJsonUrl(item.id)" target="_blank" rel="noopener"
+        data-testid="item-json-link">JSON</a>
+      ·
+      <a :href="entityRdfUrl(item.id)" target="_blank" rel="noopener"
+        data-testid="item-rdf-link">RDF</a>
+    </p>
+
+    <h3>Terms</h3>
+    <p>
       <router-link
         :to="`/${item.id}/terms`"
         data-testid="item-terms-link"
@@ -54,7 +60,7 @@
 // its type (item, property or lexeme).
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getItem } from '../api.js'
+import { entityJsonUrl, entityRdfUrl, getItem } from '../api.js'
 import { MAX_FALLBACK_LANGUAGES, fallbackChain, language } from '../settings.js'
 import { userId as authUserId } from '../auth.js'
 import { getUserSettings } from '../api.js'

@@ -25,6 +25,35 @@ test('create a property via the UI', async ({ page }) => {
   expect(permalink).toMatch(/\/entity\/P\d+$/)
 })
 
+test('an entity links to its history and its JSON and RDF data', async ({ page }) => {
+  await registerViaUi(page)
+  const label = `E2E Data Links ${Date.now()}`
+
+  await page.goto('/create-item')
+  await page.getByTestId('item-label-input').fill(label)
+  await page.getByTestId('create-item-button').click()
+  await expect(page.getByTestId('item-section')).toBeVisible()
+  const entityId = entityIdFromUrl(page)
+
+  await expect(page.getByTestId('item-history-link')).toHaveAttribute(
+    'href',
+    `/${entityId}/history`
+  )
+
+  // The API is served under the same origin as the UI
+  const jsonHref = await page.getByTestId('item-json-link').getAttribute('href')
+  expect(jsonHref).toBe(`/v1/entities/${entityId}.json`)
+  const rdfHref = await page.getByTestId('item-rdf-link').getAttribute('href')
+  expect(rdfHref).toBe(`/v1/entities/${entityId}.ttl`)
+
+  // Both representations are really served
+  const jsonResponse = await page.request.get(jsonHref)
+  expect(jsonResponse.ok()).toBeTruthy()
+  expect((await jsonResponse.json()).id).toBe(entityId)
+  const rdfResponse = await page.request.get(rdfHref)
+  expect(rdfResponse.ok()).toBeTruthy()
+})
+
 test('create an item via the UI and see its label', async ({ page }) => {
   await registerViaUi(page)
   const label = `E2E Item ${Date.now()}`

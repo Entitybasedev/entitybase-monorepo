@@ -7,6 +7,8 @@ enableAutoUnmount(afterEach)
 
 const apiMocks = vi.hoisted(() => ({
   getItem: vi.fn(),
+  entityJsonUrl: (id) => `/v1/entities/${id}.json`,
+  entityRdfUrl: (id) => `/v1/entities/${id}.ttl`,
   getLabel: vi.fn(),
   getDescription: vi.fn(),
   getAliases: vi.fn(),
@@ -117,6 +119,21 @@ describe('App', () => {
     const wrapper = await mountApp()
     const link = wrapper.find('[data-testid="item-history-link"]')
     expect(link.attributes('href')).toBe('/Q42/history')
+  })
+
+  it('links to the JSON and RDF representations of the entity', async () => {
+    await router.push('/?entity=Q42')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
+
+    const wrapper = await mountApp()
+    const json = wrapper.find('[data-testid="item-json-link"]')
+    const rdf = wrapper.find('[data-testid="item-rdf-link"]')
+    expect(json.attributes('href')).toBe('/v1/entities/Q42.json')
+    expect(rdf.attributes('href')).toBe('/v1/entities/Q42.ttl')
+    // Raw data is served by the API, so it opens in a new tab
+    expect(json.attributes('target')).toBe('_blank')
+    expect(rdf.attributes('target')).toBe('_blank')
   })
 
   it('links to the all-terms page', async () => {
