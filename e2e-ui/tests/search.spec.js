@@ -37,12 +37,8 @@ async function setDescription(request, entityId, value) {
 }
 
 async function setAliases(request, entityId, values) {
-  const res = await edit(
-    request,
-    `/v1/entities/${entityId}/aliases/en`,
-    'PUT',
-    values.map((value) => ({ language: 'en', value }))
-  )
+  // The endpoint takes a plain list of alias strings for the language
+  const res = await edit(request, `/v1/entities/${entityId}/aliases/en`, 'PUT', values)
   expect(res.ok()).toBeTruthy()
 }
 
