@@ -242,7 +242,7 @@ class TestEntityUpdateHandler:
         mock_vitess.is_entity_deleted.return_value = False
         mock_vitess.is_entity_locked.return_value = False
         mock_vitess.get_head.return_value = 2
-        mock_vitess.user_repository.log_user_activity = AsyncMock(
+        mock_vitess.user_repository.log_user_activity = MagicMock(
             return_value=MagicMock(success=True)
         )
 
@@ -397,7 +397,7 @@ class TestEntityUpdateHandler:
         mock_vitess.is_entity_deleted.return_value = False
         mock_vitess.is_entity_locked.return_value = False
         mock_vitess.get_head.return_value = 2
-        mock_vitess.user_repository.log_user_activity = AsyncMock(
+        mock_vitess.user_repository.log_user_activity = MagicMock(
             return_value=MagicMock(success=True)
         )
 

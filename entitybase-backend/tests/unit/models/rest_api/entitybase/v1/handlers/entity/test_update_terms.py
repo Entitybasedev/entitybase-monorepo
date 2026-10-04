@@ -1,6 +1,6 @@
 """Unit tests for EntityUpdateTermsMixin."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
@@ -520,3 +520,133 @@ class TestDeleteAliasesErrors:
 
         assert exc_info.value.status_code == 423
         assert "Entity locked" in exc_info.value.detail
+
+
+class TestTermTransactionsRecordUserActivity:
+    """Term transactions log user activity synchronously and must not await it.
+
+    ``UserRepository.log_user_activity`` returns an OperationResult from a plain
+    method, so awaiting it raises a TypeError after the revision is written and
+    the endpoint answers 500 while the edit is actually saved.
+    """
+
+    def _setup(self, transaction_method: str):
+        """Build the mixin plus a mocked UpdateTransaction for one helper."""
+        from models.data.common import OperationResult
+        from models.data.infrastructure.s3.enums import EntityType
+        from models.data.rest_api.v1.entitybase.request import EntityChangeType
+        from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
+        from models.rest_api.entitybase.v1.handlers.entity.update_terms import (
+            TermTransactionContext,
+        )
+
+        mock_state = MagicMock()
+        mock_state.db_client.get_head.return_value = 2
+        mock_state.db_client.user_repository.log_user_activity.return_value = (
+            OperationResult(success=True, data=1)
+        )
+        mixin = EntityUpdateTermsMixin(state=mock_state)
+
+        tx = MagicMock()
+        tx.create_revision_with_hashes = AsyncMock(
+            return_value=MagicMock(revision_id=5)
+        )
+        tx.publish_event = AsyncMock()
+
+        context = TermTransactionContext(
+            entity_id="Q1",
+            entity_type=EntityType.ITEM,
+            updated_hashes={},
+            existing_revision={},
+            edit_headers=EditHeaders(x_edit_summary="test", x_user_id=4242),
+        )
+        helper = getattr(mixin, transaction_method)
+        return helper, context, mock_state, tx
+
+    @pytest.mark.asyncio
+    async def test_term_delete_transaction_records_activity(self) -> None:
+        """Deleting a term as a user logs the activity and commits."""
+        helper, context, mock_state, tx = self._setup(
+            "_execute_term_delete_transaction"
+        )
+        with patch(
+            "models.rest_api.entitybase.v1.handlers.entity.update_transaction."
+            "UpdateTransaction",
+            return_value=tx,
+        ):
+            response = await helper(context)
+
+        mock_state.db_client.user_repository.log_user_activity.assert_called_once()
+        assert response.revision_id == 5
+        tx.commit.assert_called_once()
+        tx.rollback.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_term_add_transaction_records_activity(self) -> None:
+        """Adding a term as a user logs the activity and commits."""
+        helper, context, mock_state, tx = self._setup("_execute_term_add_transaction")
+        with patch(
+            "models.rest_api.entitybase.v1.handlers.entity.update_transaction."
+            "UpdateTransaction",
+            return_value=tx,
+        ):
+            response = await helper(context)
+
+        mock_state.db_client.user_repository.log_user_activity.assert_called_once()
+        assert response.revision_id == 5
+        tx.commit.assert_called_once()
+        tx.rollback.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_failed_activity_log_does_not_fail_the_transaction(self) -> None:
+        """A failed activity log is logged as a warning, not raised."""
+        from models.data.common import OperationResult
+
+        helper, context, mock_state, tx = self._setup(
+            "_execute_term_delete_transaction"
+        )
+        mock_state.db_client.user_repository.log_user_activity.return_value = (
+            OperationResult(success=False, error="DB error")
+        )
+        with patch(
+            "models.rest_api.entitybase.v1.handlers.entity.update_transaction."
+            "UpdateTransaction",
+            return_value=tx,
+        ):
+            response = await helper(context)
+
+        assert response.revision_id == 5
+
+    @pytest.mark.asyncio
+    async def test_anonymous_term_edit_skips_activity_log(self) -> None:
+        """User id 0 is not an attributed edit, so nothing is logged."""
+        from models.data.infrastructure.s3.enums import EntityType
+        from models.data.rest_api.v1.entitybase.request.headers import EditHeaders
+        from models.rest_api.entitybase.v1.handlers.entity.update_terms import (
+            TermTransactionContext,
+        )
+
+        mock_state = MagicMock()
+        mock_state.db_client.get_head.return_value = 2
+        mixin = EntityUpdateTermsMixin(state=mock_state)
+        tx = MagicMock()
+        tx.create_revision_with_hashes = AsyncMock(
+            return_value=MagicMock(revision_id=5)
+        )
+        tx.publish_event = AsyncMock()
+        context = TermTransactionContext(
+            entity_id="Q1",
+            entity_type=EntityType.ITEM,
+            updated_hashes={},
+            existing_revision={},
+            edit_headers=EditHeaders(x_edit_summary="test", x_user_id=0),
+        )
+
+        with patch(
+            "models.rest_api.entitybase.v1.handlers.entity.update_transaction."
+            "UpdateTransaction",
+            return_value=tx,
+        ):
+            await mixin._execute_term_delete_transaction(context)
+
+        mock_state.db_client.user_repository.log_user_activity.assert_not_called()
