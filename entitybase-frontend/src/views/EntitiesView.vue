@@ -113,17 +113,21 @@ watch(entityId, (id) => {
 })
 
 onMounted(async () => {
-  try {
-    const settings = await getUserSettings(authUser.value || 90001)
-    const ui = settings?.ui ?? {}
-    if (Array.isArray(ui.fallbackChain)) {
-      fallbackChain.value = ui.fallbackChain.slice(0, MAX_FALLBACK_LANGUAGES)
+  // UI settings live on the account, so they need a token. Visitors who are
+  // not logged in keep the preferences settings.js already stored locally.
+  if (authUser.value) {
+    try {
+      const settings = await getUserSettings(authUser.value)
+      const ui = settings?.ui ?? {}
+      if (Array.isArray(ui.fallbackChain)) {
+        fallbackChain.value = ui.fallbackChain.slice(0, MAX_FALLBACK_LANGUAGES)
+      }
+      if (typeof ui.language === 'string' && ui.language) {
+        language.value = ui.language
+      }
+    } catch {
+      /* settings are optional */
     }
-    if (typeof ui.language === 'string' && ui.language) {
-      language.value = ui.language
-    }
-  } catch {
-    /* settings are optional */
   }
   if (entityId.value) {
     await loadItem(entityId.value)

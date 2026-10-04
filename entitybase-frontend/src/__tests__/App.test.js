@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { language, showQid } from '../settings.js'
-import { loginState } from './helpers'
+import { loginState, logoutState } from './helpers'
 
 enableAutoUnmount(afterEach)
 
@@ -109,6 +109,26 @@ describe('App', () => {
       'The author of the Hitchhiker trilogy'
     )
     expect(wrapper.find('[data-testid="item-alias"]').text()).toBe('Douglas Noel Adams')
+  })
+
+  it('loads account settings only when logged in', async () => {
+    // Settings belong to an account, so an anonymous visitor must not read
+    // another user's (the API answers 401 without a token)
+    await router.push('/?entity=Q42')
+    apiMocks.getItem.mockResolvedValue(itemPayload('Q42', 'Douglas Adams'))
+    apiMocks.getLabelWithFallback.mockResolvedValue('Douglas Adams')
+
+    const anonymous = await mountApp()
+
+    expect(apiMocks.getUserSettings).not.toHaveBeenCalled()
+    anonymous.unmount()
+
+    loginState(90007)
+    const signedIn = await mountApp()
+
+    expect(apiMocks.getUserSettings).toHaveBeenCalledWith(90007)
+    signedIn.unmount()
+    logoutState()
   })
 
   it('links to the entity history page', async () => {

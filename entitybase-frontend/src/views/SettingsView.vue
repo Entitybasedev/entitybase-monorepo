@@ -114,10 +114,15 @@ async function save() {
   savedMessage.value = ''
   error.value = ''
   try {
-    await putUserSettings(routeUserId.value, {
-      ui: { language: language.value, fallbackChain: fallbackChain.value },
-    })
-    savedMessage.value = 'Settings saved.'
+    if (isLoggedIn.value) {
+      await putUserSettings(authUserId.value, {
+        ui: { language: language.value, fallbackChain: fallbackChain.value },
+      })
+      savedMessage.value = 'Settings saved.'
+    } else {
+      // settings.js already wrote the change to localStorage
+      savedMessage.value = 'Settings saved in this browser.'
+    }
   } catch (e) {
     error.value = `Failed to save settings: ${e.message}`
   } finally {
@@ -126,8 +131,14 @@ async function save() {
 }
 
 onMounted(async () => {
+  // Settings belong to the account, so only the signed-in user's are loaded.
+  // Anyone else keeps the preferences settings.js stored in this browser.
+  if (!isLoggedIn.value) return
+  if (String(authUserId.value) !== route.params.userId) {
+    router.replace(`/${authUserId.value}/settings`)
+  }
   try {
-    const settings = await getUserSettings(routeUserId.value)
+    const settings = await getUserSettings(authUserId.value)
     const ui = settings?.ui ?? {}
     if (Array.isArray(ui.fallbackChain)) {
       fallbackChain.value = ui.fallbackChain.slice(0, MAX_FALLBACK_LANGUAGES)

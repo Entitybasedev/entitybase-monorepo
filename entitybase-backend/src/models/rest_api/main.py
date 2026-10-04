@@ -93,13 +93,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     A valid Authorization: Bearer token is the source of truth for the
     user: its user_id is injected as the X-User-ID header for downstream
-    routes, which no longer need the client to send it. Clients may still
-    send X-User-ID explicitly; a mismatch with the token is rejected with
-    403. A present but invalid token is rejected with 401 on any request.
+    routes, which no longer need the client to send it, and is published as
+    scope["auth_user_id"] so routes can ask who is calling (see
+    models.rest_api.dependencies). Clients may still send X-User-ID
+    explicitly; a mismatch with the token is rejected with 403. A present but
+    invalid token is rejected with 401 on any request.
 
     Auth is enforced (writes without a token get 401) only when
     settings.auth_secret is configured; otherwise the legacy header-based
-    behavior is preserved and reads/writes pass through unchanged.
+    behavior is preserved and reads/writes pass through unchanged. Ownership
+    checks in dependencies do not depend on that setting: they require a
+    token of their own accord.
     Exempt paths (always public): /health, /docs, /openapi.json, /redoc,
     /version, {api_prefix}/auth/login and {api_prefix}/auth/register.
     """
@@ -124,6 +128,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 )
             elif str(payload.user_id) != user_id_header:
                 return _auth_error(403, "X-User-ID does not match token")
+
+            # Routes must be able to tell who is acting, not just read a header
+            request.scope["auth_user_id"] = payload.user_id
 
         if settings.auth_secret and request.method in WRITE_METHODS:
             exempt = {

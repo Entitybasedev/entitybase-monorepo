@@ -16,6 +16,7 @@ from models.data.rest_api.v1.entitybase.response import UserStatsResponse
 from models.data.rest_api.v1.entitybase.response import UserResponse
 from models.data.rest_api.v1.entitybase.response import UserActivityResponse
 from models.rest_api.utils import raise_validation_error, validate_state_clients
+from models.rest_api.dependencies import require_self
 from pydantic import BaseModel
 
 from models.data.rest_api.v1.entitybase.response.user_settings import (
@@ -103,8 +104,10 @@ def get_user_stats(req: Request) -> UserStatsResponse:
 
 
 @users_router.get("/users/{user_id}/settings")
-def get_user_settings(user_id: int, req: Request) -> UserSettingsResponse:
-    """Get the UI settings stored for a user."""
+def get_user_settings(
+    user_id: int, req: Request, _: int = Depends(require_self)
+) -> UserSettingsResponse:
+    """Get the UI settings stored for a user. Only the owner may read them."""
     state = req.app.state.state_handler
     if not state.db_client.user_repository.user_exists(user_id):  # type: ignore[union-attr]
         raise HTTPException(status_code=404, detail=f"User {user_id} not found")
@@ -113,8 +116,17 @@ def get_user_settings(user_id: int, req: Request) -> UserSettingsResponse:
 
 
 @users_router.put("/users/{user_id}/settings")
-def set_user_settings(user_id: int, request: dict, req: Request) -> SettingsStoredResponse:
-    """Store UI settings for a user (arbitrary JSON, e.g. language chain)."""
+def set_user_settings(
+    user_id: int,
+    request: dict,
+    req: Request,
+    _: int = Depends(require_self),
+) -> SettingsStoredResponse:
+    """Store UI settings for a user (arbitrary JSON, e.g. language chain).
+
+    Only the owner may write them: the path id is otherwise just a number the
+    client picks, and preferences are per-user state.
+    """
     if not isinstance(request, dict):
         raise HTTPException(status_code=400, detail="Settings must be a JSON object")
     state = req.app.state.state_handler
@@ -142,8 +154,10 @@ def get_user(user_id: int, req: Request) -> UserResponse:
 
 
 @users_router.delete("/users/{user_id}")
-async def delete_user(user_id: int, req: Request) -> None:
-    """Delete a user by ID."""
+async def delete_user(
+    user_id: int, req: Request, _: int = Depends(require_self)
+) -> None:
+    """Delete a user by ID. Only the account's own token may delete it."""
     state = req.app.state.state_handler
     validate_state_clients(state)
     handler = UserHandler(state=state)
@@ -157,9 +171,12 @@ async def delete_user(user_id: int, req: Request) -> None:
     "/users/{user_id}/watchlist/toggle", response_model=WatchlistToggleResponse
 )
 async def toggle_watchlist(
-    user_id: int, request: WatchlistToggleRequest, req: Request
+    user_id: int,
+    request: WatchlistToggleRequest,
+    req: Request,
+    _: int = Depends(require_self),
 ) -> WatchlistToggleResponse:
-    """Enable or disable watchlist for user."""
+    """Enable or disable watchlist for the authenticated user."""
     state = req.app.state.state_handler
     validate_state_clients(state)
     handler = UserHandler(state=state)
@@ -177,8 +194,9 @@ def get_user_activity(
     user_id: int,
     req: Request,
     query: UserActivityQuery = Depends(get_user_activity_query),
+    _: int = Depends(require_self),
 ) -> UserActivityResponse:
-    """Get user's activity with filtering."""
+    """Get the authenticated user's activity with filtering."""
     state = req.app.state.state_handler
     handler = UserActivityHandler(state=state)
     try:

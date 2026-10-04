@@ -1,5 +1,22 @@
 # TODO
 
+- [ ] Turn on authentication by default and stop the ephemeral signing secret
+  - `AUTH_SECRET` is empty in `docker-compose.yml` and `env.example`, and the
+    401-on-tokenless-write gate in `AuthMiddleware` only runs
+    `if settings.auth_secret`. In that default state nothing is authenticated:
+    anonymous writes pass through and `X-User-ID` is self-asserted, so edit
+    attribution across the database is forgeable.
+  - `settings.auth_signing_secret` falls back to a random per-process secret when
+    `AUTH_SECRET` is unset. That is worse than it looks: every restart silently
+    logs everybody out, and in a multi-replica deployment each replica holds a
+    different secret, so a token verifies on one pod and 401s on another. Set a
+    real secret per deployment instead.
+  - Blocking work: `e2e-ui/tests/helpers.js` creates entities by posting straight
+    to the API with only `X-User-ID` and no token, so enforcing auth breaks it.
+    It needs to register (or log in) and send the bearer token, like the
+    browser-driven tests do.
+  - Endpoint ownership is already enforced (`require_self` in
+    `src/models/rest_api/dependencies.py`) and does not depend on this setting.
 - [ ] Report terms per language in the stats service
   - `GeneralStatsService.get_terms_per_language()`
     (`src/models/rest_api/entitybase/v1/services/general_stats_service.py`) returns
