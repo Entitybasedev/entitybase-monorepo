@@ -48,6 +48,47 @@
     </div>
     <p v-if="!senses.length" data-testid="lexeme-no-senses">No senses.</p>
 
+    <div v-if="isLoggedIn" class="lexeme-add">
+      <template v-if="addingSense">
+        <select
+          class="form-select form-select-sm"
+          style="width: auto"
+          data-testid="sense-gloss-lang-select"
+          v-model="senseLanguage"
+        >
+          <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+            {{ l.code }}
+          </option>
+        </select>
+        <input
+          v-model="senseGloss"
+          class="form-control"
+          style="width: auto"
+          data-testid="sense-gloss-input"
+          placeholder="gloss, e.g. to move quickly"
+          @keyup.enter="addSense"
+        />
+        <button
+          class="btn btn-primary btn-sm"
+          data-testid="add-sense-button"
+          :disabled="!senseGloss.trim() || savingSense"
+          @click="addSense"
+        >{{ savingSense ? 'Saving…' : 'Add sense' }}</button>
+        <button
+          class="btn btn-outline-secondary btn-sm"
+          data-testid="cancel-sense-button"
+          @click="cancelAddSense"
+        >Cancel</button>
+        <span v-if="senseError" class="text-danger" data-testid="add-sense-error">{{ senseError }}</span>
+      </template>
+      <button
+        v-else
+        class="btn btn-outline-secondary btn-sm"
+        data-testid="new-sense-button"
+        @click="startAddSense"
+      >Add sense</button>
+    </div>
+
     <h3>Forms</h3>
     <div
       v-for="form in forms"
@@ -79,6 +120,53 @@
     </div>
     <p v-if="!forms.length" data-testid="lexeme-no-forms">No forms.</p>
 
+    <div v-if="isLoggedIn" class="lexeme-add">
+      <template v-if="addingForm">
+        <select
+          class="form-select form-select-sm"
+          style="width: auto"
+          data-testid="form-representation-lang-select"
+          v-model="formLanguage"
+        >
+          <option v-for="l in SUPPORTED_LANGUAGES" :key="l.code" :value="l.code">
+            {{ l.code }}
+          </option>
+        </select>
+        <input
+          v-model="formValue"
+          class="form-control"
+          style="width: auto"
+          data-testid="form-representation-input"
+          placeholder="form value, e.g. answers"
+          @keyup.enter="addForm"
+        />
+        <ChipListInput
+          v-model="formFeatures"
+          testid="form-grammatical-feature"
+          placeholder="grammatical feature QID, press Enter"
+          :labels="featureLabels"
+        />
+        <button
+          class="btn btn-primary btn-sm"
+          data-testid="add-form-button"
+          :disabled="!formValue.trim() || savingForm"
+          @click="addForm"
+        >{{ savingForm ? 'Saving…' : 'Add form' }}</button>
+        <button
+          class="btn btn-outline-secondary btn-sm"
+          data-testid="cancel-form-button"
+          @click="cancelAddForm"
+        >Cancel</button>
+        <span v-if="formError" class="text-danger" data-testid="add-form-error">{{ formError }}</span>
+      </template>
+      <button
+        v-else
+        class="btn btn-outline-secondary btn-sm"
+        data-testid="new-form-button"
+        @click="startAddForm"
+      >Add form</button>
+    </div>
+
     <StatementSection
       :entity-id="entityId"
       :hashes="hashes"
@@ -92,8 +180,16 @@
 // A lexeme: lemmas per language plus its language and lexical category,
 // then senses and forms, each of which can carry its own statements.
 import { computed, ref, watch } from 'vue'
-import { getLexemeForms, getLexemeSenses } from '../../api.js'
+import {
+  getLexemeForms,
+  getLexemeSenses,
+  postLexemeForm,
+  postLexemeSense,
+} from '../../api.js'
 import { useEntityLabels } from '../../composables/useEntityLabels.js'
+import { SUPPORTED_LANGUAGES, language } from '../../settings.js'
+import { isLoggedIn } from '../../auth.js'
+import ChipListInput from './ChipListInput.vue'
 import StatementGroups from './StatementGroups.vue'
 import StatementSection from './StatementSection.vue'
 
@@ -104,9 +200,105 @@ const props = defineProps({
   hashes: { type: Array, default: () => [] },
 })
 
-defineEmits(['error', 'reload'])
+const emit = defineEmits(['error', 'reload'])
 
 const { humanLabel } = useEntityLabels()
+
+// --- Adding a sense: one gloss with a language is all a sense needs ---
+const addingSense = ref(false)
+const senseLanguage = ref(language.value)
+const senseGloss = ref('')
+const senseError = ref('')
+const savingSense = ref(false)
+
+// --- Adding a form: one representation plus optional grammatical features ---
+const addingForm = ref(false)
+const formLanguage = ref(language.value)
+const formValue = ref('')
+const formFeatures = ref([])
+const featureLabels = ref({})
+const formError = ref('')
+const savingForm = ref(false)
+
+function startAddSense() {
+  senseLanguage.value = language.value
+  senseGloss.value = ''
+  senseError.value = ''
+  addingSense.value = true
+}
+
+function cancelAddSense() {
+  addingSense.value = false
+  senseError.value = ''
+}
+
+async function addSense() {
+  const value = senseGloss.value.trim()
+  if (!value || savingSense.value) return
+  savingSense.value = true
+  senseError.value = ''
+  try {
+    await postLexemeSense(props.entityId, {
+      glosses: { [senseLanguage.value]: { language: senseLanguage.value, value } },
+    })
+    senseGloss.value = ''
+    addingSense.value = false
+    await load()
+  } catch (e) {
+    senseError.value = String(e.message || e)
+    emit('error', senseError.value)
+  } finally {
+    savingSense.value = false
+  }
+}
+
+function startAddForm() {
+  formLanguage.value = language.value
+  formValue.value = ''
+  formFeatures.value = []
+  formError.value = ''
+  addingForm.value = true
+}
+
+function cancelAddForm() {
+  addingForm.value = false
+  formError.value = ''
+}
+
+async function addForm() {
+  const value = formValue.value.trim()
+  if (!value || savingForm.value) return
+  savingForm.value = true
+  formError.value = ''
+  try {
+    await postLexemeForm(props.entityId, {
+      representations: {
+        [formLanguage.value]: { language: formLanguage.value, value },
+      },
+      grammaticalFeatures: formFeatures.value,
+    })
+    formValue.value = ''
+    formFeatures.value = []
+    addingForm.value = false
+    await load()
+  } catch (e) {
+    formError.value = String(e.message || e)
+    emit('error', formError.value)
+  } finally {
+    savingForm.value = false
+  }
+}
+
+// Feature chips show labels, so resolve each entered QID
+watch(
+  formFeatures,
+  async (features) => {
+    const labels = {}
+    for (const feature of features) labels[feature] = await humanLabel(feature)
+    featureLabels.value = labels
+  },
+  { deep: true }
+)
 
 const senses = ref([])
 const forms = ref([])
@@ -168,9 +360,10 @@ async function load() {
         id: form.id,
         representations: form.representations ?? {},
         grammaticalFeatureLabels: await Promise.all(
-          // The API serialises this field under its alias
-          (form.grammaticalFeatures ?? form.grammatical_features ?? []).map((feature) =>
-            humanLabel(feature)
+          // The API serialises this field under its alias; an unresolvable
+          // feature falls back to its QID
+          (form.grammaticalFeatures ?? form.grammatical_features ?? []).map(
+            async (feature) => (await humanLabel(feature)) || feature
           )
         ),
         statementGroups: await groupClaims(form.claims),
@@ -190,4 +383,5 @@ watch(() => props.entityId, load, { immediate: true })
 .lexeme-values { list-style: none; padding: 0; margin: 0; }
 .lexeme-values li { display: flex; gap: .75rem; align-items: baseline; }
 .lexeme-block { margin-bottom: 1rem; }
+.lexeme-add { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .5rem 0 1rem; }
 </style>

@@ -147,6 +147,24 @@ export async function getLexemeSenses(entityId) {
   return json.senses ?? []
 }
 
+export async function postLexemeForm(entityId, body) {
+  const res = await fetch(
+    `${BASE}/v1/entities/lexemes/${encodeURIComponent(entityId)}/forms`,
+    { method: 'POST', headers: editHeaders(), body: JSON.stringify(body) }
+  )
+  const json = await unwrap(res, `POST form ${entityId}`)
+  return json.data?.entity_id ?? json.entity_id ?? json.id
+}
+
+export async function postLexemeSense(entityId, body) {
+  const res = await fetch(
+    `${BASE}/v1/entities/lexemes/${encodeURIComponent(entityId)}/senses`,
+    { method: 'POST', headers: editHeaders(), body: JSON.stringify(body) }
+  )
+  const json = await unwrap(res, `POST sense ${entityId}`)
+  return json.data?.entity_id ?? json.entity_id ?? json.id
+}
+
 export async function getEntityTerms(entityId, language) {
   const res = await fetch(
     `${BASE}/v1/entities/${encodeURIComponent(entityId)}/terms/${encodeURIComponent(language)}`

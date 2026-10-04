@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import { loginState } from './helpers'
+import { loginState, logoutState } from './helpers'
 
 const apiMocks = vi.hoisted(() => ({
   getItem: vi.fn(),
@@ -15,6 +15,8 @@ const apiMocks = vi.hoisted(() => ({
   getUserSettings: vi.fn().mockResolvedValue({}),
   getLexemeSenses: vi.fn(),
   getLexemeForms: vi.fn(),
+  postLexemeSense: vi.fn().mockResolvedValue('L42'),
+  postLexemeForm: vi.fn().mockResolvedValue('L42'),
   deleteStatement: vi.fn(),
   postStatement: vi.fn(),
 }))
@@ -150,6 +152,151 @@ describe('LexemeView', () => {
 
     expect(wrapper.find('[data-testid="lexeme-no-senses"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="lexeme-no-forms"]').exists()).toBe(true)
+  })
+
+  it('offers no add buttons to anonymous visitors', async () => {
+    logoutState()
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getItem.mockResolvedValue(lexemePayload())
+    apiMocks.getLexemeSenses.mockResolvedValue([])
+    apiMocks.getLexemeForms.mockResolvedValue([])
+
+    const wrapper = await mountAt('/entity/L42')
+
+    expect(wrapper.find('[data-testid="new-sense-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="new-form-button"]').exists()).toBe(false)
+  })
+
+  it('adds a sense from a gloss and its language', async () => {
+    loginState(90001)
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getItem.mockResolvedValue(lexemePayload())
+    apiMocks.getLexemeSenses.mockResolvedValue([])
+    apiMocks.getLexemeForms.mockResolvedValue([])
+
+    const wrapper = await mountAt('/entity/L42')
+    await wrapper.find('[data-testid="new-sense-button"]').trigger('click')
+    await wrapper.find('[data-testid="sense-gloss-lang-select"]').setValue('de')
+    await wrapper.find('[data-testid="sense-gloss-input"]').setValue('schnell laufen')
+    await wrapper.find('[data-testid="add-sense-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.postLexemeSense).toHaveBeenCalledWith('L42', {
+      glosses: { de: { language: 'de', value: 'schnell laufen' } },
+    })
+    // The editor closes and the list is reloaded
+    expect(wrapper.find('[data-testid="sense-gloss-input"]').exists()).toBe(false)
+    logoutState()
+  })
+
+  it('refuses to add a sense without a gloss', async () => {
+    loginState(90001)
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getItem.mockResolvedValue(lexemePayload())
+    apiMocks.getLexemeSenses.mockResolvedValue([])
+    apiMocks.getLexemeForms.mockResolvedValue([])
+
+    const wrapper = await mountAt('/entity/L42')
+    await wrapper.find('[data-testid="new-sense-button"]').trigger('click')
+    await wrapper.find('[data-testid="sense-gloss-input"]').setValue('   ')
+    await wrapper.find('[data-testid="add-sense-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.postLexemeSense).not.toHaveBeenCalled()
+    logoutState()
+  })
+
+  it('surfaces a failed sense creation', async () => {
+    loginState(90001)
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getItem.mockResolvedValue(lexemePayload())
+    apiMocks.getLexemeSenses.mockResolvedValue([])
+    apiMocks.getLexemeForms.mockResolvedValue([])
+    apiMocks.postLexemeSense.mockRejectedValueOnce(new Error('400 gloss required'))
+
+    const wrapper = await mountAt('/entity/L42')
+    await wrapper.find('[data-testid="new-sense-button"]').trigger('click')
+    await wrapper.find('[data-testid="sense-gloss-input"]').setValue('x')
+    await wrapper.find('[data-testid="add-sense-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="add-sense-error"]').text()).toContain(
+      'gloss required'
+    )
+    // The error also bubbles up to the view shell
+    expect(wrapper.find('[data-testid="error-banner"]').text()).toContain(
+      'gloss required'
+    )
+    logoutState()
+  })
+
+  it('adds a form with grammatical features entered as chips', async () => {
+    loginState(90001)
+    apiMocks.getLabelWithFallback.mockImplementation(async (id) =>
+      id === 'Q110786' ? 'plural' : ''
+    )
+    apiMocks.getItem.mockResolvedValue(lexemePayload())
+    apiMocks.getLexemeSenses.mockResolvedValue([])
+    apiMocks.getLexemeForms.mockResolvedValue([])
+
+    const wrapper = await mountAt('/entity/L42')
+    await wrapper.find('[data-testid="new-form-button"]').trigger('click')
+    await wrapper.find('[data-testid="form-representation-input"]').setValue('answers')
+
+    const featureInput = wrapper.find(
+      '[data-testid="form-grammatical-feature-input"]'
+    )
+    await featureInput.setValue('Q110786, Q146786')
+    await featureInput.trigger('keyup.enter')
+    await flushPromises()
+
+    // Committed as chips, showing the resolved labels
+    const chips = wrapper.findAll('[data-testid="form-grammatical-feature-chip-Q110786"]')
+    expect(chips).toHaveLength(1)
+    expect(chips[0].text()).toContain('plural')
+    expect(
+      wrapper.find('[data-testid="form-grammatical-feature-chip-Q146786"]').exists()
+    ).toBe(true)
+
+    await wrapper.find('[data-testid="add-form-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.postLexemeForm).toHaveBeenCalledWith('L42', {
+      representations: { en: { language: 'en', value: 'answers' } },
+      grammaticalFeatures: ['Q110786', 'Q146786'],
+    })
+    logoutState()
+  })
+
+  it('adds a form without grammatical features and can drop a chip again', async () => {
+    loginState(90001)
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getItem.mockResolvedValue(lexemePayload())
+    apiMocks.getLexemeSenses.mockResolvedValue([])
+    apiMocks.getLexemeForms.mockResolvedValue([])
+
+    const wrapper = await mountAt('/entity/L42')
+    await wrapper.find('[data-testid="new-form-button"]').trigger('click')
+
+    const featureInput = wrapper.find(
+      '[data-testid="form-grammatical-feature-input"]'
+    )
+    await featureInput.setValue('Q110786')
+    await featureInput.trigger('keyup.enter')
+    await flushPromises()
+    await wrapper
+      .find('[data-testid="form-grammatical-feature-remove-Q110786"]')
+      .trigger('click')
+
+    await wrapper.find('[data-testid="form-representation-input"]').setValue('answer')
+    await wrapper.find('[data-testid="add-form-button"]').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.postLexemeForm).toHaveBeenCalledWith('L42', {
+      representations: { en: { language: 'en', value: 'answer' } },
+      grammaticalFeatures: [],
+    })
+    logoutState()
   })
 })
 

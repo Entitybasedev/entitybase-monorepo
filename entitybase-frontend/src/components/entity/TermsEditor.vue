@@ -173,6 +173,7 @@ import {
   showQid,
 } from '../../settings.js'
 import { isLoggedIn } from '../../auth.js'
+import { addChips } from './chips.js'
 
 const props = defineProps({
   entityId: { type: String, required: true },
@@ -293,27 +294,8 @@ async function saveAliases() {
 // Commit the draft as slug chips: trim, drop blanks, dedupe
 // case-insensitively (first casing wins). Enter commits; only the
 // Save button persists to the server.
-function parseAliasDraft(draft) {
-  const seen = new Set()
-  const values = []
-  for (const raw of draft.split(',')) {
-    const value = raw.trim()
-    if (!value) continue
-    const key = value.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    values.push(value)
-  }
-  return values
-}
-
 function commitAlias() {
-  for (const value of parseAliasDraft(aliasDraft.value)) {
-    const exists = committedAliases.value.some(
-      (a) => a.toLowerCase() === value.toLowerCase()
-    )
-    if (!exists) committedAliases.value.push(value)
-  }
+  committedAliases.value = addChips(committedAliases.value, aliasDraft.value)
   aliasDraft.value = ''
 }
 

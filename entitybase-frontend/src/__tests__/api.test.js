@@ -10,6 +10,8 @@ import {
   getStatement,
   postItem,
   postLexeme,
+  postLexemeForm,
+  postLexemeSense,
   postProperty,
   postStatement,
   putLabel,
@@ -221,6 +223,45 @@ describe('postLexeme', () => {
     expect(lexemeId).toBe('L77')
     expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/lexemes')
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(body)
+  })
+})
+
+describe('lexeme form and sense creation', () => {
+  it('posts a new sense with its gloss', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ id: 'L42', rev_id: 3, data: { revision: {} } })
+    )
+
+    const body = { glosses: { en: { language: 'en', value: 'to move quickly' } } }
+    const result = await postLexemeSense('L42', body)
+
+    expect(result).toBe('L42')
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/lexemes/L42/senses')
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(body)
+  })
+
+  it('posts a new form with its representation and grammatical features', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ id: 'L42', rev_id: 4, data: { revision: {} } })
+    )
+
+    const body = {
+      representations: { en: { language: 'en', value: 'answers' } },
+      grammaticalFeatures: ['Q110786'],
+    }
+    await postLexemeForm('L42', body)
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/v1/entities/lexemes/L42/forms')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(body)
+  })
+
+  it('raises on a rejected sense', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'gloss required' }, 400))
+
+    await expect(
+      postLexemeSense('L42', { glosses: {} })
+    ).rejects.toThrow(/400/)
   })
 })
 
