@@ -1,13 +1,18 @@
 const BASE = import.meta.env.VITE_API_BASE || ''
 
-import { authHeaders, userId as authUserId } from './auth.js'
+import { authHeaders, token, userId as authUserId } from './auth.js'
 
 function editHeaders() {
   const headers = {
     'Content-Type': 'application/json',
     'X-Edit-Summary': 'Created via entitybase-frontend',
-    ...authHeaders(),
   }
+  // A bearer token identifies the user: the API derives X-User-ID from it and
+  // rejects a client-sent X-User-ID that disagrees with the token (403), which
+  // would lock the user out of editing. So send the token alone and let the
+  // API fill in the user id. X-User-ID is only for the token-less case, where
+  // auth is not configured on the server.
+  if (token.value) return { ...headers, ...authHeaders() }
   if (authUserId.value) headers['X-User-ID'] = String(authUserId.value)
   return headers
 }

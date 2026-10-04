@@ -19,7 +19,7 @@ import {
   putLabel,
   searchEntities,
 } from '../api.js'
-import { login, logout } from '../auth.js'
+import { login, logout, userId } from '../auth.js'
 
 const fetchMock = vi.fn()
 
@@ -101,7 +101,42 @@ describe('putLabel', () => {
 
     const init = fetchMock.mock.calls[0][1]
     expect(init.headers['Authorization']).toBe('Bearer tok')
-    expect(init.headers['X-User-ID']).toBe('42')
+    // The API derives the user id from the token and rejects a client-sent
+    // one that disagrees, so it must not be sent alongside the token
+    expect(init.headers['X-User-ID']).toBeUndefined()
+  })
+
+  it('never sends an X-User-ID that disagrees with the token', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const body =
+        url === '/v1/auth/login'
+          ? { token: 'tok', user_id: 42, username: 'ada' }
+          : { success: true, data: { entity_id: 'Q1', revision_id: 1 } }
+      return jsonResponse(body)
+    })
+    await login('ada', 'secret')
+    // A stale user id left behind by another account: the API answers 403
+    // "X-User-ID does not match token", which would block every edit
+    userId.value = 999
+    fetchMock.mockClear()
+
+    await postItem({})
+
+    expect(fetchMock.mock.calls[0][1].headers['X-User-ID']).toBeUndefined()
+  })
+
+  it('sends X-User-ID when there is no token, for a server without auth', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, data: { entity_id: 'Q1', revision_id: 1 } })
+    )
+    // No token: the id can only come from the header
+    userId.value = 7
+
+    await postItem({})
+
+    const init = fetchMock.mock.calls[0][1]
+    expect(init.headers['X-User-ID']).toBe('7')
+    expect(init.headers['Authorization']).toBeUndefined()
   })
 })
 
