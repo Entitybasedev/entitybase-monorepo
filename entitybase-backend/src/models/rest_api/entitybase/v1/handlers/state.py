@@ -149,17 +149,26 @@ class StateHandler(BaseModel):
 
         Search is optional: when Meilisearch is not enabled or unreachable the
         client stays unconnected and callers report it, rather than the API
-        failing to serve anything else.
+        failing to serve anything else. A client that failed to connect is
+        retried on the next use, so search starts working by itself once
+        Meilisearch is up - even when it came up after the API.
         """
         if self.cached_meilisearch_client is None:
-            self.cached_meilisearch_client = MeilisearchClient(
-                host=self.settings.meilisearch_host,
-                port=self.settings.meilisearch_port,
-                api_key=self.settings.meilisearch_api_key,
-                index_name=self.settings.meilisearch_index,
-            )
+            self.cached_meilisearch_client = self._new_meilisearch_client()
+            self.cached_meilisearch_client.connect()
+        elif self.cached_meilisearch_client.index is None:
+            logger.debug("Reconnecting to Meilisearch")
             self.cached_meilisearch_client.connect()
         return self.cached_meilisearch_client
+
+    def _new_meilisearch_client(self) -> MeilisearchClient:
+        """Build a Meilisearch client from the settings."""
+        return MeilisearchClient(
+            host=self.settings.meilisearch_host,
+            port=self.settings.meilisearch_port,
+            api_key=self.settings.meilisearch_api_key,
+            index_name=self.settings.meilisearch_index,
+        )
 
     @property
     def search_enabled(self) -> bool:

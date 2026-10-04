@@ -46,18 +46,18 @@ class MeilisearchSearchResult(BaseModel):
     lastrevid: int = Field(default=0, description="Indexed revision")
 
 
-def _as_document_fields(response: Any) -> dict[str, Any] | None:
-    """Get a document as a plain mapping.
+def _as_document(response: Any) -> MeilisearchDocument | None:
+    """Read a stored document into the model.
 
     The client returns a Document object, which is not a mapping even though
     it behaves like one.
     """
     if response is None:
         return None
-    if isinstance(response, dict):
-        return response
-    fields = getattr(response, "__dict__", None)
-    return fields if isinstance(fields, dict) and fields else None
+    fields = response if isinstance(response, dict) else getattr(response, "__dict__", None)
+    if not isinstance(fields, dict) or not fields:
+        return None
+    return MeilisearchDocument(**fields)
 
 
 class MeilisearchClient(BaseModel):
@@ -169,12 +169,10 @@ class MeilisearchClient(BaseModel):
             logger.debug(f"No indexed document for {entity_id}: {e}")
             return MeilisearchDocumentResponse(data=None, index=self.index_name)
 
-        document = _as_document_fields(response)
+        document = _as_document(response)
         if document is None:
             return MeilisearchDocumentResponse(data=None, index=self.index_name)
-        return MeilisearchDocumentResponse(
-            data=MeilisearchDocument(**document), index=self.index_name
-        )
+        return MeilisearchDocumentResponse(data=document, index=self.index_name)
 
     def search(
         self,

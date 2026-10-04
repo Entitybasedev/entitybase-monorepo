@@ -3,8 +3,8 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# git is needed to install the backend's git dependency
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+# git is needed to install the backend's git dependency, wget for the healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends git wget \
     && rm -rf /var/lib/apt/lists/*
 
 COPY entitybase-backend/requirements.txt /tmp/backend-requirements.txt

@@ -75,7 +75,7 @@ services:
     ports:
       - "7700:7700"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:7700/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -26,7 +26,7 @@ src/models/infrastructure/connection.py:18
 src/models/infrastructure/vitess/client.py:33
 src/models/rest_api/entitybase/v1/endpoints/qualifiers.py:43
 src/models/rest_api/entitybase/v1/service.py:11
-src/models/rest_api/entitybase/v1/handlers/state.py:169
+src/models/rest_api/entitybase/v1/handlers/state.py:178
 src/models/rest_api/entitybase/v1/routes/resolve.py:182
 src/models/infrastructure/vitess/client.py:34
 src/models/infrastructure/vitess/client.py:40
