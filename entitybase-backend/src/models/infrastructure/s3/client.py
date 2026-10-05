@@ -190,6 +190,45 @@ class MyS3Client(Client):
 
         return StringLoadResponse(data=result)
 
+    def load_metadata_batch(
+        self, metadata_type: MetadataType, content_hashes: list[int]
+    ) -> dict[int, str]:
+        """Load many terms of one type by content hash, in a single query.
+
+        Hashes with no stored term are absent from the result, so a caller can
+        tell a missing term from an empty one.
+        """
+        if not hasattr(self, "vitess_metadata") or not self.vitess_metadata:
+            raise_validation_error("Vitess storage not configured", status_code=503)
+        values = self.vitess_metadata.load_metadata_batch(
+            content_hashes, metadata_type.value
+        )
+        return {h: v for h, v in zip(content_hashes, values, strict=True) if v is not None}
+
+    def load_sitelinks_batch(self, content_hashes: list[int]) -> dict[int, str]:
+        """Load many sitelink titles by content hash, in a single query.
+
+        Hashes with no stored title are absent from the result.
+        """
+        if not hasattr(self, "vitess_sitelinks") or not self.vitess_sitelinks:
+            raise_validation_error("Vitess storage not configured", status_code=503)
+        titles = self.vitess_sitelinks.load_sitelinks_batch(content_hashes)
+        return {h: t for h, t in zip(content_hashes, titles, strict=True) if t is not None}
+
+    def load_statements_batch(self, content_hashes: list[int]) -> dict[int, Any]:
+        """Load many statements by content hash, in a single query.
+
+        Hashes with no stored statement are absent from the result.
+        """
+        if not hasattr(self, "vitess_statements") or not self.vitess_statements:
+            raise_validation_error("Vitess storage not configured", status_code=503)
+        loaded = self.vitess_statements.load_statements_batch(content_hashes)
+        return {
+            h: statement.statement
+            for h, statement in zip(content_hashes, loaded, strict=True)
+            if statement is not None
+        }
+
     def store_reference(
         self, content_hash: int, reference_data: S3ReferenceData
     ) -> None:

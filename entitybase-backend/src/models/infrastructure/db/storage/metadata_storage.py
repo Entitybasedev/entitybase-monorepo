@@ -87,6 +87,37 @@ class MetadataVitessStorage(Repository):
             logger.error(f"[METADATA_VITESS_LOAD] Failed: {e}")
             return None
 
+    def load_metadata_batch(
+        self,
+        content_hashes: list[int],
+        content_type: str,
+    ) -> list[str | None]:
+        """Load many terms of one type by content hash, in a single query.
+
+        Returns one entry per requested hash, in the order given, so a caller
+        resolving a whole entity does not query once per term.
+        """
+        logger.debug(
+            f"[METADATA_VITESS_LOAD_BATCH] count={len(content_hashes)}, type={content_type}"
+        )
+        if not content_hashes:
+            return []
+
+        try:
+            with self.db_client.cursor as cursor:
+                placeholders = ",".join(["%s"] * len(content_hashes))
+                cursor.execute(
+                    f"""SELECT content_hash, data FROM {self.table_name}
+                        WHERE content_hash IN ({placeholders}) AND content_type = %s""",
+                    [*content_hashes, content_type],
+                )
+                rows = cursor.fetchall()
+                by_hash = {row[0]: cast(str, row[1]) for row in rows}
+                return [by_hash.get(h) for h in content_hashes]
+        except Exception as e:
+            logger.error(f"[METADATA_VITESS_LOAD_BATCH] Failed: {e}")
+            return [None] * len(content_hashes)
+
     def delete_metadata(
         self,
         content_hash: int,
@@ -157,6 +188,30 @@ class SitelinkVitessStorage(Repository):
         except Exception as e:
             logger.error(f"[SITELINK_VITESS_LOAD] Failed: {e}")
             return None
+
+    def load_sitelinks_batch(self, content_hashes: list[int]) -> list[str | None]:
+        """Load many sitelink titles by content hash, in a single query.
+
+        Returns one entry per requested hash, in the order given.
+        """
+        logger.debug(f"[SITELINK_VITESS_LOAD_BATCH] count={len(content_hashes)}")
+        if not content_hashes:
+            return []
+
+        try:
+            with self.db_client.cursor as cursor:
+                placeholders = ",".join(["%s"] * len(content_hashes))
+                cursor.execute(
+                    f"SELECT content_hash, title FROM {self.table_name} "
+                    f"WHERE content_hash IN ({placeholders})",
+                    content_hashes,
+                )
+                rows = cursor.fetchall()
+                by_hash = {row[0]: cast(str, row[1]) for row in rows}
+                return [by_hash.get(h) for h in content_hashes]
+        except Exception as e:
+            logger.error(f"[SITELINK_VITESS_LOAD_BATCH] Failed: {e}")
+            return [None] * len(content_hashes)
 
     def delete_sitelink(self, content_hash: int) -> OperationResult[None]:
         """Delete or decrement ref_count for sitelink."""

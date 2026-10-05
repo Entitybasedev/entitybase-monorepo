@@ -53,6 +53,7 @@ from models.rest_api.entitybase.v1.handlers.statement import StatementHandler
 from models.rest_api.entitybase.v1.services.entity_statement_service import (
     EntityStatementService,
 )
+from models.rest_api.entitybase.v1.services.normalization import EntityNormalizer
 from models.rest_api.utils import raise_validation_error, validate_state_clients
 from models.services.elasticsearch import transform_to_elasticsearch
 from models.rest_api.entitybase.v1.endpoints.base import (
@@ -81,6 +82,30 @@ async def get_entity_data_json(entity_id: str, req: Request) -> EntityJsonRespon
     return EntityJsonResponse(
         data={"id": actual_entity_id, **entity_response.entity_data.revision}
     )
+
+
+@router.get("/entities/{entity_id}.njson", response_model=EntityJsonResponse)
+async def get_entity_data_normalized_json(
+    entity_id: str, req: Request
+) -> EntityJsonResponse:
+    """Get an entity with every hash reference resolved to the value it stands for.
+
+    The same document as the .json endpoint, with terms, sitelinks and
+    statements replaced by their content, so a client can read an entity
+    without knowing how the store deduplicates it. The .json endpoint keeps
+    serving the hash-based revision; this one is the readable view of it.
+    """
+    logger.debug(f"get_entity_data_normalized_json called with entity_id: {entity_id}")
+    actual_entity_id = entity_id.rsplit(".njson", 1)[0]
+    state = req.app.state.state_handler
+    handler = EntityReadHandler(state=state)
+    entity_response = handler.get_entity(actual_entity_id)
+
+    normalizer = EntityNormalizer(state.s3_client)
+    normalized = normalizer.normalize(
+        actual_entity_id, entity_response.entity_data.revision
+    )
+    return EntityJsonResponse(data=normalized)
 
 
 @router.get("/entities/{entity_id}.ttl")
