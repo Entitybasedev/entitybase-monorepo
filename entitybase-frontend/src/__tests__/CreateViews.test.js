@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 const apiMocks = vi.hoisted(() => ({
   postItem: vi.fn(),
   postProperty: vi.fn(),
+  getPropertyDatatypes: vi.fn().mockResolvedValue([]),
   postLexeme: vi.fn(),
   putLabel: vi.fn(),
   getUserSettings: vi.fn().mockResolvedValue({}),
@@ -114,19 +115,56 @@ describe('CreateItemView', () => {
 })
 
 describe('CreatePropertyView', () => {
-  it('creates a property and navigates to the entity view', async () => {
+  it('creates a property of the chosen type and navigates to it', async () => {
     loginState(90001)
     apiMocks.postProperty.mockResolvedValue('P300')
     apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
     apiMocks.getEntityHistory.mockResolvedValue([])
+    apiMocks.getPropertyDatatypes.mockResolvedValue([
+      { id: 'wikibase-item', label: 'Item', value_kind: 'entity' },
+      { id: 'string', label: 'String', value_kind: 'text' },
+    ])
 
     const wrapper = await mountApp('/create-property')
+    await flushPromises()
     await wrapper.find('[data-testid="property-label-input"]').setValue('instance of')
+    await wrapper.find('[data-testid="property-type-select"]').setValue('string')
     await wrapper.find('[data-testid="create-property-button"]').trigger('click')
     await flushPromises()
 
-    expect(apiMocks.postProperty).toHaveBeenCalledWith({})
+    expect(apiMocks.postProperty).toHaveBeenCalledWith({
+      type: 'property',
+      datatype: 'string',
+    })
     expect(router.currentRoute.value.path).toBe('/entity/P300')
+  })
+
+  it('offers the property types the API supports', async () => {
+    loginState(90001)
+    apiMocks.getPropertyDatatypes.mockResolvedValue([
+      { id: 'wikibase-item', label: 'Item', value_kind: 'entity' },
+      { id: 'string', label: 'String', value_kind: 'text' },
+    ])
+
+    const wrapper = await mountApp('/create-property')
+    await flushPromises()
+
+    const options = wrapper.findAll('[data-testid="property-type-select"] option')
+    expect(options.map((o) => o.text())).toEqual(['Item', 'String'])
+    // The first type is preselected so the form is submittable
+    expect(wrapper.find('[data-testid="property-type-select"]').element.value).toBe(
+      'wikibase-item'
+    )
+  })
+
+  it('says so when no property types are available', async () => {
+    loginState(90001)
+    apiMocks.getPropertyDatatypes.mockResolvedValue([])
+
+    const wrapper = await mountApp('/create-property')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="property-type-empty"]').exists()).toBe(true)
   })
 })
 

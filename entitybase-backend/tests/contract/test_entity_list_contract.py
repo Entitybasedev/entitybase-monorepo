@@ -48,7 +48,11 @@ async def test_list_entities_property_type(api_prefix: str) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        prop = await client.post(f"{api_prefix}/entities/properties", headers=HEADERS)
+        prop = await client.post(
+            f"{api_prefix}/entities/properties",
+            json={"type": "property", "datatype": "wikibase-item"},
+            headers=HEADERS,
+        )
         assert prop.status_code == 200
         prop_id = prop.json()["data"]["entity_id"]
 

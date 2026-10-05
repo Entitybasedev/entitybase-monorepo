@@ -137,6 +137,11 @@ from .user_preferences import UserPreferencesResponse
 from .user_stats import UserStatsData, UserStatsResponse
 from .watchlist import WatchlistEntryResponse, WatchlistResponse
 
+from .property_datatypes import (
+    PropertyDatatypeInfo,
+    PropertyDatatypesResponse,
+)
+
 from .lexemes import (
     FormRepresentationsResponse,
     FormRepresentationResponse,
@@ -216,6 +221,8 @@ __all__ = [
     "PropertyCounts",
     "PropertyCountsResponse",
     "PropertyHashesResponse",
+    "PropertyDatatypeInfo",
+    "PropertyDatatypesResponse",
     "PropertyListResponse",
     "PropertyRecalculationResult",
     "ProtectionResponse",

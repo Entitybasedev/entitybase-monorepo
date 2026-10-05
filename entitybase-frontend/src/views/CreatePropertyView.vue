@@ -7,6 +7,7 @@
     </section>
     <template v-else>
       <form class="row" @submit.prevent="createProperty">
+        <PropertyTypeSelect v-model="datatype" @error="error = $event" />
         <label for="property-label-input">Label</label>
         <select
           class="form-select form-select-sm"
@@ -42,12 +43,14 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { postProperty, putLabel } from '../api.js'
+import PropertyTypeSelect from '../components/property_types/PropertyTypeSelect.vue'
 import { SUPPORTED_LANGUAGES, language } from '../settings.js'
 import { isLoggedIn } from '../auth.js'
 
 const router = useRouter()
 const propertyLabel = ref('')
 const labelLanguage = ref(language.value)
+const datatype = ref('')
 const creatingProperty = ref(false)
 const error = ref('')
 
@@ -56,7 +59,10 @@ async function createProperty() {
   creatingProperty.value = true
   error.value = ''
   try {
-    const entityId = await postProperty({})
+    const entityId = await postProperty({
+      type: 'property',
+      datatype: datatype.value,
+    })
     await putLabel(entityId, labelLanguage.value, propertyLabel.value)
     await router.push(`/entity/${entityId}`)
   } catch (e) {

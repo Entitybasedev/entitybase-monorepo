@@ -20,6 +20,7 @@ async def test_get_property_label_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70001",
         type="property",
+        datatype="wikibase-item",
         labels={"en": {"language": "en", "value": "Test Property Label"}},
         edit_summary="test",
     )
@@ -50,6 +51,7 @@ async def test_get_property_label_not_found(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70002",
         type="property",
+        datatype="wikibase-item",
         labels={"en": {"language": "en", "value": "Test Property Label"}},
         edit_summary="test",
     )
@@ -77,6 +79,7 @@ async def test_get_property_description_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70003",
         type="property",
+        datatype="wikibase-item",
         descriptions={"en": {"language": "en", "value": "Test Property Description"}},
         edit_summary="test",
     )
@@ -107,6 +110,7 @@ async def test_get_property_description_not_found(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70004",
         type="property",
+        datatype="wikibase-item",
         descriptions={"en": {"language": "en", "value": "Test Property Description"}},
         edit_summary="test",
     )
@@ -134,6 +138,7 @@ async def test_get_property_aliases_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70005",
         type="property",
+        datatype="wikibase-item",
         aliases={
             "en": [
                 {"language": "en", "value": "Property Alias 1"},
@@ -171,6 +176,7 @@ async def test_get_property_aliases_not_found(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70006",
         type="property",
+        datatype="wikibase-item",
         aliases={"en": [{"language": "en", "value": "Test Alias"}]},
         edit_summary="test",
     )
@@ -198,6 +204,7 @@ async def test_update_property_aliases_replace(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70007",
         type="property",
+        datatype="wikibase-item",
         aliases={
             "en": [
                 {"language": "en", "value": "Old Alias 1"},
@@ -242,6 +249,7 @@ async def test_update_property_aliases_add(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70008",
         type="property",
+        datatype="wikibase-item",
         labels={"en": {"language": "en", "value": "Test Property"}},
         edit_summary="test",
     )
@@ -276,6 +284,7 @@ async def test_update_property_label_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70009",
         type="property",
+        datatype="wikibase-item",
         labels={"en": {"language": "en", "value": "Original Label"}},
         edit_summary="test",
     )
@@ -312,6 +321,7 @@ async def test_update_property_description_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70010",
         type="property",
+        datatype="wikibase-item",
         descriptions={"en": {"language": "en", "value": "Original Description"}},
         edit_summary="test",
     )
@@ -348,6 +358,7 @@ async def test_delete_property_label_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70011",
         type="property",
+        datatype="wikibase-item",
         labels={
             "en": {"language": "en", "value": "Label to Delete"},
             "de": {"language": "de", "value": "German Label"},
@@ -383,6 +394,7 @@ async def test_delete_property_description_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70012",
         type="property",
+        datatype="wikibase-item",
         descriptions={
             "en": {"language": "en", "value": "Description to Delete"},
             "de": {"language": "de", "value": "German Description"},
@@ -418,6 +430,7 @@ async def test_delete_property_aliases_success(api_prefix: str) -> None:
     entity_data = EntityCreateRequest(
         id="P70013",
         type="property",
+        datatype="wikibase-item",
         aliases={
             "en": [
                 {"language": "en", "value": "Alias 1"},

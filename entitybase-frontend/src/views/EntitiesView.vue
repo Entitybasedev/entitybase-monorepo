@@ -18,6 +18,7 @@
       v-else-if="kind === 'property'"
       :entity-id="item.id"
       :hashes="statementHashes"
+      :revision="revisionData"
       @error="error = $event"
       @reload="loadItem(item.id)"
     />

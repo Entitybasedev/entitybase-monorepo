@@ -105,6 +105,7 @@ class TestImportEndpointLexemeValidation:
         property_data = {
             "id": "P31",
             "type": "property",
+            "datatype": "wikibase-item",
             "labels": {"en": {"language": "en", "value": "instance of"}},
         }
 

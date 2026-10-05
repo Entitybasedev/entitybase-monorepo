@@ -53,6 +53,17 @@ class MetadataType(str, Enum):
     LEMMAS = "lemmas"
 
 
+class PropertyDatatype(str, Enum):
+    """The identifiers of the property types this wiki supports.
+
+    Labels and behaviour live in models.property_types, one module per type;
+    this enum only fixes the wire values.
+    """
+
+    WIKIBASE_ITEM = "wikibase-item"
+    STRING = "string"
+
+
 class EditData(BaseModel):
     model_config = {"by_alias": True}
 

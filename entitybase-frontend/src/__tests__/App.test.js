@@ -30,6 +30,7 @@ const apiMocks = vi.hoisted(() => ({
   postProperty: vi.fn(),
   postLexeme: vi.fn(),
   postStatement: vi.fn(),
+  getPropertyDatatypes: vi.fn().mockResolvedValue([]),
   deleteStatement: vi.fn(),
   putLabel: vi.fn(),
   putDescription: vi.fn(),
@@ -72,6 +73,10 @@ function itemPayload(id, label, statementHashes = []) {
       },
     },
   }
+}
+
+function propertyPayload(datatype) {
+  return { id: 'P31', rev_id: 1, data: { revision: { id: 'P31', datatype } } }
 }
 
 async function mountApp() {
@@ -352,9 +357,10 @@ describe('App', () => {
   it('adds a statement and renders human-readable property and value', async () => {
     loginState(90001)
     await router.push('/?entity=Q1')
-    apiMocks.getItem
-      .mockResolvedValueOnce(itemPayload('Q1', 'Test', []))
-      .mockResolvedValueOnce(itemPayload('Q1', 'Test', [777]))
+    // The form also reads the property it is about to use, to learn its type
+    apiMocks.getItem.mockImplementation(async (id) =>
+      id === 'Q1' ? itemPayload('Q1', 'Test', [777]) : propertyPayload('wikibase-item')
+    )
     apiMocks.getLabelWithFallback.mockImplementation(async (id) => {
       if (id === 'P31') return 'instance of'
       if (id === 'Q5') return 'human'
@@ -623,6 +629,94 @@ describe('App', () => {
 
     expect(wrapper.find('[data-testid="statement-edit-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="statement-remove-button"]').exists()).toBe(false)
+  })
+
+  it('sends an entity value for an item-valued property', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q1')
+    apiMocks.getItem.mockImplementation(async (id) =>
+      id === 'Q1' ? itemPayload('Q1', 'Test', []) : propertyPayload('wikibase-item')
+    )
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getPropertyDatatypes.mockResolvedValue([
+      { id: 'wikibase-item', label: 'Item', value_kind: 'entity' },
+      { id: 'string', label: 'String', value_kind: 'text' },
+    ])
+    apiMocks.postStatement.mockResolvedValue({ success: true })
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="statement-property-input"]').setValue('P31')
+    await flushPromises()
+    await wrapper.find('[data-testid="statement-value-input"]').setValue('Q5')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(apiMocks.postStatement).toHaveBeenCalledWith('Q1', {
+      claim: {
+        id: expect.any(String),
+        mainsnak: {
+          snaktype: 'value',
+          property: 'P31',
+          datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' },
+        },
+        type: 'statement',
+        rank: 'normal',
+      },
+    })
+    logoutState()
+  })
+
+  it('sends plain text for a string-valued property', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q1')
+    apiMocks.getItem.mockImplementation(async (id) =>
+      id === 'Q1' ? itemPayload('Q1', 'Test', []) : propertyPayload('string')
+    )
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getPropertyDatatypes.mockResolvedValue([
+      { id: 'wikibase-item', label: 'Item', value_kind: 'entity' },
+      { id: 'string', label: 'String', value_kind: 'text' },
+    ])
+    apiMocks.postStatement.mockResolvedValue({ success: true })
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="statement-property-input"]').setValue('P1')
+    await flushPromises()
+
+    // The string type brings its own value input
+    const label = wrapper.find('[data-testid="statement-value-input"]')
+    expect(label.exists()).toBe(true)
+    await label.setValue('a short text')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const claim = apiMocks.postStatement.mock.calls[0][1].claim
+    expect(claim.mainsnak.datavalue).toEqual({ value: 'a short text', type: 'string' })
+    logoutState()
+  })
+
+  it('falls back to an entity value for a property with no datatype', async () => {
+    loginState(90001)
+    await router.push('/?entity=Q1')
+    apiMocks.getItem.mockImplementation(async (id) =>
+      id === 'Q1' ? itemPayload('Q1', 'Test', []) : propertyPayload('')
+    )
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    apiMocks.getPropertyDatatypes.mockResolvedValue([
+      { id: 'wikibase-item', label: 'Item', value_kind: 'entity' },
+    ])
+    apiMocks.postStatement.mockResolvedValue({ success: true })
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="statement-property-input"]').setValue('P9')
+    await flushPromises()
+    await wrapper.find('[data-testid="statement-value-input"]').setValue('Q5')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const claim = apiMocks.postStatement.mock.calls[0][1].claim
+    expect(claim.mainsnak.datavalue).toEqual({ value: { id: 'Q5' }, type: 'wikibase-item' })
+    logoutState()
   })
 
   it('opens the alias editor only once the existing aliases are loaded', async () => {

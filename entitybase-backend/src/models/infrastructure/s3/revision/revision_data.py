@@ -55,3 +55,10 @@ class RevisionData(BaseModel):
     lexical_category: str = Field(
         default="", description="Lexeme lexical category as QID. E.g. Q1084 for noun"
     )
+    datatype: str = Field(
+        default="",
+        description=(
+            "Property datatype, e.g. wikibase-item or string. Empty for entities "
+            "that are not properties."
+        ),
+    )

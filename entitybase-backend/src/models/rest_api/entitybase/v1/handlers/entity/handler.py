@@ -503,6 +503,7 @@ class EntityHandler(Handler):
             senses=EntityHandler._get_senses_with_ids(ctx),
             language=ctx.request_data.get("language", ""),
             lexical_category=ctx.request_data.get("lexical_category", ""),
+            datatype=ctx.request_data.get("datatype", ""),
         )
 
     @staticmethod

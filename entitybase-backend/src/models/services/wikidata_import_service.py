@@ -121,6 +121,8 @@ class WikidataImportService(BaseModel):
         return EntityCreateRequest(
             id=entity_id,
             type=our_type,
+            # A property carries its datatype in Wikidata JSON too
+            datatype=wikidata_data.get("datatype", ""),
             labels=labels,
             descriptions=descriptions,
             aliases=aliases,

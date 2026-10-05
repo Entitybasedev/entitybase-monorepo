@@ -53,13 +53,23 @@ export async function postItem(_body) {
   return json.data?.entity_id ?? json.entity_id ?? json.id
 }
 
-export async function postProperty(_body) {
+export async function postProperty(body) {
   const res = await fetch(`${BASE}/v1/entities/properties`, {
     method: 'POST',
     headers: editHeaders(),
+    body: JSON.stringify(body ?? { type: 'property' }),
   })
   const json = await unwrap(res, 'POST property')
   return json.data?.entity_id ?? json.entity_id ?? json.id
+}
+
+// The property types a property may be created with; drives the type picker
+// and the per-type value inputs, so new types need no frontend change.
+export async function getPropertyDatatypes() {
+  const res = await fetch(`${BASE}/v1/property-datatypes`)
+  if (res.status === 404) return []
+  const json = await unwrap(res, 'GET property datatypes')
+  return json.datatypes ?? []
 }
 
 export async function postLexeme(body) {

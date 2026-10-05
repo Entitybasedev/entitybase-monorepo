@@ -23,6 +23,7 @@ DEMO_ENTITIES: tuple[dict[str, Any], ...] = (
     {
         "id": "P1",
         "type": "property",
+        "datatype": "wikibase-item",
         "labels": {"en": {"language": "en", "value": "demo property"}},
         "descriptions": {
             "en": {"language": "en", "value": "Property seeded on startup."}
