@@ -4,3 +4,6 @@ src/models/services/elasticsearch/client.py:22
 src/models/infrastructure/db/connection.py:310
 src/models/infrastructure/sqlite/connection.py:23
 src/models/infrastructure/sqlite/connection.py:67
+# Not a Pydantic model: takes an s3 client, so model_post_init has no model to
+# initialise. Same shape as the connection and client classes above.
+src/models/rest_api/entitybase/v1/services/normalization.py:44

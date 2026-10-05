@@ -14,7 +14,10 @@ jobs:
   workers-test:
     name: worker tests (${{ matrix.worker }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Each of these jobs is checkout + uv sync + pytest over a unit suite and
+    # finishes in seconds, so a minute is a real ceiling rather than a guess:
+    # a hang shows up as a failure instead of a ten-minute stall.
+    timeout-minutes: 1
     strategy:
       fail-fast: false
       matrix:
