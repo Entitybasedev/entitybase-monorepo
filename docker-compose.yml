@@ -193,6 +193,10 @@ services:
   dokuwiki:
     container_name: dokuwiki
     image: dokuwiki/dokuwiki:stable
+    # The image's entrypoint chowns /storage when it starts as root and aborts on
+    # failure with set -e, which any read-only mount inside /storage triggers.
+    # Running as the wiki's own user skips that branch entirely.
+    user: "33:33"
     ports:
       - "8082:8080"
     volumes:

@@ -9,7 +9,7 @@
  *     php plugin-dokuwiki/tests/run.php
  */
 
-require_once __DIR__ . '/../../entitybase/client.php';
+require_once __DIR__ . '/../entitybase/client.php';
 
 /** Minimal assertions, so the tests need no framework. */
 final class TestRunner

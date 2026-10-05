@@ -76,6 +76,29 @@ plugin-dokuwiki/
 `client.php` deliberately knows nothing about DokuWiki and takes its HTTP
 transport as an argument, which is what makes the tests possible.
 
+## Verified against a real wiki
+
+With the stack running, a page containing
+
+```
+A plain item: {{entity>Q1}}
+Forced language: {{entity>Q1|de}}
+Missing item: {{entity>Q999999}}
+```
+
+renders as
+
+```html
+<a href="..." class="entitybase-item" ...>Demo item</a>          <!-- en label -->
+<a href="..." class="entitybase-item" ...>Demo item</a>          <!-- |de fell back to en -->
+<a href="..." class="entitybase-item entitybase-missing" ...>Q999999</a>
+```
+
+Note for anyone extending this: helpers in this DokuWiki release extend
+`dokuwiki\Extension\Plugin`. There is no `HelperPlugin` base class, and a
+helper that fails to load is only visible as a null from `loadHelper()` deep in
+`render()` — check `data/log/error/` when output looks unstyled.
+
 ## Run it with the stack
 
 The wiki is part of the compose stack, with the plugin mounted in:

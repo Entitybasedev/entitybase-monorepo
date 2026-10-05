@@ -1,14 +1,17 @@
 <?php
 
-use dokuwiki\Extension\HelperPlugin;
+use dokuwiki\Extension\Plugin;
 
 /**
  * Label lookup for Entitybase, with caching.
  *
  * Caching matters: a page can mention dozens of entities and the API call is
  * far slower than reading a file.
+ *
+ * Helpers in this DokuWiki release extend Plugin; there is no HelperPlugin
+ * base class.
  */
-class helper_plugin_entitybase extends HelperPlugin
+class helper_plugin_entitybase extends Plugin
 {
     /** @var EntitybaseClient|null */
     private $client = null;

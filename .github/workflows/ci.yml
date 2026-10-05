@@ -446,14 +446,18 @@ jobs:
 
       - name: Run the plugin tests in the DokuWiki image
         run: |
-          docker run --rm \
+          # --entrypoint php bypasses the image's entrypoint, which only chowns
+          # the wiki directory and would fail on the read-only mounts
+          docker run --rm --entrypoint php \
             -v "$PWD/plugin-dokuwiki:/plugin:ro" \
             dokuwiki/dokuwiki:stable \
-            php /plugin/tests/run.php
+            /plugin/tests/run.php
 
       - name: Start DokuWiki with the plugin
         run: |
-          docker run -d --name dokuwiki \
+          # user 33:33 is the wiki's own user; as root the entrypoint would chown
+          # /storage and abort on the read-only mounts
+          docker run -d --name dokuwiki --user 33:33 \
             -p $DOKUWIKI_PORT:8080 \
             -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
             -v "$PWD/plugin-dokuwiki/dokuwiki/local.php:/var/www/html/conf/local.php:ro" \
@@ -477,8 +481,28 @@ jobs:
       - name: The plugin is installed in the wiki
         run: |
           docker exec dokuwiki test -f /var/www/html/lib/plugins/entitybase/syntax.php
-          docker exec dokuwiki test -f /var/www/html/lib/plugins/entitybase/client.php
+          docker exec dokuwiki test -f /var/www/html/lib/plugins/entitybase/helper.php
           docker exec dokuwiki test -f /var/www/html/conf/local.php
+
+      - name: The syntax renders
+        # This job runs no Entitybase API, so the lookup cannot succeed. What is
+        # worth proving here is that the plugin loads, the pattern matches, and
+        # a failed lookup degrades to showing the id rather than breaking the
+        # page. Every rendered item carries the entitybase-item class, with
+        # entitybase-missing added when there was no label; the label path
+        # itself is covered by the plugin's own tests.
+        run: |
+          docker exec -u 0 dokuwiki sh -c 'mkdir -p /storage/data/pages &&
+            printf "====== Entitybase ======\n\nA plain item: {{entity>Q1}}\n" \
+              > /storage/data/pages/entities.txt &&
+            rm -rf /storage/data/cache/*'
+          if ! curl -s "http://localhost:$DOKUWIKI_PORT/doku.php?id=entities" \
+            | grep -q 'entitybase-item'; then
+            echo "the plugin did not render the entity"
+            docker exec -u 0 dokuwiki tail -20 /storage/data/log/error/$(date +%Y-%m-%d).log || true
+            exit 1
+          fi
+          echo "the entity syntax renders"
 
       - name: Show DokuWiki logs on failure
         if: failure()
