@@ -90,7 +90,14 @@ for (const type of PROPERTY_TYPES) {
 
     // Edit: change the value and read it back
     const second = type.newValue(`${type.label} edited ${stamp}`)
-    const secondInput = second.input ?? (await createItem(page, second.label)).id
+    // An entity-valued change needs a second entity, and creating one lands on
+    // that entity's page, so go back to the property whose statement we edit
+    let secondInput = second.input
+    if (!secondInput) {
+      secondInput = (await createItem(page, second.label)).id
+      await page.goto(`/entity/${propertyId}`)
+      await expect(page.getByTestId('statement').first()).toBeVisible()
+    }
     await page.getByTestId('statement-edit-button').first().click()
     await page.getByTestId('statement-edit-input').fill(secondInput)
     await page.getByTestId('statement-save-button').click()

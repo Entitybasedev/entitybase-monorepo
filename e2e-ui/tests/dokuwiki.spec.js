@@ -37,7 +37,8 @@ async function writeWikiPage(page, pageId, wikitext) {
   await page.goto(`${DOKUWIKI_URL}/doku.php?id=${pageId}&do=edit`)
   await page.locator('#wiki__text').fill(wikitext)
   await page.locator('#edbtn__save').click()
-  await expect(page).toHaveURL(new RegExp(`id=${pageId}(&|$)`))
+  // DokuWiki redirects to the page's pretty URL, not back to doku.php?id=
+  await expect(page).toHaveURL(new RegExp(`/${pageId}$`))
 }
 
 test('a wiki article with the entity macro shows the label of the item', async ({
