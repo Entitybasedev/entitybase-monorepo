@@ -26,6 +26,12 @@ Host Port → Container Port (Service Name)
 | 8888 | 8888 | kafka2sse-backend | SSE API |
 | 8889 | 8889 | kafka2sse-frontend | SSE UI |
 
+## Documentation
+
+| Host Port | Container Port | Service | Description |
+|-----------|----------------|---------|-------------|
+| 8082 | 8080 | dokuwiki | DokuWiki with the Entitybase plugin |
+
 ## Search
 
 | Host Port | Container Port | Service | Description |

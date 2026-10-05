@@ -188,6 +188,33 @@ services:
     networks:
       - entitybase-network
 
+  # A DokuWiki with the Entitybase plugin, for writing documentation that
+  # refers to items: {{entity>Q42}} renders the item's label.
+  dokuwiki:
+    container_name: dokuwiki
+    image: dokuwiki/dokuwiki:stable
+    ports:
+      - "8082:8080"
+    volumes:
+      # The plugin, and the settings that point it at the API. Mounting
+      # local.php replaces the one the wiki generates, which is what makes this
+      # work without a manual install step.
+      - ./plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro
+      - ./plugin-dokuwiki/dokuwiki/local.php:/var/www/html/conf/local.php:ro
+    depends_on:
+      entitybase-api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 256m
+    cpus: 0.25
+    networks:
+      - entitybase-network
+
   meilisearch-indexer-worker:
     container_name: meilisearch-indexer-worker
     build:

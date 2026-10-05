@@ -53,6 +53,14 @@
       <router-link to="/statistics" data-testid="dashboard-statistics-link">
         Detailed statistics →
       </router-link>
+      ·
+      <!-- DokuWiki is a separate service on its own origin, so a plain link -->
+      <a
+        :href="dokuwikiUrl"
+        target="_blank"
+        rel="noopener"
+        data-testid="dashboard-dokuwiki-link"
+      >Write it up in the wiki →</a>
     </p>
   </section>
 </template>
@@ -65,6 +73,10 @@ const error = ref('')
 const stats = ref(null)
 const edits = ref(null)
 const loaded = ref(false)
+
+// Where the DokuWiki with the Entitybase plugin is served; the wiki is a
+// separate service, so this is an absolute URL rather than a route.
+const dokuwikiUrl = import.meta.env.VITE_DOKUWIKI_URL || 'http://localhost:8082'
 
 async function load() {
   error.value = ''

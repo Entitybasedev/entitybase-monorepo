@@ -433,6 +433,61 @@ jobs:
             e2e-ui/test-results/
           if-no-files-found: ignore
 
+  dokuwiki-plugin:
+    # The DokuWiki plugin, tested on the PHP that will actually run it.
+    # The unit tests need no wiki, so they run inside the image for a real PHP
+    # with curl and the file layout of a real install.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DOKUWIKI_PORT: 8082
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run the plugin tests in the DokuWiki image
+        run: |
+          docker run --rm \
+            -v "$PWD/plugin-dokuwiki:/plugin:ro" \
+            dokuwiki/dokuwiki:stable \
+            php /plugin/tests/run.php
+
+      - name: Start DokuWiki with the plugin
+        run: |
+          docker run -d --name dokuwiki \
+            -p $DOKUWIKI_PORT:8080 \
+            -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
+            -v "$PWD/plugin-dokuwiki/dokuwiki/local.php:/var/www/html/conf/local.php:ro" \
+            dokuwiki/dokuwiki:stable
+
+      - name: Wait for DokuWiki
+        timeout-minutes: 3
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:$DOKUWIKI_PORT/" > /dev/null; then
+              echo "DokuWiki is up"
+              exit 0
+            fi
+            echo "Waiting for DokuWiki..."
+            sleep 2
+          done
+          echo "DokuWiki did not come up"
+          docker logs dokuwiki
+          exit 1
+
+      - name: The plugin is installed in the wiki
+        run: |
+          docker exec dokuwiki test -f /var/www/html/lib/plugins/entitybase/syntax.php
+          docker exec dokuwiki test -f /var/www/html/lib/plugins/entitybase/client.php
+          docker exec dokuwiki test -f /var/www/html/conf/local.php
+
+      - name: Show DokuWiki logs on failure
+        if: failure()
+        run: docker logs dokuwiki
+
+      - name: Down containers
+        if: always()
+        run: docker rm -f dokuwiki || true
+
   kafka2sse-backend:
     runs-on: ubuntu-latest
     defaults:

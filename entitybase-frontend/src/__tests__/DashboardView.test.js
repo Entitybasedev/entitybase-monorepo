@@ -66,6 +66,18 @@ describe('DashboardView', () => {
     expect(link.attributes('href')).toBe('/statistics')
   })
 
+  it('links to the documentation wiki', async () => {
+    apiMocks.getGeneralStats.mockResolvedValue({})
+    apiMocks.getEditStats.mockResolvedValue({})
+
+    const wrapper = await mountView()
+
+    const link = wrapper.find('[data-testid="dashboard-dokuwiki-link"]')
+    // The wiki is a separate service, so it opens on its own origin
+    expect(link.attributes('href')).toBe('http://localhost:8082')
+    expect(link.attributes('target')).toBe('_blank')
+  })
+
   it('shows an error banner when the stats API fails', async () => {
     apiMocks.getGeneralStats.mockRejectedValue(new Error('boom'))
 

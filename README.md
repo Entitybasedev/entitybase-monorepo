@@ -114,6 +114,7 @@ just e2e             # Playwright e2e against the running docker stack
 | entitybase-frontend | 8080 | UI: entities + change stream (nginx) |
 | entitybase-api | 8083 | REST API |
 | kafka2sse-backend | 8888 | Change events as SSE |
+| dokuwiki | 8082 | DokuWiki with the Entitybase plugin (see [plugin-dokuwiki](plugin-dokuwiki/)) |
 | mysql | 3306 | Database (entities, revisions, statements, metadata) |
 | redpanda | 9092 | Kafka broker (change events) |
 | valkey | 6379 (internal) | Cache used by the stream backend |
@@ -124,8 +125,9 @@ startup, so a fresh cluster works out of the box.
 ## Continuous Integration
 
 GitHub Actions run lint + unit/contract/integration tests per backend,
-frontend unit tests, the unit tests of each worker project, and the
-Playwright e2e suite against the real docker stack.
+frontend unit tests, the unit tests of each worker project, the Playwright
+e2e suite against the real docker stack, and the DokuWiki plugin's tests
+inside the DokuWiki image.
 See [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## License

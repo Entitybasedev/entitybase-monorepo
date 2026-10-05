@@ -76,6 +76,22 @@ plugin-dokuwiki/
 `client.php` deliberately knows nothing about DokuWiki and takes its HTTP
 transport as an argument, which is what makes the tests possible.
 
+## Run it with the stack
+
+The wiki is part of the compose stack, with the plugin mounted in:
+
+```bash
+docker compose up -d dokuwiki
+# http://localhost:8082
+```
+
+`plugin-dokuwiki/dokuwiki/local.php` is mounted over the wiki's generated
+`conf/local.php` and points the plugin at `http://entitybase-api:8080` — the
+API by service name on the compose network — and links items to
+`http://localhost:8080/entity`. That is what makes it work with no install
+step; a real deployment should set the same values in the admin settings
+instead and drop the mount. The dashboard links to the wiki.
+
 ## Tests
 
 ```bash
@@ -86,6 +102,14 @@ No PHPUnit, no network: the transport is faked, so this needs nothing but a
 PHP binary. It covers the label found, missing label, missing entity, empty
 value, unparseable body, a transport that gives up, URL encoding, a trailing
 slash on the base URL, and that a non-200 is never mistaken for a label.
+
+CI runs the same file inside `dokuwiki/dokuwiki:stable`, so the tests execute
+on a real PHP with cURL rather than whatever a machine happens to have:
+
+```bash
+docker run --rm -v "$PWD/plugin-dokuwiki:/plugin:ro" dokuwiki/dokuwiki:stable \
+  php /plugin/tests/run.php
+```
 
 ## Possible next steps
 
