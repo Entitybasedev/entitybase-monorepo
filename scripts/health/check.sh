@@ -167,8 +167,22 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# --- dokuwiki ---
+start_check "dokuwiki"
+if is_running dokuwiki; then
+    ANY_RUNNING=1
+    if timeout 10 curl -sf http://localhost:8082/ > /dev/null 2>&1; then
+        report running
+    else
+        fail "dokuwiki" "not responding on :8082"
+    fi
+else
+    report "dokuwiki" not-running
+    FAILURES=$((FAILURES + 1))
+fi
+
 echo ""
-TOTAL=8
+TOTAL=9
 HEALTHY=$((TOTAL - FAILURES))
 if [ "$FAILURES" -eq 0 ]; then
     echo "${GREEN}${HEALTHY}/${TOTAL} healthy${RESET}"

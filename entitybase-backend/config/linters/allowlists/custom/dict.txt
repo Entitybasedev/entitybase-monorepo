@@ -17,3 +17,12 @@ src/models/infrastructure/db/repositories/revision_data.py::load
 src/models/infrastructure/db/repositories/user.py::list_users
 src/models/infrastructure/db/repositories/user.py::get_recent_changes
 src/models/infrastructure/db/repositories/user.py::get_ui_preferences
+# Content-hash maps: hash -> value, keyed by a number that is only meaningful
+# to the storage layer, so a model would carry no information
+src/models/infrastructure/s3/client.py::load_metadata_batch
+src/models/infrastructure/s3/client.py::load_sitelinks_batch
+src/models/infrastructure/s3/client.py::load_statements_batch
+src/models/rest_api/entitybase/v1/services/normalization.py::normalize
+src/models/rest_api/entitybase/v1/services/normalization.py::_resolve_single_terms
+src/models/rest_api/entitybase/v1/services/normalization.py::_resolve_aliases
+src/models/rest_api/entitybase/v1/services/normalization.py::_resolve_sitelinks

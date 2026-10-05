@@ -38,13 +38,19 @@ async function createItemWithContent(request, stamp) {
   const propertyId = await createPropertyViaApi(request)
   const statement = await edit(
     request,
-    `/v1/entities/${entityId}/statements/${propertyId}`,
+    `/v1/entities/${entityId}/statements`,
     'POST',
     {
-      snaktype: 'value',
-      property: propertyId,
-      datatype: 'wikibase-item',
-      datavalue: { value: { id: entityId }, type: 'wikibase-item' },
+      claim: {
+        id: crypto.randomUUID(),
+        mainsnak: {
+          snaktype: 'value',
+          property: propertyId,
+          datavalue: { value: { id: entityId }, type: 'wikibase-item' },
+        },
+        type: 'statement',
+        rank: 'normal',
+      },
     }
   )
   expect(statement.ok()).toBeTruthy()
