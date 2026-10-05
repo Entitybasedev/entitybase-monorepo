@@ -106,7 +106,10 @@ class EntityUpdateHandler(
                 f"_update_with_transaction: head_revision_id={head_revision_id}"
             )
 
-            modified_data["id"] = entity_id
+            # The stored revision carries `entity_type`, not `type`, so a
+            # round-trip through PreparedRequestData would default a property to
+            # type "item". Set the type we already resolved from the entity id.
+            modified_data.update({"id": entity_id, "type": entity_type.value})
             logger.debug(f"_update_with_transaction: creating PreparedRequestData")
             request_data = PreparedRequestData(**modified_data)
             logger.debug(

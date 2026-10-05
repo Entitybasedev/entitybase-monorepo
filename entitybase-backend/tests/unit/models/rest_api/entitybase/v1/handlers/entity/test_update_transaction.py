@@ -9,6 +9,7 @@ from models.data.infrastructure.s3.enums import EditType, EditData, EntityType
 from models.data.infrastructure.s3.hashes.hash_maps import HashMaps
 from models.data.infrastructure.s3.hashes.statements_hashes import StatementsHashes
 from models.data.infrastructure.s3.entity_state import EntityState
+from models.data.infrastructure.s3.revision_data import S3RevisionData
 from models.data.infrastructure.stream.change_type import ChangeType
 from models.data.common import OperationResult
 from models.data.rest_api.v1.entitybase.request.entity import PreparedRequestData
@@ -36,6 +37,13 @@ class TestUpdateTransaction:
         mock_state.db_client = mock_vitess
         mock_state.s3_client = mock_s3
         mock_vitess.get_head.return_value = 1
+        # A stored revision carries the fields an update carries forward
+        mock_state.read_revision_data.return_value = S3RevisionData(
+            schema=settings.s3_schema_revision_version,
+            revision={"hashes": {}, "properties": [], "datatype": ""},
+            hash=1,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
 
         entity_id = "Q42"
         entity_type = EntityType.ITEM
@@ -80,6 +88,13 @@ class TestUpdateTransaction:
         mock_state.db_client = mock_vitess
         mock_state.s3_client = mock_s3
         mock_vitess.get_head.return_value = 1
+        # A stored revision carries the fields an update carries forward
+        mock_state.read_revision_data.return_value = S3RevisionData(
+            schema=settings.s3_schema_revision_version,
+            revision={"hashes": {}, "properties": [], "datatype": ""},
+            hash=1,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
 
         entity_id = "Q1"
         entity_type = EntityType.ITEM
@@ -119,6 +134,44 @@ class TestUpdateTransaction:
         assert call_args[1]["revision_id"] == 2
         assert "properties" in call_args[1]["entity_data"].model_dump()
         assert call_args[1]["entity_data"].properties == ["P31", "P279"]
+
+    @pytest.mark.asyncio
+    async def test_create_revision_keeps_a_property_datatype(self) -> None:
+        """A term edit must not drop the property's stored datatype.
+
+        The datatype belongs to the property, not to the edit, and the update
+        payload does not repeat it - so the new revision has to carry the
+        stored one forward.
+        """
+        mock_state = MagicMock()
+        mock_vitess = MagicMock()
+        mock_state.db_client = mock_vitess
+        mock_state.s3_client = MagicMock()
+        mock_vitess.get_head.return_value = 1
+        mock_state.read_revision_data.return_value = S3RevisionData(
+            schema=settings.s3_schema_revision_version,
+            revision={"hashes": {}, "properties": [], "datatype": "string"},
+            hash=1,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+        transaction = UpdateTransaction(state=mock_state, entity_id="P42")
+
+        await transaction.create_revision(
+            entity_id="P42",
+            # A label edit carries no datatype of its own
+            request_data=PreparedRequestData(
+                id="P42",
+                type=EntityType.PROPERTY.value,
+                labels={"en": {"language": "en", "value": "Edited"}},
+            ),
+            entity_type=EntityType.PROPERTY,
+            edit_headers=EditHeaders(x_user_id=1, x_edit_summary="Edit label"),
+            hash_result=StatementHashResult(statements=[], properties=[], property_counts={}),
+        )
+
+        stored = mock_vitess.create_revision.call_args[1]["entity_data"]
+        assert stored.datatype == "string"
 
     @pytest.mark.asyncio
     @patch(

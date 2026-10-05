@@ -315,6 +315,10 @@ class UpdateTransaction(EntityTransaction):
             senses=assign_sense_ids(entity_id, request_data.senses).get_json(),
             language=request_data.language,
             lexical_category=request_data.lexical_category,
+            # A property's datatype belongs to the entity, not to the edit, so
+            # carry the stored one forward; an update payload need not repeat it.
+            datatype=request_data.datatype
+            or (previous_revision.revision.get("datatype", "") if previous_revision else ""),
         )
 
         revision_dict = revision_data.model_dump(mode="json")
@@ -443,6 +447,8 @@ class UpdateTransaction(EntityTransaction):
             senses=existing_revision.get("senses", []),
             language=existing_revision.get("language", ""),
             lexical_category=existing_revision.get("lexical_category", ""),
+            # Keep the property's stored datatype; a term edit does not change it
+            datatype=existing_revision.get("datatype", ""),
         )
 
         logger.debug("Converting revision to dict and computing hash")

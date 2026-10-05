@@ -3,8 +3,7 @@ from typing import Any, Dict, List, Self
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from models.data.infrastructure.s3.entity_state import EntityState
-from models.data.infrastructure.s3.enums import EditType, EntityType
-from models.property_types import get_property_type
+from models.data.infrastructure.s3.enums import EditType
 from models.rest_api.utils import raise_validation_error
 from wikibaseintegrator.models.claims import Claims
 from wikibaseintegrator.models.forms import Forms
@@ -114,26 +113,6 @@ class EntityRequestBase(BaseModel):
                 sense_copy["claims"] = {}
             senses_with_defaults.append(sense_copy)
         return Senses().from_json(senses_with_defaults)
-
-    @model_validator(mode="after")
-    def validate_datatype(self) -> Self:
-        """A property needs a supported datatype; other types must not carry one."""
-        if self.type == EntityType.PROPERTY.value:
-            if not self.datatype:
-                raise_validation_error(
-                    "A property requires a datatype, e.g. wikibase-item or string",
-                    status_code=400,
-                )
-            try:
-                get_property_type(self.datatype)
-            except ValueError as e:
-                raise_validation_error(str(e), status_code=400)
-        elif self.datatype:
-            raise_validation_error(
-                f"Only properties have a datatype, got type '{self.type}'",
-                status_code=400,
-            )
-        return self
 
     @model_validator(mode="after")
     def validate_wbi(self) -> Self:
