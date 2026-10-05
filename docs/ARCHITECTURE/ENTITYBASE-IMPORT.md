@@ -41,6 +41,22 @@ The API already supports this without any ID generation:
   importing a large dump in parallel chunks with per-line error logs.
   It is currently an in-process handler, not yet exposed over HTTP.
 
+## Wikibase JSON is input only
+
+Wikibase JSON is how existing Wikidata data arrives, so the import path parses
+it. **That is the whole of its role.** It is not a format Entitybase emits:
+
+- No endpoint returns Wikibase JSON.
+- `GET /entities/{id}.json` returns our own revision, hashes included — it is
+  not Wikibase JSON.
+- Reading an entity back is `.njson`, specified in
+  [Entitybase JSON](ENTITYBASE-JSON.md).
+
+Imported Wikibase JSON is normalized into Entitybase's own representation on
+the way in. Once it is stored, nothing downstream thinks in Wikibase terms, and
+we do not maintain a serializer to produce that format again. Anyone needing
+Wikibase JSON out should convert it from `.njson`.
+
 ## Design principles
 
 - **API-only writes.** The import service never touches MySQL or

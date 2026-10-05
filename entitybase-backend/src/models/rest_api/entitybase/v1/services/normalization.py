@@ -5,6 +5,11 @@ identical content is stored once. That is the right shape for storage and the
 wrong shape for a client that wants to read an entity, which would otherwise
 have to resolve every hash itself.
 
+The document is Entitybase's own JSON. It is deliberately *not* Wikibase JSON:
+Wikibase JSON is an import format we parse on the way in and never emit, so
+there is no Wikibase schema here to conform to. The shape is specified in
+docs/ARCHITECTURE/ENTITYBASE-JSON.md.
+
 This module resolves those hashes back into the values they stand for, in a
 fixed number of queries regardless of how many references the entity has: each
 kind of content is collected first, deduplicated, then fetched with a single

@@ -2,6 +2,23 @@
 
 This API has 125 endpoints implemented, covering entity management (items, properties, lexemes), lexeme components (forms, senses, lemmas, glosses), entity terms (labels, descriptions, aliases), statements and claims, sitelinks, revision history, user management, and batch resolution endpoints.
 
+## A note on JSON formats
+
+There are three JSON shapes here, and only one of them is ours to read:
+
+- **Wikibase JSON** is an **import format only**. It is parsed by
+  `POST /v1/import` and the JSONL dump importer. **No endpoint returns it**, and
+  `.json` is not it. We read Wikibase JSON; we do not emit it.
+- **`GET /entities/{id}.json`** returns the stored revision, with terms,
+  sitelinks and statements replaced by content hashes. It is storage-shaped.
+- **`GET /entities/{id}.njson`** returns the same revision with those hashes
+  resolved, so a client can read an entity without knowing how the store
+  deduplicates it.
+
+`.njson` is **not** Wikibase JSON and is not compatible with a Wikibase
+client; it has no `pageid`, `ns`, `title`, `lastrevid` or `claims`. Its shape
+is specified in [Entitybase JSON](ARCHITECTURE/ENTITYBASE-JSON.md).
+
 | Implemented | Method | Full Path | Description |
 |-------------|--------|-----------|-------------|
 | ✅ | GET | `/entities` | List entities based on type, status, edit_type, limit, and offset. |
@@ -43,7 +60,8 @@ This API has 125 endpoints implemented, covering entity management (items, prope
 | ✅ | POST | `/entities/properties` | Create a new empty property entity. |
 | ✅ | GET | `/entities/{entity_id}` | Retrieve a single entity by its ID. |
 | ✅ | DELETE | `/entities/{entity_id}` | Delete an entity. |
-| ✅ | GET | `/entities/{entity_id}.json` | Get entity data in JSON format. |
+| ✅ | GET | `/entities/{entity_id}.json` | Get the stored revision as JSON, with content hashes. See [Entitybase JSON](ARCHITECTURE/ENTITYBASE-JSON.md). |
+| ✅ | GET | `/entities/{entity_id}.njson` | Get the revision as JSON with every hash reference resolved. See [Entitybase JSON](ARCHITECTURE/ENTITYBASE-JSON.md). |
 | ✅ | GET | `/entities/{entity_id}.ttl` | Get entity data in Turtle format. |
 | ✅ | GET | `/entities/{entity_id}/aliases/{language_code}` | Get entity alias texts for language. |
 | ✅ | PUT | `/entities/{entity_id}/aliases/{language_code}` | Update entity aliases for language. |

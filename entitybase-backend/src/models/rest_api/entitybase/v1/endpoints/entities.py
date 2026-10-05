@@ -90,10 +90,14 @@ async def get_entity_data_normalized_json(
 ) -> EntityJsonResponse:
     """Get an entity with every hash reference resolved to the value it stands for.
 
-    The same document as the .json endpoint, with terms, sitelinks and
+    The same revision the .json endpoint serves, with terms, sitelinks and
     statements replaced by their content, so a client can read an entity
-    without knowing how the store deduplicates it. The .json endpoint keeps
-    serving the hash-based revision; this one is the readable view of it.
+    without knowing how the store deduplicates it.
+
+    This is Entitybase's own JSON, not Wikibase JSON. Wikibase JSON is parsed
+    on import only and is never emitted, so this is not drop-in compatible
+    with a Wikibase client - there is no pageid, ns, title, lastrevid or
+    claims. See docs/ARCHITECTURE/ENTITYBASE-JSON.md.
     """
     logger.debug(f"get_entity_data_normalized_json called with entity_id: {entity_id}")
     actual_entity_id = entity_id.rsplit(".njson", 1)[0]

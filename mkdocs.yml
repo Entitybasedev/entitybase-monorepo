@@ -44,6 +44,7 @@ nav:
       - Database Schema: ARCHITECTURE/DATABASE_SCHEMA.md
       - Repositories: ARCHITECTURE/REPOSITORIES.md
       - API Models: ARCHITECTURE/API_MODELS.md
+      - Entitybase JSON: ARCHITECTURE/ENTITYBASE-JSON.md
       - Conceptual Model: ARCHITECTURE/CONCEPTUAL-MODEL.md
       - Concurrency Control: ARCHITECTURE/CONCURRENCY-CONTROL.md
       - Caching Strategy: ARCHITECTURE/CACHING-STRATEGY.md
