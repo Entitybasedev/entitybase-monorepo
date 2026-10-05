@@ -26,3 +26,11 @@ src/models/rest_api/entitybase/v1/services/normalization.py::normalize
 src/models/rest_api/entitybase/v1/services/normalization.py::_resolve_single_terms
 src/models/rest_api/entitybase/v1/services/normalization.py::_resolve_aliases
 src/models/rest_api/entitybase/v1/services/normalization.py::_resolve_sitelinks
+# The normalized document keeps the revision's own shape and only fills its
+# hashes in, so these return the stored dicts rather than a model of them
+src/models/rest_api/entitybase/v1/services/normalization.py::_stored_statement
+src/models/rest_api/entitybase/v1/services/normalization.py::_statement_document
+src/models/rest_api/entitybase/v1/services/normalization.py::_reference_document
+src/models/rest_api/entitybase/v1/services/normalization.py::_snak_map
+src/models/rest_api/entitybase/v1/services/normalization.py::_snak
+src/models/rest_api/entitybase/v1/services/normalization.py::_picked
