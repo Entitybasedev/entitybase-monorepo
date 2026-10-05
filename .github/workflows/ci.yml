@@ -404,11 +404,11 @@ jobs:
           NETWORK=$(docker inspect api --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
           docker network connect "$NETWORK" dokuwiki
           docker exec -i -u 0 dokuwiki sh -c 'cat > /storage/conf/local.php' <<PHPEOF
-<?php
-\$conf['plugin']['entitybase']['api'] = 'http://api:8000';
-\$conf['plugin']['entitybase']['entity_url'] = 'http://localhost:8085/entity';
-\$conf['plugin']['entitybase']['cache_ttl'] = 300;
-PHPEOF
+          <?php
+          \$conf['plugin']['entitybase']['api'] = 'http://api:8000';
+          \$conf['plugin']['entitybase']['entity_url'] = 'http://localhost:8085/entity';
+          \$conf['plugin']['entitybase']['cache_ttl'] = 300;
+          PHPEOF
 
       - name: Wait for DokuWiki
         timeout-minutes: 3
