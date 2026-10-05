@@ -26,10 +26,27 @@ function safeJsonParse(text) {
   return JSON.parse(text.replace(/([:,[]\s*)(\d{15,})(?=\s*[,\]}])/g, '$1"$2"'))
 }
 
+// The API reports failures as {"error","message"} or FastAPI's {"detail"},
+// so pull the human-readable part out instead of showing the raw body. The
+// status is kept on the error so callers can tell an auth failure from a
+// validation one.
+function failureMessage(body) {
+  if (!body) return ''
+  try {
+    const parsed = JSON.parse(body)
+    const detail = parsed?.detail
+    if (typeof detail === 'string') return detail
+    return parsed?.message ?? detail ?? body
+  } catch {
+    return body
+  }
+}
+
 async function unwrap(res, what) {
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`${what} failed: ${res.status} ${text}`)
+    const error = new Error(`${what} failed: ${res.status} ${failureMessage(await res.text())}`)
+    error.status = res.status
+    throw error
   }
   return safeJsonParse(await res.text())
 }

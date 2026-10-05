@@ -71,6 +71,25 @@ just docker-help
 `just up` creates `.env` from `env.example` on first run, builds the
 images, starts the stack and waits for the API to become healthy.
 
+## Editing
+
+**Anonymous edits are not supported yet.** Register an account and log in
+before changing anything: adding a label, a description, an alias or a
+statement all need a signed-in user, and the UI hides those controls when
+there is no session.
+
+The API enforces this when `AUTH_SECRET` is set in `.env`, which is what
+a real deployment should do: a write without a bearer token is answered
+with 401. With `AUTH_SECRET` empty (the default) the API still trusts an
+`X-User-ID` header, which is what the tests and the mock backends use —
+that header is a stand-in for a session, not a supported way to edit, and
+the UI never sends it for a write.
+
+A write that is refused on auth grounds reports it plainly in the UI
+("Not authorized to add the statement. Your session has expired — log in
+again and retry.") and keeps what you typed, so you can retry after
+logging in.
+
 ## Development
 
 The frontend runs as a vite dev server outside docker during

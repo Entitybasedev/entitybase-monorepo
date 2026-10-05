@@ -71,6 +71,37 @@ describe('postItem', () => {
     fetchMock.mockResolvedValue(jsonResponse({ message: 'boom' }, 500))
     await expect(postItem({})).rejects.toThrow(/500/)
   })
+
+  it('unpacks the api error envelope into the message', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: 'auth_error', message: 'Malformed token' }, 401)
+    )
+
+    await expect(postStatement('Q1', {})).rejects.toThrow('POST statement Q1 failed: 401 Malformed token')
+  })
+
+  it('unpacks a fastapi detail into the message', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'Missing bearer token' }, 401))
+
+    await expect(postStatement('Q1', {})).rejects.toThrow('POST statement Q1 failed: 401 Missing bearer token')
+  })
+
+  it('keeps the status on the error so callers can tell auth from validation', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: 'Malformed token' }, 401))
+    const error = await postStatement('Q1', {}).catch((e) => e)
+
+    expect(error.status).toBe(401)
+  })
+
+  it('keeps a non-json body as the message', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: () => Promise.resolve('Bad Gateway'),
+    })
+
+    await expect(postStatement('Q1', {})).rejects.toThrow('POST statement Q1 failed: 502 Bad Gateway')
+  })
 })
 
 describe('putLabel', () => {

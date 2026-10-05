@@ -609,6 +609,37 @@ describe('App', () => {
     expect(wrapper.find('[data-testid="statement-edit-input"]').element.value).toBe('Q30')
   })
 
+  it('says what to do when adding a statement is not authorized', async () => {
+    // A token that has expired still looks logged in locally, so the API
+    // rejects the write with 401 and the reason has to reach the user
+    loginState(90001)
+    await router.push('/entity/Q1')
+    apiMocks.getItem.mockImplementation(async (id) =>
+      id === 'Q1' ? itemPayload('Q1', 'Test', []) : propertyPayload('wikibase-item')
+    )
+    apiMocks.getLabelWithFallback.mockResolvedValue('')
+    const denied = new Error('POST statement Q1 failed: 401 Malformed token')
+    denied.status = 401
+    apiMocks.postStatement.mockRejectedValue(denied)
+
+    const wrapper = await mountApp()
+    await wrapper.find('[data-testid="statement-property-input"]').setValue('P31')
+    await flushPromises()
+    await wrapper.find('[data-testid="statement-value-input"]').setValue('Q5')
+    await wrapper.find('[data-testid="statement-form"]').trigger('submit')
+    await flushPromises()
+
+    const banner = wrapper.find('[data-testid="error-banner"]').text()
+    expect(banner).toContain('Not authorized')
+    expect(banner).toContain('log in again')
+    // The raw status is not what the user needs to act on
+    expect(banner).not.toContain('401')
+    // The typed values survive, so the add can be retried after logging in
+    expect(wrapper.find('[data-testid="statement-property-input"]').element.value).toBe('P31')
+    expect(wrapper.find('[data-testid="statement-value-input"]').element.value).toBe('Q5')
+    logoutState()
+  })
+
   it('hides the statement edit controls when logged out', async () => {
     await router.push('/entity/Q1')
     apiMocks.getItem.mockResolvedValue(itemPayload('Q1', 'Test', [777]))

@@ -229,6 +229,16 @@ watch(stmtProperty, (value) => {
   resolvePropertyType(value)
 })
 
+// A write the API refuses on auth grounds: the token is missing, expired or
+// belongs to somebody else. Say what to do about it instead of passing the
+// status on, which reads as noise to someone who only wanted to add a value.
+function authFailure(e) {
+  if (e?.status !== 401 && e?.status !== 403) return null
+  return isLoggedIn.value
+    ? 'Not authorized to add the statement. Your session has expired — log in again and retry.'
+    : 'Not authorized to add the statement. Log in to edit.'
+}
+
 async function addStatement() {
   adding.value = true
   try {
@@ -242,7 +252,8 @@ async function addStatement() {
     stmtValue.value = ''
     emit('reload')
   } catch (e) {
-    emit('error', String(e.message || e))
+    // The form keeps what was typed, so a failed add can be retried as is
+    emit('error', authFailure(e) ?? String(e.message || e))
   } finally {
     adding.value = false
   }
