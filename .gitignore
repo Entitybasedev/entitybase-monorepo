@@ -15,3 +15,6 @@ __pycache__/
 
 # local secrets
 .env
+
+# local scratch space (external data, dumps, scratch work)
+external/
