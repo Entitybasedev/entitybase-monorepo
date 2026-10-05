@@ -1,23 +1,15 @@
-src/models/infrastructure/vitess/repositories/user.py:374
-src/models/infrastructure/vitess/repositories/user.py:375
-src/models/workers/json_dumps/json_dump_worker.py:316
-src/models/infrastructure/s3/base_storage.py:89
-src/models/infrastructure/vitess/storage/base.py:39
-src/models/infrastructure/vitess/storage/base.py:122
-src/models/infrastructure/vitess/repositories/revision.py:229
-src/models/infrastructure/vitess/repositories/revision.py:321
-src/models/infrastructure/vitess/repositories/backlink.py:116
-src/models/infrastructure/db/repositories/user.py:375
-src/models/infrastructure/db/storage/base.py:39
-src/models/infrastructure/db/storage/base.py:122
-src/models/infrastructure/db/repositories/revision_data.py:21
-src/models/infrastructure/db/repositories/revision.py:229
-src/models/infrastructure/db/repositories/revision.py:321
-src/models/infrastructure/db/repositories/backlink.py:116
-src/models/infrastructure/db/repositories/user.py:374
-# plain (non-Pydantic) dicts: JWT segments and opaque preferences blobs
-src/models/rest_api/entitybase/v1/services/auth_service.py:75
-src/models/rest_api/entitybase/v1/services/auth_service.py:76
-src/models/infrastructure/db/repositories/user.py:371
-src/models/infrastructure/db/repositories/user.py:584
-src/models/infrastructure/db/repositories/user.py:585
+# Allowlist for json.dumps usages that are not model serialization.
+# Format: file_path::function_name
+# Prefer naming the function over a line number: a line moves as soon as
+# anything above it is edited, which turns an unrelated change into a lint
+# failure. Use bare file_path (no suffix) to allowlist a whole file.
+src/models/rest_api/entitybase/v1/services/auth_service.py::create_token
+src/models/infrastructure/db/storage/base.py::_store
+src/models/infrastructure/db/storage/base.py::_increment_ref_count
+src/models/infrastructure/db/repositories/revision_data.py::store
+src/models/infrastructure/db/repositories/revision.py::create_with_cas
+src/models/infrastructure/db/repositories/revision.py::create
+src/models/infrastructure/db/repositories/backlink.py::insert_backlink_statistics
+# plain (non-Pydantic) dicts: JWT segments and opaque preferences/statistics blobs
+src/models/infrastructure/db/repositories/user.py::set_ui_preferences
+src/models/infrastructure/db/repositories/user.py::insert_general_statistics
