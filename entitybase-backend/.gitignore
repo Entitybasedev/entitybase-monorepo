@@ -14,6 +14,9 @@ deprecated/.env
 seaweedfs
 alarik_data
 wikidata-query-rdf
+# Only entitybase-backend/deprecated is checked in, on the deprecated branch
+.opencode/deprecated
+scripts/deprecated
 mediawiki-extensions-Wikibase
 /WikibaseDataModelSerialization/
 /WikibaseIntegrator/
