@@ -2,6 +2,8 @@ import { expect } from '@playwright/test'
 
 export const USER_ID = process.env.E2E_USER_ID || '90001'
 export const API_URL = process.env.API_URL || 'http://localhost:8083'
+// The wiki is part of the docker stack, not of the mock setup
+export const DOKUWIKI_URL = process.env.DOKUWIKI_URL || 'http://localhost:8082'
 
 /**
  * Create a property via the API. Statement adds validate that the

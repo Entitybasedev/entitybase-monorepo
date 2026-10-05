@@ -251,6 +251,8 @@ jobs:
       API_URL: http://localhost:8000
       API_TARGET: http://localhost:8000
       FRONTEND_PORT: 8085
+      DOKUWIKI_PORT: 8082
+      DOKUWIKI_URL: http://localhost:8082
     defaults:
       run:
         working-directory: e2e-ui
@@ -383,6 +385,47 @@ jobs:
           done
           echo "frontend dev server did not become ready"; cat /tmp/frontend.log; exit 1
 
+      - name: Start DokuWiki with the Entitybase plugin
+        working-directory: ${{ github.workspace }}
+        run: |
+          # The wiki is a second UI over the same API, so it runs next to the
+          # frontend for the tests that write a wiki article with {{entity>}}.
+          # Starting as root: /storage is empty and root-owned in the image, and
+          # only the root branch of the entrypoint prepares it.
+          docker run -d --name dokuwiki \
+            -p ${{ env.DOKUWIKI_PORT }}:8080 \
+            -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
+            dokuwiki/dokuwiki:stable
+
+          # The plugin needs its settings, but the mounted local.php from the
+          # plugin directory points at the dev stack (entitybase-api:8080),
+          # while this job runs the api as `api` on port 8000. Write the config
+          # here instead, so both stacks run the same plugin with no mount.
+          NETWORK=$(docker inspect api --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+          docker network connect "$NETWORK" dokuwiki
+          docker exec -i -u 0 dokuwiki sh -c 'cat > /storage/conf/local.php' <<PHPEOF
+<?php
+\$conf['plugin']['entitybase']['api'] = 'http://api:8000';
+\$conf['plugin']['entitybase']['entity_url'] = 'http://localhost:8085/entity';
+\$conf['plugin']['entitybase']['cache_ttl'] = 300;
+PHPEOF
+
+      - name: Wait for DokuWiki
+        timeout-minutes: 3
+        working-directory: ${{ github.workspace }}
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:${{ env.DOKUWIKI_PORT }}/" > /dev/null; then
+              echo "DokuWiki is up"
+              exit 0
+            fi
+            echo "Waiting for DokuWiki..."
+            sleep 2
+          done
+          echo "DokuWiki did not come up"
+          docker logs dokuwiki
+          exit 1
+
       - name: Run Playwright e2e
         run: npx playwright test
 
@@ -422,7 +465,9 @@ jobs:
         run: ./scripts/check-links.sh frontend http://localhost:${{ env.FRONTEND_PORT }}
       - name: Down containers
         if: always()
-        run: docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
+        run: |
+          docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
+          docker rm -f dokuwiki || true
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v7
@@ -455,9 +500,11 @@ jobs:
 
       - name: Start DokuWiki with the plugin
         run: |
-          # user 33:33 is the wiki's own user; as root the entrypoint would chown
-          # /storage and abort on the read-only mounts
-          docker run -d --name dokuwiki --user 33:33 \
+          # Start as root: /storage is empty and root-owned in the image, and
+          # only the root branch of the entrypoint chowns it before dropping
+          # privileges to 33:33. It chowns /storage alone, so the read-only
+          # mounts below are not touched.
+          docker run -d --name dokuwiki \
             -p $DOKUWIKI_PORT:8080 \
             -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
             -v "$PWD/plugin-dokuwiki/dokuwiki/local.php:/var/www/html/conf/local.php:ro" \
