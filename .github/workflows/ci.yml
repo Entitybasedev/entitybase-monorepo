@@ -390,10 +390,14 @@ jobs:
         run: |
           # The wiki is a second UI over the same API, so it runs next to the
           # frontend for the tests that write a wiki article with {{entity>}}.
-          # Starting as root: /storage is empty and root-owned in the image, and
-          # only the root branch of the entrypoint prepares it.
-          docker run -d --name dokuwiki \
+          # Its own /storage volume, chowned up front: see the dokuwiki-plugin
+          # job for why the entrypoint cannot do that itself here.
+          docker volume create dokuwiki-storage
+          docker run --rm -u 0 -v dokuwiki-storage:/storage \
+            --entrypoint chown dokuwiki/dokuwiki:stable -R 33:33 /storage
+          docker run -d --name dokuwiki --user 33:33 \
             -p ${{ env.DOKUWIKI_PORT }}:8080 \
+            -v dokuwiki-storage:/storage \
             -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
             dokuwiki/dokuwiki:stable
 
@@ -403,7 +407,8 @@ jobs:
           # here instead, so both stacks run the same plugin with no mount.
           NETWORK=$(docker inspect api --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
           docker network connect "$NETWORK" dokuwiki
-          docker exec -i -u 0 dokuwiki sh -c 'cat > /storage/conf/local.php' <<PHPEOF
+          until docker exec dokuwiki test -d /storage/conf; do sleep 1; done
+          docker exec -i -u 33:33 dokuwiki sh -c 'cat > /storage/conf/local.php' <<PHPEOF
           <?php
           \$conf['plugin']['entitybase']['api'] = 'http://api:8000';
           \$conf['plugin']['entitybase']['entity_url'] = 'http://localhost:8085/entity';
@@ -468,6 +473,7 @@ jobs:
         run: |
           docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
           docker rm -f dokuwiki || true
+          docker volume rm -f dokuwiki-storage || true
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v7
@@ -500,12 +506,19 @@ jobs:
 
       - name: Start DokuWiki with the plugin
         run: |
-          # Start as root: /storage is empty and root-owned in the image, and
-          # only the root branch of the entrypoint chowns it before dropping
-          # privileges to 33:33. It chowns /storage alone, so the read-only
-          # mounts below are not touched.
-          docker run -d --name dokuwiki \
+          # /var/www/html/{conf,lib/plugins} are symlinks into /storage, so the
+          # mounts below land inside /storage. Neither branch of the image's
+          # entrypoint works with that: as root it chowns all of /storage and
+          # dies on the read-only mounts, and as 33:33 it cannot create
+          # /storage/data in the root-owned directory the image ships. So give
+          # /storage its own volume, chown that, and start unprivileged: the
+          # entrypoint then only writes inside a volume it owns.
+          docker volume create dokuwiki-storage
+          docker run --rm -u 0 -v dokuwiki-storage:/storage \
+            --entrypoint chown dokuwiki/dokuwiki:stable -R 33:33 /storage
+          docker run -d --name dokuwiki --user 33:33 \
             -p $DOKUWIKI_PORT:8080 \
+            -v dokuwiki-storage:/storage \
             -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
             -v "$PWD/plugin-dokuwiki/dokuwiki/local.php:/var/www/html/conf/local.php:ro" \
             dokuwiki/dokuwiki:stable
@@ -557,7 +570,9 @@ jobs:
 
       - name: Down containers
         if: always()
-        run: docker rm -f dokuwiki || true
+        run: |
+          docker rm -f dokuwiki || true
+          docker volume rm -f dokuwiki-storage || true
 
   kafka2sse-backend:
     runs-on: ubuntu-latest
