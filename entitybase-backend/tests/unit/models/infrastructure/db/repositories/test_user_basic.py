@@ -1,7 +1,7 @@
 """Unit tests for UserRepository - basic CRUD operations."""
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from models.infrastructure.db.repositories.user import UserRepository
 
@@ -181,9 +181,46 @@ class TestUserRepositoryBasic:
         result = repo.delete_user(123)
 
         assert result.success is True
-        mock_cursor.execute.assert_called_with(
+        mock_cursor.execute.assert_any_call(
             "DELETE FROM users WHERE user_id = %s", (123,)
         )
+
+    def test_delete_user_also_removes_credentials(self):
+        """Credentials are keyed by user id, so they go with the account.
+
+        The id allocator hands out MAX(user_id) + 1, so a leftover credential
+        row blocks a later registration of that id.
+        """
+        mock_db_client = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
+        mock_cursor.__exit__ = MagicMock(return_value=False)
+        mock_cursor.rowcount = 1
+        mock_db_client.cursor = mock_cursor
+
+        repo = UserRepository(db_client=mock_db_client)
+
+        repo.delete_user(123)
+
+        mock_cursor.execute.assert_any_call(
+            "DELETE FROM user_credentials WHERE user_id = %s", (123,)
+        )
+
+    def test_delete_user_not_found_leaves_credentials_alone(self):
+        """A missing account is not an error to fix by deleting credentials."""
+        mock_db_client = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
+        mock_cursor.__exit__ = MagicMock(return_value=False)
+        mock_cursor.rowcount = 0
+        mock_db_client.cursor = mock_cursor
+
+        repo = UserRepository(db_client=mock_db_client)
+
+        repo.delete_user(123)
+
+        executed = [call.args[0] for call in mock_cursor.execute.call_args_list]
+        assert all("user_credentials" not in sql for sql in executed)
 
     def test_delete_user_not_found(self):
         """Test deleting non-existent user."""
@@ -227,3 +264,33 @@ class TestUserRepositoryBasic:
 
         assert result.success is False
         assert "DB error" in result.error
+
+
+class TestCredentialsExist:
+    """An id counts as taken when a credentials row remains for it."""
+
+    def _repo(self, row):
+        mock_db_client = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
+        mock_cursor.__exit__ = MagicMock(return_value=False)
+        mock_cursor.fetchone.return_value = row
+        mock_db_client.cursor = mock_cursor
+        return UserRepository(db_client=mock_db_client), mock_cursor
+
+    def test_reports_existing_credentials(self):
+        repo, cursor = self._repo((1,))
+
+        assert repo.credentials_exist(123) is True
+        assert "FROM user_credentials" in cursor.execute.call_args.args[0]
+
+    def test_reports_missing_credentials(self):
+        repo, _ = self._repo(None)
+
+        assert repo.credentials_exist(123) is False
+
+    def test_database_error_is_not_taken(self):
+        repo, _ = self._repo(None)
+        repo.db_client.cursor.__enter__.side_effect = Exception("DB error")
+
+        assert repo.credentials_exist(123) is False

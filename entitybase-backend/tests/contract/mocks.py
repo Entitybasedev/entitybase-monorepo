@@ -27,6 +27,7 @@ class MockConnectionManager:
         self._cursor = MockCursor(revision_data_store=self._revision_data_store)
         self._connection = MagicMock()
         self._connection.cursor = lambda: self._cursor
+
     def acquire(self) -> MagicMock:
         return self._connection
 
@@ -213,6 +214,10 @@ class MockUserRepository:
         result.error = None
         return result
 
+    def credentials_exist(self, user_id: int) -> bool:
+        """Whether a user id already has a credentials row."""
+        return any(cred["user_id"] == user_id for cred in self._credentials.values())
+
     def get_credentials_by_username(self, username: str) -> Any:
         """Return stored credentials (UserCredentials-compatible)."""
         stored = self._credentials.get(username)
@@ -225,8 +230,11 @@ class MockUserRepository:
         )
 
     def get_next_user_id(self) -> int:
-        if self._registered:
-            return max(self._registered) + 1
+        """One past the highest id held by either table, as the real one does."""
+        taken = set(self._registered)
+        taken.update(cred["user_id"] for cred in self._credentials.values())
+        if taken:
+            return max(taken) + 1
         return 90001
 
     def list_users(self, limit: int = 10, offset: int = 0) -> list[dict]:
@@ -281,7 +289,9 @@ class MockEntityRepository:
             "entityschema": "E",
         }.get(getattr(filter_request, "entity_type", "") or "", "")
 
-        registered = sorted(self.db_client.id_resolver._entity_to_internal, reverse=True)
+        registered = sorted(
+            self.db_client.id_resolver._entity_to_internal, reverse=True
+        )
         if prefix:
             registered = [eid for eid in registered if eid.startswith(prefix)]
 

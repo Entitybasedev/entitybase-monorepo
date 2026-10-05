@@ -40,10 +40,13 @@ def register(request: RegisterRequest, req: Request) -> AuthResponse:
     user_id = request.user_id
     if user_id <= 0:
         # Auto-assign: retry on collisions (concurrent registrations can
-        # compute the same next id)
+        # compute the same next id). An id counts as taken when either table
+        # has a row for it: credentials are keyed by user_id and outlive a
+        # deleted account, so skipping only existing users hands out an id
+        # whose credentials row is still there.
         for _ in range(5):
             candidate = repo.get_next_user_id()
-            if repo.user_exists(candidate):
+            if repo.user_exists(candidate) or repo.credentials_exist(candidate):
                 continue
             created = repo.create_user(candidate)
             if not getattr(created, "success", False):

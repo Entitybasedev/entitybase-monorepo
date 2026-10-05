@@ -56,7 +56,10 @@ class UserRepository(Repository):
     def delete_user(self, user_id: int) -> OperationResult:
         """Delete a user by ID (hard delete).
 
-        Permanently removes a user from the users table.
+        Permanently removes a user from the users table together with its
+        login credentials. The credentials row is keyed by user_id and the id
+        allocator hands ids out from MAX(user_id) + 1, so an orphaned
+        credential row would block a later registration of that id.
 
         Args:
             user_id: The unique ID of the user to delete. Must be positive.
@@ -73,6 +76,11 @@ class UserRepository(Repository):
                 cursor.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
                 if cursor.rowcount == 0:
                     return OperationResult(success=False, error="User not found")
+                # Best effort: a leftover credential row is not worth failing
+                # the deletion over, but it must not survive the account
+                cursor.execute(
+                    "DELETE FROM user_credentials WHERE user_id = %s", (user_id,)
+                )
                 return OperationResult(success=True)
         except Exception as e:
             return OperationResult(success=False, error=str(e))
@@ -399,6 +407,24 @@ class UserRepository(Repository):
             logger.error(f"Failed to create credentials for {username}: {e}")
             return OperationResult(success=False, error=str(e))
 
+    def credentials_exist(self, user_id: int) -> bool:
+        """Check whether a user id already has a credentials row.
+
+        The users table and user_credentials can disagree: a deleted account
+        leaves credentials behind, and the id allocator reuses ids. Callers
+        assigning a new id must treat such an id as taken.
+        """
+        try:
+            with self.db_client.cursor as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM user_credentials WHERE user_id = %s LIMIT 1",
+                    (user_id,),
+                )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            logger.error(f"Failed to check credentials for user {user_id}: {e}")
+            return False
+
     def get_credentials_by_username(self, username: str) -> UserCredentials | None:
         """Look up credentials by username.
 
@@ -426,10 +452,25 @@ class UserRepository(Repository):
             return None
 
     def get_next_user_id(self) -> int:
-        """Return one more than the highest existing user ID (min 90001)."""
+        """Return one more than the highest user id in use (min 90001).
+
+        Both users and user_credentials are keyed by user id, so an id counts
+        as used when either table holds a row for it. A credential row left
+        behind by a deleted account would otherwise be handed out again and
+        collide on insert.
+        """
         try:
             with self.db_client.cursor as cursor:
-                cursor.execute("SELECT COALESCE(MAX(user_id), 90000) FROM users")
+                cursor.execute(
+                    """
+                    SELECT COALESCE(MAX(user_id), 90000)
+                    FROM (
+                        SELECT user_id FROM users
+                        UNION ALL
+                        SELECT user_id FROM user_credentials
+                    ) AS taken_ids
+                    """
+                )
                 row = cursor.fetchone()
                 if row and row[0]:
                     return int(row[0]) + 1
