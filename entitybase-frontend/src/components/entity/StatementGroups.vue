@@ -10,6 +10,7 @@
       <div class="statement-group-header">
         <a
           :href="`#${group.property}`"
+          :title="group.property"
           class="statement-anchor"
           data-testid="statement-property"
         >{{ group.propertyLabel || group.property }}</a>

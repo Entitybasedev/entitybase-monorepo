@@ -27,7 +27,7 @@
           @keyup.enter="createProperty"
         />
         <button type="submit" class="btn btn-primary btn-sm"
-          :disabled="!propertyLabel || creatingProperty"
+          :disabled="!propertyLabel || creatingProperty || !datatype"
           data-testid="create-property-button"
           @click="createProperty"
         >
@@ -56,6 +56,11 @@ const error = ref('')
 
 async function createProperty() {
   if (creatingProperty.value) return
+  // The API requires a type; the button stays disabled until one is chosen
+  if (!datatype.value) {
+    error.value = 'Choose a property type first.'
+    return
+  }
   creatingProperty.value = true
   error.value = ''
   try {

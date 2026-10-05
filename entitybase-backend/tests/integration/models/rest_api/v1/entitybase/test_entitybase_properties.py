@@ -11,6 +11,7 @@ async def test_entitybase_create_property(api_prefix: str) -> None:
     """Test creating a property via entitybase endpoint."""
     data = {
         "type": "property",
+        "datatype": "wikibase-item",
         "labels": {"en": {"language": "en", "value": "Test Property"}},
         "descriptions": {"en": {"language": "en", "value": "A test property"}},
     }
@@ -33,6 +34,7 @@ async def test_entitybase_create_property_minimal(api_prefix: str) -> None:
     """Test creating a property with minimal required fields."""
     data = {
         "type": "property",
+        "datatype": "wikibase-item",
         "labels": {"en": {"language": "en", "value": "Minimal Property"}},
     }
 

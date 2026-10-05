@@ -166,6 +166,41 @@ describe('CreatePropertyView', () => {
 
     expect(wrapper.find('[data-testid="property-type-empty"]').exists()).toBe(true)
   })
+
+  it('will not create a property until a type is chosen', async () => {
+    // The API requires a datatype, so the form must not submit without one
+    loginState(90001)
+    apiMocks.getPropertyDatatypes.mockResolvedValue([])
+
+    const wrapper = await mountApp('/create-property')
+    await flushPromises()
+    await wrapper.find('[data-testid="property-label-input"]').setValue('a property')
+
+    const button = wrapper.find('[data-testid="create-property-button"]')
+    expect(button.attributes('disabled')).toBeDefined()
+
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.postProperty).not.toHaveBeenCalled()
+  })
+
+  it('enables creating once a type is known', async () => {
+    loginState(90001)
+    apiMocks.postProperty.mockResolvedValue('P300')
+    apiMocks.putLabel.mockResolvedValue({ hash: 'x' })
+    apiMocks.getPropertyDatatypes.mockResolvedValue([
+      { id: 'wikibase-item', label: 'Item', value_kind: 'entity' },
+    ])
+
+    const wrapper = await mountApp('/create-property')
+    await flushPromises()
+    await wrapper.find('[data-testid="property-label-input"]').setValue('a property')
+
+    expect(
+      wrapper.find('[data-testid="create-property-button"]').attributes('disabled')
+    ).toBeUndefined()
+  })
 })
 
 describe('CreateLexemeView', () => {

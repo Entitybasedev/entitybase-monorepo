@@ -14,10 +14,13 @@ function edit(request, path, method, data) {
 }
 
 async function createEntity(request, kind) {
-  const res = await edit(request, `/v1/entities/${kind}`, 'POST')
+  // A property must say what type it is; items need nothing
+  const body =
+    kind === 'properties' ? { type: 'property', datatype: 'wikibase-item' } : undefined
+  const res = await edit(request, `/v1/entities/${kind}`, 'POST', body)
   expect(res.ok()).toBeTruthy()
-  const body = await res.json()
-  return body.data?.entity_id ?? body.entity_id
+  const json = await res.json()
+  return json.data?.entity_id ?? json.entity_id
 }
 
 async function setLabel(request, entityId, value) {

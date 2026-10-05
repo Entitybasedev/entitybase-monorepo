@@ -92,10 +92,15 @@ test('create an item and add a statement via the UI', async ({ page, request }) 
 
   const statement = page.getByTestId('statement').first()
   await expect(statement).toBeVisible()
-  // Statements are grouped under an anchored property header
+  // Statements are grouped under an anchored property header. The header shows
+  // the property's label, with its id on the anchor.
   const group = page.getByTestId('statement-group').first()
   await expect(group).toHaveAttribute('id', propertyId)
-  await expect(group.getByTestId('statement-property')).toHaveText(propertyId)
+  await expect(group.getByTestId('statement-property')).toHaveText('instance of')
+  await expect(group.getByTestId('statement-property')).toHaveAttribute(
+    'title',
+    propertyId
+  )
   await expect(statement.getByTestId('statement-value')).toHaveText('Q5')
   await expect(statement.getByTestId('statement-value')).toBeVisible()
 })
