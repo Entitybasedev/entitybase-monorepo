@@ -390,16 +390,17 @@ jobs:
         run: |
           # The wiki is a second UI over the same API, so it runs next to the
           # frontend for the tests that write a wiki article with {{entity>}}.
-          # Its own /storage volume, chowned up front: see the dokuwiki-plugin
-          # job for why the entrypoint cannot do that itself here.
-          docker volume create dokuwiki-storage
-          docker run --rm -u 0 -v dokuwiki-storage:/storage \
-            --entrypoint chown dokuwiki/dokuwiki:stable -R 33:33 /storage
-          docker run -d --name dokuwiki --user 33:33 \
+          # Started the way the dokuwiki-plugin job does it, for the same
+          # reason: the plugin mount lands inside /storage and stops the
+          # image's entrypoint.
+          docker run -d --name dokuwiki \
             -p ${{ env.DOKUWIKI_PORT }}:8080 \
-            -v dokuwiki-storage:/storage \
             -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
-            dokuwiki/dokuwiki:stable
+            --entrypoint sh dokuwiki/dokuwiki:stable -c '
+              chown -R www-data:www-data /storage 2> /dev/null || true
+              setpriv --reuid=33 --regid=33 --init-groups /dokuwiki-storagesetup.sh
+              exec docker-php-entrypoint apache2-foreground
+            '
 
           # The plugin needs its settings, but the mounted local.php from the
           # plugin directory points at the dev stack (entitybase-api:8080),
@@ -407,7 +408,12 @@ jobs:
           # here instead, so both stacks run the same plugin with no mount.
           NETWORK=$(docker inspect api --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
           docker network connect "$NETWORK" dokuwiki
-          until docker exec dokuwiki test -d /storage/conf; do sleep 1; done
+          # The entrypoint creates conf/ at startup; wait for it, but not forever
+          for i in $(seq 1 60); do
+            docker exec dokuwiki test -d /storage/conf && break
+            sleep 1
+          done
+          docker exec dokuwiki test -d /storage/conf
           docker exec -i -u 33:33 dokuwiki sh -c 'cat > /storage/conf/local.php' <<PHPEOF
           <?php
           \$conf['plugin']['entitybase']['api'] = 'http://api:8000';
@@ -473,7 +479,6 @@ jobs:
         run: |
           docker compose -f ../entitybase-backend/docker-compose.ci.yml down -v
           docker rm -f dokuwiki || true
-          docker volume rm -f dokuwiki-storage || true
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v7
@@ -507,21 +512,21 @@ jobs:
       - name: Start DokuWiki with the plugin
         run: |
           # /var/www/html/{conf,lib/plugins} are symlinks into /storage, so the
-          # mounts below land inside /storage. Neither branch of the image's
-          # entrypoint works with that: as root it chowns all of /storage and
-          # dies on the read-only mounts, and as 33:33 it cannot create
-          # /storage/data in the root-owned directory the image ships. So give
-          # /storage its own volume, chown that, and start unprivileged: the
-          # entrypoint then only writes inside a volume it owns.
-          docker volume create dokuwiki-storage
-          docker run --rm -u 0 -v dokuwiki-storage:/storage \
-            --entrypoint chown dokuwiki/dokuwiki:stable -R 33:33 /storage
-          docker run -d --name dokuwiki --user 33:33 \
+          # mounts below land inside /storage, which stops the image's own
+          # entrypoint: as root it chowns all of /storage under set -e and dies
+          # on those read-only files, and as 33:33 it cannot mkdir /storage/data
+          # in the root-owned directory the image ships. Do what the root branch
+          # does, minus the abort: chown /storage and carry on past the read-only
+          # files, which nothing writes to, then drop privileges as usual.
+          docker run -d --name dokuwiki \
             -p $DOKUWIKI_PORT:8080 \
-            -v dokuwiki-storage:/storage \
             -v "$PWD/plugin-dokuwiki/entitybase:/var/www/html/lib/plugins/entitybase:ro" \
             -v "$PWD/plugin-dokuwiki/dokuwiki/local.php:/var/www/html/conf/local.php:ro" \
-            dokuwiki/dokuwiki:stable
+            --entrypoint sh dokuwiki/dokuwiki:stable -c '
+              chown -R www-data:www-data /storage 2> /dev/null || true
+              setpriv --reuid=33 --regid=33 --init-groups /dokuwiki-storagesetup.sh
+              exec docker-php-entrypoint apache2-foreground
+            '
 
       - name: Wait for DokuWiki
         timeout-minutes: 3
@@ -572,7 +577,6 @@ jobs:
         if: always()
         run: |
           docker rm -f dokuwiki || true
-          docker volume rm -f dokuwiki-storage || true
 
   kafka2sse-backend:
     runs-on: ubuntu-latest
