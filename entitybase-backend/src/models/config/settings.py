@@ -251,6 +251,15 @@ class Settings(BaseModel):
         self.kafka_userchange_json_topic = os.getenv(
             "KAFKA_USER_CHANGE_TOPIC", self.kafka_userchange_json_topic
         )
+        # Worth having: a worker that reads the wrong topic fails in silence,
+        # and this is where the topic names come from.
+        logger.debug(
+            "Streaming topics: change=%s diff=%s incremental_rdf=%s user=%s",
+            self.kafka_entitychange_json_topic,
+            self.kafka_entity_diff_topic,
+            self.kafka_incremental_rdf_topic,
+            self.kafka_userchange_json_topic,
+        )
 
     @property
     def streaming_enabled(self) -> bool:
