@@ -1,7 +1,7 @@
 base   entitybase
 author Entitybase
 email  info@example.com
-date   2026-10-05
+date   2026-10-06
 name   Entitybase Plugin
-desc   Refer to Entitybase items in a page: {{entity>Q42}} renders the item's label
+desc   Refer to Entitybase items, properties and lexemes in a page: {{entity>Q42}}, {{lexeme>L1}}, {{property>P1}}
 url    https://github.com/Entitybasedev/entitybase-monorepo

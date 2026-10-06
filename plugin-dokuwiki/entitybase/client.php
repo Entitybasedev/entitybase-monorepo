@@ -46,6 +46,65 @@ class EntitybaseClient
     }
 
     /**
+     * The lemma of a lexeme in one language.
+     *
+     * A lexeme has no labels; its lemma is the word itself, keyed by language
+     * like a label is. The endpoint shape matches the label one, so the
+     * language fallback chain works unchanged.
+     *
+     * @param string $lexemeId Lexeme id, e.g. L1
+     * @param string $language Language code, e.g. en
+     * @return string|null The lemma, or null when there is none
+     */
+    public function lemma(string $lexemeId, string $language): ?string
+    {
+        $path = '/v1/entities/lexemes/' . rawurlencode($lexemeId) . '/lemmas/' . rawurlencode($language);
+        $response = $this->get($path);
+        if ($response === null) {
+            return null;
+        }
+        $value = $response['value'] ?? null;
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
+     * The language of a lexeme, as the id of the language item: Q1860 for
+     * English.
+     *
+     * @param string $lexemeId Lexeme id, e.g. L1
+     * @return string|null The language item id, or null when there is none
+     */
+    public function lexemeLanguage(string $lexemeId): ?string
+    {
+        $path = '/v1/entities/lexemes/' . rawurlencode($lexemeId) . '/language';
+        $response = $this->get($path);
+        if ($response === null) {
+            return null;
+        }
+        $value = $response['language'] ?? null;
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
+     * The datatype of a property: wikibase-item or string.
+     *
+     * This one needs the whole entity, because the datatype is not a term of
+     * its own but part of the property's revision data.
+     *
+     * @param string $propertyId Property id, e.g. P31
+     * @return string|null The datatype, or null when the property has none
+     */
+    public function propertyDatatype(string $propertyId): ?string
+    {
+        $response = $this->get('/v1/entities/' . rawurlencode($propertyId));
+        if ($response === null) {
+            return null;
+        }
+        $datatype = $response['data']['revision']['datatype'] ?? null;
+        return is_string($datatype) && $datatype !== '' ? $datatype : null;
+    }
+
+    /**
      * GET a JSON endpoint.
      *
      * A 404 is not an error here: a missing entity and a missing label are

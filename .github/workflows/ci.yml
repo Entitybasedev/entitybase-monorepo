@@ -559,18 +559,25 @@ jobs:
         # page. Every rendered item carries the entitybase-item class, with
         # entitybase-missing added when there was no label; the label path
         # itself is covered by the plugin's own tests.
+        #
+        # All three macros are on the page, because they take different paths:
+        # an item reads a label, a lexeme a lemma and its language, a property
+        # a label and a datatype. With no API all of them degrade to the id, and
+        # each must still render.
         run: |
           docker exec -u 0 dokuwiki sh -c 'mkdir -p /storage/data/pages &&
-            printf "====== Entitybase ======\n\nA plain item: {{entity>Q1}}\n" \
+            printf "====== Entitybase ======\n\nA plain item: {{entity>Q1}}\n\nA lexeme: {{lexeme>L1}}\n\nA property: {{property>P1}}\n" \
               > /storage/data/pages/entities.txt &&
             rm -rf /storage/data/cache/*'
-          if ! curl -s "http://localhost:$DOKUWIKI_PORT/doku.php?id=entities" \
-            | grep -q 'entitybase-item'; then
-            echo "the plugin did not render the entity"
-            docker exec -u 0 dokuwiki tail -20 /storage/data/log/error/$(date +%Y-%m-%d).log || true
-            exit 1
-          fi
-          echo "the entity syntax renders"
+          page="$(curl -s "http://localhost:$DOKUWIKI_PORT/doku.php?id=entities")"
+          for expected in entitybase-item entitybase-lexeme entitybase-property; do
+            if ! grep -q "$expected" <<< "$page"; then
+              echo "the plugin did not render $expected"
+              docker exec -u 0 dokuwiki tail -20 /storage/data/log/error/$(date +%Y-%m-%d).log || true
+              exit 1
+            fi
+          done
+          echo "the entity, lexeme and property syntax render"
 
       - name: Show DokuWiki logs on failure
         if: failure()

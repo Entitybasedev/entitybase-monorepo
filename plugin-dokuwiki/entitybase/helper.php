@@ -13,6 +13,9 @@ use dokuwiki\Extension\Plugin;
  */
 class helper_plugin_entitybase extends Plugin
 {
+    /** How many languages the configured fallback chain may hold */
+    public const MAX_FALLBACK_LANGUAGES = 5;
+
     /** @var EntitybaseClient|null */
     private $client = null;
 
@@ -41,9 +44,83 @@ class helper_plugin_entitybase extends Plugin
     }
 
     /**
-     * Languages to try, in order: an explicit one, the wiki interface
-     * language, then the configured fallback.
+     * The lemma of a lexeme, in the wiki interface language or the configured
+     * fallback.
      *
+     * @param string $lexemeId Lexeme id, e.g. L1
+     * @param string|null $language Force a language, e.g. 'de'
+     * @return string|null The lemma, or null when the lexeme has none
+     */
+    public function lemma(string $lexemeId, ?string $language = null): ?string
+    {
+        $lexemeId = trim($lexemeId);
+        if ($lexemeId === '') {
+            return null;
+        }
+
+        foreach ($this->languages($language) as $code) {
+            $lemma = $this->cached($this->cacheKey($lexemeId, 'lemma', $code), function () use ($lexemeId, $code) {
+                return $this->client()->lemma($lexemeId, $code);
+            });
+            if ($lemma !== null) {
+                return $lemma;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The language of a lexeme, as the id of the language item, and the label to
+     * show for it.
+     *
+     * A lexeme's language is a reference to another entity, so displaying it
+     * needs a second lookup: Q1860 on its own means nothing to a reader.
+     *
+     * @param string $lexemeId Lexeme id, e.g. L1
+     * @param string|null $language Language for the language label, e.g. 'de'
+     * @return array{id:?string,label:?string} The language item id and its label
+     */
+    public function lexemeLanguage(string $lexemeId, ?string $language = null): array
+    {
+        $lexemeId = trim($lexemeId);
+        $id = $lexemeId === '' ? null : $this->cached($this->cacheKey($lexemeId, 'language', ''), function () use ($lexemeId) {
+            return $this->client()->lexemeLanguage($lexemeId);
+        });
+
+        return [
+            'id' => $id,
+            // The language label is an ordinary entity label, so it goes
+            // through the same fallback chain as any other reference.
+            'label' => $id === null ? null : $this->label($id, $language),
+        ];
+    }
+
+    /**
+     * The datatype of a property, e.g. wikibase-item.
+     *
+     * A datatype belongs to the property rather than to a language of it, so
+     * this lookup has no language and no chain.
+     *
+     * @param string $propertyId Property id, e.g. P31
+     * @return string|null The datatype, or null when the property has none
+     */
+    public function datatype(string $propertyId): ?string
+    {
+        $propertyId = trim($propertyId);
+        if ($propertyId === '') {
+            return null;
+        }
+
+        return $this->cached($this->cacheKey($propertyId, 'datatype', ''), function () use ($propertyId) {
+            return $this->client()->propertyDatatype($propertyId);
+        });
+    }
+
+    /**
+     * Languages to try, in order: the one the page named, the configured
+     * default, the wiki interface language, then the fallback chain.
+     *
+     * @param string|null $language A language named in the page
      * @return list<string>
      */
     public function languages(?string $language = null): array
@@ -58,9 +135,40 @@ class helper_plugin_entitybase extends Plugin
             }
         };
 
-        $add($language);
-        $add($conf['lang'] ?? '');
-        $add($conf['plugin']['entitybase']['fallback_lang'] ?? 'en');
+        $add($language); // named in the page, as {{entity>Q42|de}}
+        $add($conf['plugin']['entitybase']['default_lang'] ?? '');
+        $add($conf['lang'] ?? ''); // the wiki interface language
+        foreach ($this->fallbackChain() as $code) {
+            $add($code);
+        }
+        return $codes;
+    }
+
+    /**
+     * The configured fallback languages, in order and at most five of them.
+     *
+     * Five is a deliberate ceiling: a chain longer than that costs one request
+     * per language for every entity on a page that is missing its label, and
+     * the languages nobody labels anything in are the ones that should be cut.
+     *
+     * @return list<string>
+     */
+    public function fallbackChain(): array
+    {
+        global $conf;
+
+        $configured = explode(',', (string) ($conf['plugin']['entitybase']['fallback_chain'] ?? ''));
+
+        $codes = [];
+        foreach ($configured as $code) {
+            $code = trim($code);
+            if ($code !== '') {
+                $codes[] = $code;
+            }
+            if (count($codes) >= self::MAX_FALLBACK_LANGUAGES) {
+                break;
+            }
+        }
         return $codes;
     }
 
@@ -71,9 +179,36 @@ class helper_plugin_entitybase extends Plugin
      */
     private function cachedLabel(string $entityId, string $language): ?string
     {
-        $file = getCacheName('entitybase_' . $entityId . '_' . $language, '.txt');
+        return $this->cached($this->cacheKey($entityId, 'label', $language), function () use ($entityId, $language) {
+            return $this->client()->label($entityId, $language);
+        });
+    }
 
-        $cached = @file_get_contents($file);
+    /**
+     * Cache file name for one lookup.
+     *
+     * The kind keeps labels and lemmas of the same id apart, and an empty
+     * language is allowed for lookups that are not per language.
+     */
+    private function cacheKey(string $entityId, string $kind, string $language): string
+    {
+        return 'entitybase_' . $entityId . '_' . $kind . ($language === '' ? '' : '_' . $language);
+    }
+
+    /**
+     * One lookup, cached.
+     *
+     * An empty value is cached too, so a missing label is not re-requested on
+     * every page render.
+     *
+     * @param callable():?string $fetch How to ask the API
+     * @return string|null
+     */
+    private function cached(string $file, callable $fetch): ?string
+    {
+        $name = getCacheName($file, '.txt');
+
+        $cached = @file_get_contents($name);
         if ($cached !== false) {
             $parts = explode("\n", $cached, 2);
             $expires = (int) ($parts[0] ?? '0');
@@ -83,11 +218,9 @@ class helper_plugin_entitybase extends Plugin
             }
         }
 
-        $label = $this->client()->label($entityId, $language);
-        // An empty label is cached too, so a missing one is not re-requested on
-        // every page render.
-        $this->write($file, $this->expiry(), (string) $label);
-        return $label;
+        $value = $fetch();
+        $this->write($name, $this->expiry(), (string) $value);
+        return $value;
     }
 
     /** Write a cache entry, ignoring failures: caching is best effort. */
