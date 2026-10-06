@@ -48,7 +48,11 @@ PARSERS = {
 def parse_value(snak_json: dict[str, Any]) -> Value:
     """Parse value from Wikidata JSON format."""
     logger.debug("Parsing value from snak JSON")
-    snaktype = snak_json.get(JsonField.SNAKTYPE.value)
+    # A stored snak carries its value and its property but no snaktype: the
+    # store hashes the snak as given and does not add the Wikibase field back.
+    # A snak with a datavalue is a value snak, so read it as one rather than
+    # rejecting every statement in the database.
+    snaktype = snak_json.get(JsonField.SNAKTYPE.value, JsonField.VALUE.value)
 
     if snaktype == "novalue":
         return parse_novalue_value()

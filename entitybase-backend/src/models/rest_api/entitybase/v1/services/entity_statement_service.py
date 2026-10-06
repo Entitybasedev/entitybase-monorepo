@@ -29,6 +29,20 @@ from models.rest_api.utils import raise_validation_error
 
 logger = logging.getLogger(__name__)
 
+# The datavalue types whose value is a reference to another entity, so the id
+# in it can be checked for existence. Everything else stores text or a number.
+ENTITY_DATAVALUE_TYPES = frozenset(
+    {
+        "wikibase-entityid",
+        "wikibase-item",
+        "wikibase-property",
+        "wikibase-lexeme",
+        "wikibase-form",
+        "wikibase-sense",
+        "entity-schema",
+    }
+)
+
 
 class _PropertyCountHelper:
     """Utility class for property count recalculation."""
@@ -175,6 +189,7 @@ class EntityStatementService(Service):
 
         self._validate_property_id(property_id)
         self._validate_property_exists(property_id)
+        self._validate_value_entity_exists(claim)
 
         add_property_request = AddPropertyRequest(claims=[claim])
         return await self.add_property(
@@ -198,6 +213,36 @@ class EntityStatementService(Service):
                 raise_validation_error("Entity is not a property", status_code=400)
         except Exception:
             raise_validation_error("Property does not exist", status_code=400)
+
+    def _validate_value_entity_exists(self, claim: dict) -> None:
+        """Validate that an entity-valued claim points at an entity that exists.
+
+        The property is checked, the value was not: a claim pointing at an id
+        nothing has ever heard of was accepted and stored, and every reader of
+        it - the RDF export, backlinks, the index - then had to cope with a
+        dangling reference. Reject it here, where the user can still see why.
+
+        Only a value that names an entity is checked. A string, a quantity or a
+        novalue snak has no id to look up, and treating its text as an id would
+        reject every text value there is.
+        """
+        mainsnak = claim.get("mainsnak") or {}
+        datavalue = mainsnak.get("datavalue") or {}
+        datavalue_type = str(datavalue.get("type") or mainsnak.get("datatype") or "")
+        if datavalue_type not in ENTITY_DATAVALUE_TYPES:
+            return
+
+        value = datavalue.get("value")
+        value_id = value.get("id") if isinstance(value, dict) else value
+        if not isinstance(value_id, str) or not value_id.strip():
+            return
+
+        try:
+            EntityReadHandler(state=self.state).get_entity(value_id.strip())
+        except Exception:
+            raise_validation_error(
+                f"Value entity {value_id} does not exist", status_code=400
+            )
 
     # Private data fetching methods
     def _fetch_current_entity_data(self, entity_id: str) -> RawEntityData:

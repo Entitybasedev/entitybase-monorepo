@@ -375,7 +375,7 @@ class TestTripleWriters:
         mock_registry = PropertyRegistry(properties={})
 
         with patch(
-            "models.rdf_builder.property_registry.registry.PropertyRegistry.shape",
+            "models.rdf_builder.property_registry.registry.PropertyRegistry.shape_or_derived",
             return_value=PropertyShape(
                 pid="P1107",
                 datatype="quantity",
@@ -451,7 +451,7 @@ class TestTripleWriters:
         mock_registry = PropertyRegistry(properties={})
 
         with patch(
-            "models.rdf_builder.property_registry.registry.PropertyRegistry.shape",
+            "models.rdf_builder.property_registry.registry.PropertyRegistry.shape_or_derived",
             return_value=PropertyShape(
                 pid="P1476",
                 datatype="string",
@@ -524,7 +524,7 @@ class TestTripleWriters:
         mock_registry = MagicMock()
         mock_snak_shape = MagicMock()
         mock_snak_shape.predicates.reference = "pr:P854"
-        mock_registry.shape.return_value = mock_snak_shape
+        mock_registry.shape_or_derived.return_value = mock_snak_shape
 
         with patch(
             "models.rdf_builder.models.rdf_reference.RDFReference"
@@ -652,7 +652,7 @@ class TestTripleWriters:
 
         with (
             patch(
-                "models.rdf_builder.property_registry.registry.PropertyRegistry.shape",
+                "models.rdf_builder.property_registry.registry.PropertyRegistry.shape_or_derived",
                 side_effect=mock_shape,
             ),
             patch(

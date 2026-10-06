@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from models.json_parser.statement_parser import parse_statement
 from models.rdf_builder.hashing.deduplication_cache import HashDedupeBag
 from models.rdf_builder.models.rdf_statement import RDFStatement
+from models.rdf_builder.property_registry.models import PropertyShape
 from models.rdf_builder.property_registry.registry import PropertyRegistry
 from models.rdf_builder.redirect_cache import load_entity_redirects
 from models.rdf_builder.writers.property_ontology import PropertyOntologyWriter
@@ -88,7 +89,7 @@ class EntityConverter(BaseModel):
             StatementWriteContext,
         )
 
-        shape = self.properties.shape(rdf_stmt.property_id)
+        shape = self._shape_for(rdf_stmt)
         logger.debug(f"Writing statement for {rdf_stmt.property_id}, shape: {shape}")
         ctx = StatementWriteContext(
             output=output,
@@ -99,6 +100,28 @@ class EntityConverter(BaseModel):
             dedupe=self.dedupe,
         )
         self.writers.write_statement(ctx)
+
+    def _shape_for(self, rdf_stmt: RDFStatement) -> PropertyShape:
+        """The shape to write one statement with.
+
+        The registry is optional and is empty when PROPERTY_REGISTRY_PATH is
+        not configured, which is how the stack runs. Falling back to a shape
+        derived from the value keeps the statement writable: the datatype the
+        datavalue carries is enough to pick the predicates. What is lost is the
+        property's own block - its label and its ontology - which the registry
+        would have supplied.
+        """
+        value = getattr(rdf_stmt, "value", None)
+        datatype = str(getattr(value, "datatype", "") or "string")
+        pid = rdf_stmt.property_id
+        if pid not in self.properties.properties:
+            logger.info(
+                "No property registry entry for %s; writing its statement with "
+                "a shape derived from the value's datatype %s",
+                pid,
+                datatype,
+            )
+        return self.properties.shape_or_derived(pid, datatype)
 
     def _write_property_metadata(
         self, entity: EntityMetadataResponse, output: TextIO
@@ -122,7 +145,7 @@ class EntityConverter(BaseModel):
                     property_ids.add(ref_value.property)
 
         for pid in sorted(property_ids):
-            shape = self.properties.shape(pid)
+            shape = self.properties.shape_or_derived(pid)
             PropertyOntologyWriter.write_property_metadata(output, shape)
             PropertyOntologyWriter.write_property(output, shape)
             PropertyOntologyWriter.write_novalue_class(output, pid)

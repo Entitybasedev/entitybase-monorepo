@@ -83,7 +83,9 @@ class RDFSerializer(BaseModel):
                 for statement in statements:
                     if isinstance(statement, dict):
                         mainsnak = statement.get("mainsnak", {})
-                        if mainsnak.get("snaktype") == "value":
+                        # Stored snaks carry no snaktype; a snak with a
+                        # datavalue is a value snak.
+                        if mainsnak.get("snaktype", "value") == "value":
                             datavalue = mainsnak.get("datavalue", {})
                             if datavalue.get("type") == "string":
                                 value = datavalue.get("value", "")

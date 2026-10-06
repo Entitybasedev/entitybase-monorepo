@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { createPropertyViaApi, registerViaUi } from './helpers.js'
+import {
+  createItemViaApi,
+  createPropertyViaApi,
+  registerViaUi,
+} from './helpers.js'
 
 test('create a lexeme via the UI', async ({ page }) => {
   await registerViaUi(page)
@@ -24,6 +28,8 @@ test('create a lexeme and add a statement via the UI', async ({ page, request })
   await registerViaUi(page)
   // The statement add validates property existence, so create one first.
   const propertyId = await createPropertyViaApi(request)
+  // ...and that the value exists too, so the value is a real item
+  const valueId = await createItemViaApi(request, 'lexeme statement target')
 
   // Create the lexeme through the UI
   const lemma = `e2elexeme${Date.now()}`
@@ -41,7 +47,7 @@ test('create a lexeme and add a statement via the UI', async ({ page, request })
 
   // Add a statement to the lexeme through the UI
   await page.getByTestId('statement-property-input').fill(propertyId)
-  await page.getByTestId('statement-value-input').fill('Q5')
+  await page.getByTestId('statement-value-input').fill(valueId)
   await page.getByTestId('add-statement-button').click()
 
   const statement = page.getByTestId('statement').first()

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   USER_ID,
   API_URL,
+  createItemViaApi,
   createPropertyViaApi,
   entityIdFromUrl,
   registerViaUi,
@@ -89,11 +90,48 @@ test('create an item via the UI and see its label', async ({ page }) => {
   await expect(page.getByTestId('item-label')).toHaveText(label)
 })
 
+test('adding a statement for an item that does not exist says so', async ({
+  page,
+  request,
+}) => {
+  await registerViaUi(page)
+  const propertyId = await createPropertyViaApi(request, 'instance of')
+
+  await page.goto('/create-item')
+  await page
+    .getByTestId('item-label-input')
+    .fill(`E2E Bad Value ${Date.now()}`)
+  await page.getByTestId('create-item-button').click()
+  await expect(page.getByTestId('item-section')).toBeVisible()
+
+  // Far beyond anything the run will have allocated, so no run can make it
+  // real by accident
+  const missingId = 'Q99999999'
+
+  await page.getByTestId('statement-property-input').fill(propertyId)
+  await page.getByTestId('statement-value-input').fill(missingId)
+  await page.getByTestId('add-statement-button').click()
+
+  // The failure has to be visible. It used to be silent: the API accepted a
+  // statement pointing at an id nothing had ever heard of and answered 200, so
+  // the form cleared and the page looked like it had worked.
+  const banner = page.getByTestId('error-banner')
+  await expect(banner).toBeVisible()
+  await expect(banner).toContainText(missingId)
+  await expect(banner).toContainText('does not exist')
+
+  // Nothing was written, so the form keeps what was typed for a retry
+  await expect(page.getByTestId('statement-value-input')).toHaveValue(missingId)
+  await expect(page.getByTestId('no-statements')).toBeVisible()
+})
+
 test('create an item and add a statement via the UI', async ({ page, request }) => {
   await registerViaUi(page)
   const label = `E2E Item ${Date.now()}`
 
   const propertyId = await createPropertyViaApi(request)
+  // The statement's value has to be an entity that exists
+  const valueId = await createItemViaApi(request, 'statement target')
 
   await page.goto('/create-item')
 
@@ -105,9 +143,9 @@ test('create an item and add a statement via the UI', async ({ page, request }) 
   await expect(itemSection).toBeVisible()
   await expect(page.getByTestId('item-label')).toHaveText(label)
 
-  // Add a statement (instance of = human)
+  // Add a statement (instance of = a real item)
   await page.getByTestId('statement-property-input').fill(propertyId)
-  await page.getByTestId('statement-value-input').fill('Q5')
+  await page.getByTestId('statement-value-input').fill(valueId)
   await page.getByTestId('add-statement-button').click()
 
   const statement = page.getByTestId('statement').first()
@@ -121,7 +159,10 @@ test('create an item and add a statement via the UI', async ({ page, request }) 
     'title',
     propertyId
   )
-  await expect(statement.getByTestId('statement-value')).toHaveText('Q5')
+  // The value shows the target's label, resolved through the API
+  await expect(statement.getByTestId('statement-value')).toHaveText(
+    'statement target'
+  )
   await expect(statement.getByTestId('statement-value')).toBeVisible()
 })
 
@@ -154,6 +195,7 @@ test('item history shows revisions, views an old revision and diffs it', async (
 }) => {
   await registerViaUi(page)
   const propertyId = await createPropertyViaApi(request)
+  const valueId = await createItemViaApi(request, 'history statement target')
 
   // Create item + statement through the UI (multiple revisions)
   const label = `E2E History ${Date.now()}`
@@ -164,7 +206,7 @@ test('item history shows revisions, views an old revision and diffs it', async (
   const entityId = entityIdFromUrl(page)
 
   await page.getByTestId('statement-property-input').fill(propertyId)
-  await page.getByTestId('statement-value-input').fill('Q5')
+  await page.getByTestId('statement-value-input').fill(valueId)
   await page.getByTestId('add-statement-button').click()
   await expect(page.getByTestId('statement').first()).toBeVisible()
 

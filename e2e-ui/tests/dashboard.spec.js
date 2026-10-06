@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { createPropertyViaApi, registerViaUi } from './helpers.js'
+import {
+  createItemViaApi,
+  createPropertyViaApi,
+  registerViaUi,
+} from './helpers.js'
 
 test('dashboard is the landing page and links to detailed statistics', async ({ page }) => {
   await page.goto('/')
@@ -32,6 +36,10 @@ test('statements on an entity are grouped by property with anchors', async ({
 }) => {
   const firstProperty = await createPropertyViaApi(request, 'instance of')
   const secondProperty = await createPropertyViaApi(request, 'country')
+  // A statement's value has to be an entity that exists, so the values here
+  // are real items rather than ids written down in the test
+  const firstValue = await createItemViaApi(request, 'first value')
+  const secondValue = await createItemViaApi(request, 'second value')
   await registerViaUi(page)
 
   await page.goto('/create-item')
@@ -40,8 +48,8 @@ test('statements on an entity are grouped by property with anchors', async ({
   await expect(page.getByTestId('item-section')).toBeVisible()
 
   for (const [propertyId, value] of [
-    [firstProperty, 'Q5'],
-    [secondProperty, 'Q30'],
+    [firstProperty, firstValue],
+    [secondProperty, secondValue],
   ]) {
     await page.getByTestId('statement-property-input').fill(propertyId)
     await page.getByTestId('statement-value-input').fill(value)
@@ -75,6 +83,8 @@ test('a statement value can be edited and removed in the UI', async ({
   request,
 }) => {
   const propertyId = await createPropertyViaApi(request, 'instance of')
+  const firstValue = await createItemViaApi(request, 'edit first value')
+  const secondValue = await createItemViaApi(request, 'edit second value')
   await registerViaUi(page)
 
   await page.goto('/create-item')
@@ -83,15 +93,15 @@ test('a statement value can be edited and removed in the UI', async ({
   await expect(page.getByTestId('item-section')).toBeVisible()
 
   await page.getByTestId('statement-property-input').fill(propertyId)
-  await page.getByTestId('statement-value-input').fill('Q5')
+  await page.getByTestId('statement-value-input').fill(firstValue)
   await page.getByTestId('add-statement-button').click()
   await expect(page.getByTestId('add-statement-button')).toHaveText('Add statement')
   await expect(page.getByTestId('statement')).toHaveCount(1)
 
   // Editing prefills the current value and saves on click
   await page.getByTestId('statement-edit-button').click()
-  await expect(page.getByTestId('statement-edit-input')).toHaveValue('Q5')
-  await page.getByTestId('statement-edit-input').fill('Q30')
+  await expect(page.getByTestId('statement-edit-input')).toHaveValue(firstValue)
+  await page.getByTestId('statement-edit-input').fill(secondValue)
   await page.getByTestId('statement-save-button').click()
   await expect(page.getByTestId('statement-edit-input')).toHaveCount(0)
   await expect(page.getByTestId('statement')).toHaveCount(1)

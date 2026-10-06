@@ -214,7 +214,7 @@ class TripleWriters:
     ) -> None:
         """Write statement qualifier triples."""
         for qual in ctx.rdf_statement.qualifiers:
-            q_shape = ctx.property_registry.shape(qual.property)
+            q_shape = ctx.property_registry.shape_or_derived(qual.property)
 
             if TripleWriters._needs_value_node(qual.value):
                 TripleWriters._write_value_node_triple(
@@ -243,7 +243,7 @@ class TripleWriters:
             ctx.output.write(f"{stmt_uri_prefixed} prov:wasDerivedFrom {ref_uri} .\n")
 
             for snak in ref.snaks:
-                snak_shape = ctx.property_registry.shape(snak.property)
+                snak_shape = ctx.property_registry.shape_or_derived(snak.property)
 
                 if TripleWriters._needs_value_node(snak.value):
                     TripleWriters._write_value_node_triple(

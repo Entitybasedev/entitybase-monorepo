@@ -31,6 +31,43 @@ export async function createPropertyViaApi(request, label = 'instance of') {  co
 
 
 /**
+ * Create an item via the API, to be the target of a statement.
+ *
+ * The API rejects a statement whose value names an entity that does not
+ * exist, so a test that adds an item-valued statement needs a real target.
+ * The instance is not seeded - nothing but what the tests create exists - so
+ * the id has to come from here rather than being written down as Q5.
+ *
+ * POST /v1/entities/items takes no body and assigns the id itself, so this
+ * makes an empty item and labels it as a second request.
+ */
+export async function createItemViaApi(request, label = 'target item') {
+  const created = await request.post(`${API_URL}/v1/entities/items`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-ID': USER_ID,
+      'X-Edit-Summary': 'e2e setup item',
+    },
+  })
+  expect(created.ok()).toBeTruthy()
+  const createdBody = await created.json()
+  const itemId = createdBody.data?.entity_id ?? createdBody.entity_id
+  expect(itemId).toMatch(/^Q\d+$/)
+
+  const labelled = await request.put(`${API_URL}/v1/entities/${itemId}/labels/en`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-ID': USER_ID,
+      'X-Edit-Summary': 'e2e setup item label',
+    },
+    data: { language: 'en', value: label },
+  })
+  expect(labelled.ok()).toBeTruthy()
+  return itemId
+}
+
+
+/**
  * Read the entity ID from the current page URL. Entity pages live at
  * /entity/<qid> (older ?entity=<qid> links redirect there).
  */

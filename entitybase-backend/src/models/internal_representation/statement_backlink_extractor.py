@@ -53,7 +53,10 @@ class StatementBacklinkExtractor:
         valid_entity_types = ("item", "property", "lexeme", "entity-schema")
 
         for snak in snaks:
-            if snak.get("snaktype") != "value":
+            # Stored snaks have no snaktype; one carrying a datavalue is a
+            # value snak. Without the default every snak is skipped here and
+            # the entity gets no backlinks at all.
+            if snak.get("snaktype", "value") != "value":
                 continue
 
             datavalue = snak.get("datavalue")
