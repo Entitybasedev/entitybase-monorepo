@@ -19,7 +19,9 @@ nav:
       - GETTING_STARTED.md
       - SETUP.md
       - PROJECT_STRUCTURE.md
-      - Value Proposition: docs/VALUE_PROPOSITION.md
+      # The value proposition lives in the monorepo's root docs/ and is
+      # published from there; this site cannot include a file outside its own
+      # docs_dir, so it is linked from the root documentation instead.
       - 🔍 Glossary: docs/GLOSSARY.md
       - ⚡ Quick Reference: docs/QUICKREF.md
   - 🏗️ Architecture:

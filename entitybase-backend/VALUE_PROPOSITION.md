@@ -1,1 +1,0 @@
-docs/VALUE_PROPOSITION.md
