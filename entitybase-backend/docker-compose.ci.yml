@@ -183,5 +183,34 @@ services:
     mem_limit: 512m
     cpus: 0.5
 
+  # Turns entity changes into RDF diffs on the stream, which is what QLever
+  # follows. Built and started by the e2e job rather than with the rest of the
+  # stack, because only the e2e job runs QLever.
+  incremental-rdf-worker:
+    build:
+      context: ..
+      dockerfile: incremental_rdf_worker/Dockerfile
+    container_name: incremental-rdf-worker
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: entitybase
+      DB_USER: root
+      DB_PASSWORD: ""
+      STREAMING_ENABLED: "true"
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_ENTITY_CHANGE_TOPIC: entity_change
+      KAFKA_INCREMENTAL_RDF_TOPIC: incremental_rdf_diff
+      LOG_LEVEL: "INFO"
+      CI: "true"
+    depends_on:
+      api:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    command: ["python", "-m", "incremental_rdf_worker"]
+    mem_limit: 512m
+    cpus: 0.5
+
 volumes:
   redpanda-data: {}

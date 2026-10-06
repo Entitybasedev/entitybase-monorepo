@@ -256,6 +256,8 @@ jobs:
       FRONTEND_PORT: 8085
       DOKUWIKI_PORT: 8082
       DOKUWIKI_URL: http://localhost:8082
+      STREAM_PORT: 8888
+      QLEVER_PORT: 7019
     defaults:
       run:
         working-directory: e2e-ui
@@ -367,8 +369,43 @@ jobs:
         run: |
           docker compose -f entitybase-backend/docker-compose.ci.yml exec -T redpanda \
             rpk topic create entity_change 2>/dev/null || echo "topic exists"
+          # QLever follows this one over SSE. Without the topic there is
+          # nothing for it to read and the graph stays empty.
+          docker compose -f entitybase-backend/docker-compose.ci.yml exec -T redpanda \
+            rpk topic create incremental_rdf_diff 2>/dev/null || echo "topic exists"
           docker compose -f entitybase-backend/docker-compose.ci.yml exec -T redpanda \
             rpk topic list
+
+      - name: Start the incremental RDF worker and QLever
+        working-directory: ${{ github.workspace }}
+        run: |
+          # The worker turns entity changes into RDF diffs; QLever follows
+          # those diffs from the start of the topic, so the SPARQL endpoint
+          # holds everything written before a query rather than only what
+          # arrives afterwards.
+          docker compose -f entitybase-backend/docker-compose.ci.yml build incremental-rdf-worker
+          docker compose -f entitybase-backend/docker-compose.ci.yml up -d incremental-rdf-worker
+          docker run -d --name qlever \
+            --network host \
+            --entrypoint /bin/bash \
+            -v "$PWD/qlever/Qleverfile:/data/Qleverfile:ro" \
+            -v "$PWD/qlever/entrypoint.sh:/entrypoint.sh:ro" \
+            -v qlever-data-ci:/data \
+            -e UID=0 -e GID=0 \
+            -e QLEVER_STREAM_URL="http://localhost:${{ env.STREAM_PORT }}/v1/streams/incremental_rdf_diff?offset=0" \
+            adfreiburg/qlever /entrypoint.sh
+
+      - name: Wait for QLever
+        timeout-minutes: 3
+        working-directory: ${{ github.workspace }}
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:${{ env.QLEVER_PORT }}/" > /dev/null; then
+              echo "QLever is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "QLever did not come up"; docker logs qlever; exit 1
 
       - name: Install e2e + frontend deps
         run: |

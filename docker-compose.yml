@@ -237,6 +237,74 @@ services:
     networks:
       - entitybase-network
 
+  # Turns entity changes into RDF diffs on the stream. QLever follows that
+  # topic, so this is what puts anything into the SPARQL endpoint at all.
+  incremental-rdf-worker:
+    container_name: incremental-rdf-worker
+    build:
+      context: .
+      dockerfile: incremental_rdf_worker/Dockerfile
+    environment:
+      - DB_TYPE=mariadb
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=entitybase
+      - DB_USER=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-}
+      - STREAMING_ENABLED=true
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_ENTITY_CHANGE_TOPIC=${KAFKA_ENTITY_CHANGE_TOPIC:-entity_change}
+      - KAFKA_INCREMENTAL_RDF_TOPIC=${KAFKA_INCREMENTAL_RDF_TOPIC:-incremental_rdf_diff}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      entitybase-api:
+        condition: service_started
+      redpanda:
+        condition: service_healthy
+    restart: on-failure
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - entitybase-network
+
+  # A SPARQL endpoint over the same data, kept current by following the change
+  # stream. The index starts empty and is filled from the stream, so it holds
+  # everything the RDF diffs have carried since the topic was created.
+  qlever:
+    container_name: qlever
+    image: adfreiburg/qlever:latest
+    # The image's own entrypoint wants UID/GID rather than -u, and it would
+    # otherwise print help and exit without these.
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    environment:
+      - UID=0
+      - GID=0
+      - QLEVER_PORT=7019
+      - QLEVER_STREAM_TOPIC=${KAFKA_INCREMENTAL_RDF_TOPIC:-incremental_rdf_diff}
+    volumes:
+      # QLever reads Qleverfile from its working directory and keeps the index
+      # beside it, so the two live in /data.
+      - ./qlever/Qleverfile:/data/Qleverfile:ro
+      - ./qlever/entrypoint.sh:/entrypoint.sh:ro
+      - qlever-data:/data
+    ports:
+      - "7019:7019"
+    depends_on:
+      kafka2sse-backend:
+        condition: service_started
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:7019/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    mem_limit: 1g
+    cpus: 1
+    networks:
+      - entitybase-network
+
   meilisearch-indexer-worker:
     container_name: meilisearch-indexer-worker
     build:
@@ -288,3 +356,6 @@ networks:
 
 volumes:
   redpanda-data:
+  # QLever's index. Named rather than a bind mount so `docker compose down -v`
+  # resets it along with the rest of the data.
+  qlever-data:

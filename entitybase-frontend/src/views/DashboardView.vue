@@ -61,6 +61,14 @@
         rel="noopener"
         data-testid="dashboard-dokuwiki-link"
       >Write it up in the wiki →</a>
+      ·
+      <!-- So is QLever, the SPARQL endpoint over the same data -->
+      <a
+        :href="qleverUrl"
+        target="_blank"
+        rel="noopener"
+        data-testid="dashboard-qlever-link"
+      >Query it with SPARQL →</a>
     </p>
   </section>
 </template>
@@ -77,6 +85,10 @@ const loaded = ref(false)
 // Where the DokuWiki with the Entitybase plugin is served; the wiki is a
 // separate service, so this is an absolute URL rather than a route.
 const dokuwikiUrl = import.meta.env.VITE_DOKUWIKI_URL || 'http://localhost:8082'
+
+// The QLever SPARQL endpoint, which holds the same data as RDF and is kept
+// current from the change stream. Also a separate service.
+const qleverUrl = import.meta.env.VITE_QLEVER_URL || 'http://localhost:7019'
 
 async function load() {
   error.value = ''

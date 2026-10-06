@@ -181,8 +181,24 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# --- qlever ---
+start_check "qlever"
+if is_running qlever; then
+    ANY_RUNNING=1
+    # The SPARQL endpoint; a reachable one means the index was built and the
+    # server came up. Whether the stream has filled it is another question.
+    if timeout 10 curl -sf http://localhost:7019/ > /dev/null 2>&1; then
+        report running
+    else
+        fail "qlever" "SPARQL endpoint not responding on :7019"
+    fi
+else
+    report "qlever" not-running
+    FAILURES=$((FAILURES + 1))
+fi
+
 echo ""
-TOTAL=9
+TOTAL=10
 HEALTHY=$((TOTAL - FAILURES))
 if [ "$FAILURES" -eq 0 ]; then
     echo "${GREEN}${HEALTHY}/${TOTAL} healthy${RESET}"

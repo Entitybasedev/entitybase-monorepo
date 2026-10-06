@@ -62,6 +62,7 @@ class Settings(BaseModel):
     kafka_bootstrap_servers: str = ""
     kafka_entitychange_json_topic: str = ""
     kafka_entity_diff_topic: str = ""
+    kafka_incremental_rdf_topic: str = ""
     kafka_userchange_json_topic: str = ""
     streaming_entity_change_version: str = "1.0.0"
     streaming_endorsechange_version: str = "1.0.0"
@@ -243,6 +244,9 @@ class Settings(BaseModel):
         )
         self.kafka_entity_diff_topic = os.getenv(
             "KAFKA_ENTITY_DIFF_TOPIC", self.kafka_entity_diff_topic
+        )
+        self.kafka_incremental_rdf_topic = os.getenv(
+            "KAFKA_INCREMENTAL_RDF_TOPIC", self.kafka_incremental_rdf_topic
         )
         self.kafka_userchange_json_topic = os.getenv(
             "KAFKA_USER_CHANGE_TOPIC", self.kafka_userchange_json_topic
@@ -481,6 +485,22 @@ class Settings(BaseModel):
             if isinstance(self.kafka_bootstrap_servers, list)
             else [self.kafka_bootstrap_servers],
             topic=self.kafka_entity_diff_topic,
+        )
+
+    @property
+    def get_incremental_rdf_stream_config(self) -> "StreamConfig":
+        """Streaming configuration for the incremental RDF diffs.
+
+        The incremental RDF worker publishes here, and QLever follows the topic
+        over SSE to keep its graph current.
+        """
+        from models.data.config.stream import StreamConfig
+
+        return StreamConfig(
+            bootstrap_servers=self.kafka_bootstrap_servers
+            if isinstance(self.kafka_bootstrap_servers, list)
+            else [self.kafka_bootstrap_servers],
+            topic=self.kafka_incremental_rdf_topic,
         )
 
     @property

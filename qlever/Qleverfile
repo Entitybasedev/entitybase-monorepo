@@ -1,0 +1,40 @@
+# QLever configuration for the Entitybase knowledge base.
+#
+# The index starts empty on purpose: the data arrives over the change stream,
+# not from a download. `qlever index` still has to run once to produce an index
+# the server can serve, so it is pointed at a stream that declares the prefixes
+# and contains no triples.
+#
+# QLever reads this file from the working directory, which is /data, and the
+# index files land next to it.
+
+[data]
+NAME = entitybase
+DESCRIPTION = Entitybase knowledge base, kept current from the change stream
+FORMAT = ttl
+# Nothing to fetch: the graph is filled by following the stream.
+GET_DATA_CMD = printf ''
+
+[index]
+# A valid but empty Turtle stream. QLever's parallel parser wants every prefix
+# declared up front, which this does.
+CAT_INPUT_FILES = printf '@prefix wd: <http://www.wikidata.org/entity/> .\n'
+PARALLEL_PARSING = false
+ULIMIT = 65536
+
+[server]
+HOST_NAME = localhost
+PORT = 7019
+# Updates are a privileged operation, so the stream updater authenticates.
+# This is a local development token, not a secret.
+ACCESS_TOKEN = entitybase
+# Keep the stream's updates on disk so a restart does not have to replay the
+# whole stream again.
+PERSIST_UPDATES = true
+MEMORY_FOR_QUERIES = 512M
+TIMEOUT = 60s
+
+[runtime]
+# The qlever binaries ship in this image, so run them in place rather than
+# letting the CLI start nested containers.
+SYSTEM = native
