@@ -38,25 +38,36 @@ async function createItemWithLabel(request, label) {
 }
 
 /**
- * Create a lexeme with one lemma. Language and lexical category are QIDs, as
- * the API requires, and Q1860 is English: the wiki shows that QID's label, so
- * the rendered page says "(English)".
+ * Create a lexeme with one lemma, and return it with the item that plays its
+ * language.
+ *
+ * A lexeme's language is a QID pointing at another entity, and the wiki shows
+ * that entity's label, so the test needs an item it can read a label off. The
+ * demo seed creates no language items, and POST /v1/entities/items ignores the
+ * request body, so the id cannot be chosen: Q1860 cannot be created here. Make
+ * an item instead and point the lexeme at whatever id it got.
+ *
+ * Note the response shape: this endpoint answers EntityResponse, whose id is
+ * top level. Items and properties answer OperationResult[EntityIdResult], whose
+ * id is nested under data, which is why the helpers above read them differently.
  */
 async function createLexemeWithLemma(request, lemma) {
+  const languageId = await createItemWithLabel(request, 'English')
+
   const created = await request.post(`${API_URL}/v1/entities/lexemes`, {
     headers: EDIT_HEADERS,
     data: {
       type: 'lexeme',
-      language: 'Q1860',
+      language: languageId,
       lexical_category: 'Q1084',
       lemmas: { en: { language: 'en', value: lemma } },
     },
   })
   expect(created.ok()).toBeTruthy()
   const body = await created.json()
-  const lexemeId = body.data?.entity_id ?? body.entity_id
+  const lexemeId = body.id
   expect(lexemeId).toMatch(/^L\d+$/)
-  return lexemeId
+  return { lexemeId, languageId }
 }
 
 /** Save a wiki page with the given content and wait for the rendered page. */
@@ -109,7 +120,7 @@ test('an item without a label shows its id, marked as missing', async ({
 
 test('a lexeme shows its lemma and language', async ({ page, request }) => {
   const lemma = `e2ewikiphrase${Date.now()}`
-  const lexemeId = await createLexemeWithLemma(request, lemma)
+  const { lexemeId, languageId } = await createLexemeWithLemma(request, lemma)
 
   const pageId = `e2e-lexeme-macro-${Date.now()}`
   await writeWikiPage(page, pageId, `A lexeme from Entitybase: {{lexeme>${lexemeId}}}\n`)
@@ -122,7 +133,10 @@ test('a lexeme shows its lemma and language', async ({ page, request }) => {
   // The language is another entity, so it is shown as that entity's label
   const language = page.locator('#dokuwiki__content .entitybase-language').first()
   await expect(language).toHaveText('(English)')
-  await expect(language.locator('a')).toHaveAttribute('href', /\/entity\/Q1860$/)
+  await expect(language.locator('a')).toHaveAttribute(
+    'href',
+    new RegExp(`/entity/${languageId}$`)
+  )
 })
 
 test('a property shows its label and datatype', async ({ page, request }) => {
