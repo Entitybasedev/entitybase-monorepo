@@ -1,0 +1,12 @@
+# The build installs its own dependencies with `npm ci` before copying the
+# source in. Without this, the host's node_modules - built for the host, not for
+# the image - is copied over the container's and the build is at best slow and
+# at worst wrong.
+node_modules
+dist
+coverage
+.git
+.gitignore
+*.log
+.vscode
+.idea

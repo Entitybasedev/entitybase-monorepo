@@ -143,6 +143,13 @@ services:
   entitybase-frontend:
     container_name: entitybase-frontend
     image: entitybase-frontend:latest
+    # Without this, `docker compose up -d` runs whatever entitybase-frontend:latest
+    # happens to exist and silently ignores frontend source changes, because the
+    # Vue app is baked into the image at build time. CI hides the problem by
+    # running `npm run dev` instead of an image. Building here makes
+    # `docker compose up -d --build` do the obvious thing.
+    build:
+      context: entitybase-frontend
     ports:
       - "8080:8080"
     depends_on:
