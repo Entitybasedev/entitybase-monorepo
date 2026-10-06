@@ -273,12 +273,16 @@ services:
   qlever:
     container_name: qlever
     image: adfreiburg/qlever:latest
-    # The image's own entrypoint wants UID/GID rather than -u, and it would
-    # otherwise print help and exit without these.
+    # The image's own entrypoint only rewrites the qlever user's uid, which
+    # fails outright for UID=0 ("UID '0' already exists"), so bypass it and run
+    # as root instead. /data is a named volume this stack owns anyway.
+    user: "0:0"
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    # The image works in /qlever, where there is no Qleverfile and where the
+    # index files would be written inside the container instead of into the
+    # volume. Qlever reads its configuration from the working directory.
+    working_dir: /data
     environment:
-      - UID=0
-      - GID=0
       - QLEVER_PORT=7019
       - QLEVER_STREAM_TOPIC=${KAFKA_INCREMENTAL_RDF_TOPIC:-incremental_rdf_diff}
     volumes:
@@ -295,7 +299,7 @@ services:
       redpanda:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://127.0.0.1:7019/"]
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:7019/ping"]
       interval: 15s
       timeout: 5s
       retries: 10

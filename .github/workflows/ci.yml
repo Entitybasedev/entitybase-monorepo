@@ -387,11 +387,12 @@ jobs:
           docker compose -f entitybase-backend/docker-compose.ci.yml up -d incremental-rdf-worker
           docker run -d --name qlever \
             --network host \
+            --user 0:0 \
             --entrypoint /bin/bash \
+            -w /data \
             -v "$PWD/qlever/Qleverfile:/data/Qleverfile:ro" \
             -v "$PWD/qlever/entrypoint.sh:/entrypoint.sh:ro" \
             -v qlever-data-ci:/data \
-            -e UID=0 -e GID=0 \
             -e QLEVER_STREAM_URL="http://localhost:${{ env.STREAM_PORT }}/v1/streams/incremental_rdf_diff?offset=0" \
             adfreiburg/qlever /entrypoint.sh
 
@@ -400,7 +401,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           for i in $(seq 1 60); do
-            if curl -sf "http://localhost:${{ env.QLEVER_PORT }}/" > /dev/null; then
+            if curl -sf "http://localhost:${{ env.QLEVER_PORT }}/ping" > /dev/null; then
               echo "QLever is up"; exit 0
             fi
             sleep 2
