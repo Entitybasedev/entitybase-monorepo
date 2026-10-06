@@ -193,10 +193,21 @@ services:
   dokuwiki:
     container_name: dokuwiki
     image: dokuwiki/dokuwiki:stable
-    # The image's entrypoint chowns /storage when it starts as root and aborts on
-    # failure with set -e, which any read-only mount inside /storage triggers.
-    # Running as the wiki's own user skips that branch entirely.
-    user: "33:33"
+    # /var/www/html/{conf,lib/plugins} are symlinks into /storage, so the
+    # read-only mounts below land inside /storage, which stops the image's own
+    # entrypoint twice over: as root it chowns all of /storage under set -e and
+    # dies on those read-only files, and as 33:33 it cannot mkdir /storage/data
+    # in the root-owned directory the image ships. Prepare /storage the way the
+    # root branch does, minus the abort, then drop privileges for the setup
+    # script. The read-only mounts are the only thing the chown cannot do, and
+    # nothing ever writes to them. This is what the dokuwiki-plugin CI job does.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        chown -R www-data:www-data /storage 2> /dev/null || true
+        setpriv --reuid=33 --regid=33 --init-groups /dokuwiki-storagesetup.sh
+        exec docker-php-entrypoint apache2-foreground
     ports:
       - "8082:8080"
     volumes:
