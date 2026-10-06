@@ -57,6 +57,13 @@ export function entityJsonUrl(entityId) {
   return `${BASE}/v1/entities/${encodeURIComponent(entityId)}.json`
 }
 
+// The same revision with every content hash resolved, so it can be read
+// without chasing hashes. Not Wikibase JSON and not compatible with a
+// Wikibase client; see docs/ARCHITECTURE/ENTITYBASE-JSON.md.
+export function entityNormalizedJsonUrl(entityId) {
+  return `${BASE}/v1/entities/${encodeURIComponent(entityId)}.njson`
+}
+
 export function entityRdfUrl(entityId) {
   return `${BASE}/v1/entities/${encodeURIComponent(entityId)}.ttl`
 }

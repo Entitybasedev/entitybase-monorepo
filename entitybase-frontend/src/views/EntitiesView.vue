@@ -42,6 +42,9 @@
       <a :href="entityJsonUrl(item.id)" target="_blank" rel="noopener"
         data-testid="item-json-link">JSON</a>
       ·
+      <a :href="entityNormalizedJsonUrl(item.id)" target="_blank" rel="noopener"
+        data-testid="item-njson-link">Normalized JSON</a>
+      ·
       <a :href="entityRdfUrl(item.id)" target="_blank" rel="noopener"
         data-testid="item-rdf-link">RDF</a>
     </p>
@@ -61,7 +64,7 @@
 // its type (item, property or lexeme).
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { entityJsonUrl, entityRdfUrl, getItem } from '../api.js'
+import { entityJsonUrl, entityNormalizedJsonUrl, entityRdfUrl, getItem } from '../api.js'
 import { MAX_FALLBACK_LANGUAGES, fallbackChain, language } from '../settings.js'
 import { userId as authUserId } from '../auth.js'
 import { getUserSettings } from '../api.js'

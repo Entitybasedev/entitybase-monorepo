@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deleteStatement,
   entityJsonUrl,
+  entityNormalizedJsonUrl,
   entityRdfUrl,
   getItem,
   getAliases,
@@ -339,8 +340,13 @@ describe('entity data URLs', () => {
     expect(entityRdfUrl('Q42')).toBe('/v1/entities/Q42.ttl')
   })
 
+  it('points at the normalized JSON, where the hashes are resolved', () => {
+    expect(entityNormalizedJsonUrl('Q42')).toBe('/v1/entities/Q42.njson')
+  })
+
   it('escapes ids that need it', () => {
     expect(entityJsonUrl('L42')).toBe('/v1/entities/L42.json')
+    expect(entityNormalizedJsonUrl('L42')).toBe('/v1/entities/L42.njson')
   })
 })
 

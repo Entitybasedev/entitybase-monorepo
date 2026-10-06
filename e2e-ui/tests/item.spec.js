@@ -43,14 +43,25 @@ test('an entity links to its history and its JSON and RDF data', async ({ page }
   // The API is served under the same origin as the UI
   const jsonHref = await page.getByTestId('item-json-link').getAttribute('href')
   expect(jsonHref).toBe(`/v1/entities/${entityId}.json`)
+  const njsonHref = await page
+    .getByTestId('item-njson-link')
+    .getAttribute('href')
+  expect(njsonHref).toBe(`/v1/entities/${entityId}.njson`)
   const rdfHref = await page.getByTestId('item-rdf-link').getAttribute('href')
   expect(rdfHref).toBe(`/v1/entities/${entityId}.ttl`)
 
-  // Both representations are really served
+  // Every representation is really served
   const jsonResponse = await page.request.get(jsonHref)
   expect(jsonResponse.ok()).toBeTruthy()
   // The revision is wrapped in a data envelope
   expect((await jsonResponse.json()).data.id).toBe(entityId)
+
+  // The normalized revision has the hashes resolved, so the label is readable
+  // straight out of it rather than being a reference to chase
+  const njsonResponse = await page.request.get(njsonHref)
+  expect(njsonResponse.ok()).toBeTruthy()
+  expect((await njsonResponse.json()).labels.en.value).toBe(label)
+
   const rdfResponse = await page.request.get(rdfHref)
   expect(rdfResponse.ok()).toBeTruthy()
 })
