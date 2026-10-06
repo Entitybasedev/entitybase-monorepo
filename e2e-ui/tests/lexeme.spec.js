@@ -61,7 +61,10 @@ test('create a lexeme and add a statement via the UI', async ({ page, request })
     'title',
     propertyId
   )
-  await expect(statement.getByTestId('statement-value')).toHaveText('Q5')
+  // The value shows the target's label, resolved through the API
+  await expect(statement.getByTestId('statement-value')).toHaveText(
+    'lexeme statement target'
+  )
   await expect(statement.getByTestId('statement-value')).toBeVisible()
 })
 

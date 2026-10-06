@@ -1,10 +1,19 @@
 import { test, expect } from '@playwright/test'
-import { USER_ID, API_URL, createPropertyViaApi, registerViaUi } from './helpers.js'
+import {
+  USER_ID,
+  API_URL,
+  createItemViaApi,
+  createPropertyViaApi,
+  registerViaUi,
+} from './helpers.js'
 
 test('diffs have unique shareable URLs', async ({ page, request }) => {
   await registerViaUi(page)
 
   const propertyId = await createPropertyViaApi(request)
+  // The statement's value has to be an entity that exists, or the add is
+  // rejected and the third revision this test counts never happens
+  const valueId = await createItemViaApi(request, 'diff url target')
   const H = { 'Content-Type': 'application/json', 'X-User-ID': USER_ID, 'X-Edit-Summary': 'diff url e2e' }
 
   // Create an item, set a label, then add a statement -> 3 revisions
@@ -16,10 +25,11 @@ test('diffs have unique shareable URLs', async ({ page, request }) => {
     headers: H,
     data: { language: 'en', value: `Diff URL ${Date.now()}` },
   })
-  await request.post(`${API_URL}/v1/entities/${entityId}/statements`, {
+  const added = await request.post(`${API_URL}/v1/entities/${entityId}/statements`, {
     headers: H,
-    data: { claim: { id: `c${Date.now()}`, mainsnak: { snaktype: 'value', property: propertyId, datavalue: { value: { id: 'Q5' }, type: 'wikibase-item' } }, type: 'statement', rank: 'normal' } },
+    data: { claim: { id: `c${Date.now()}`, mainsnak: { snaktype: 'value', property: propertyId, datavalue: { value: { id: valueId }, type: 'wikibase-item' } }, type: 'statement', rank: 'normal' } },
   })
+  expect(added.ok()).toBeTruthy()
 
   // Open history and diff the newest revision
   await page.goto(`/${entityId}/history`)

@@ -174,7 +174,6 @@ class EntityConverter(BaseModel):
         if not self.entity_metadata_dir:
             raise ValueError(f"No entity_metadata_dir set, cannot load {entity_id}")
 
-        assert self.entity_metadata_dir is not None
         json_path = self.entity_metadata_dir / f"{entity_id}.json"
         if json_path.exists():
             import json

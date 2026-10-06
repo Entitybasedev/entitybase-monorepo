@@ -72,7 +72,7 @@ def parse_value(snak_json: dict[str, Any]) -> Value:
     datavalue_type = datavalue.get("type", datatype)
 
     parser = PARSERS.get(str(datatype)) or PARSERS.get(str(datavalue_type))
-    if not parser:
+    if parser is None:
         raise_validation_error(
             f"Unsupported value type: {datavalue_type}, datatype: {datatype}"
         )
