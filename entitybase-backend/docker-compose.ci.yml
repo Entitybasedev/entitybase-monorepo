@@ -200,6 +200,7 @@ services:
       STREAMING_ENABLED: "true"
       KAFKA_BROKERS: redpanda:9092
       KAFKA_ENTITY_CHANGE_TOPIC: entity_change
+      INCREMENTAL_RDF_ENABLED: "true"
       KAFKA_INCREMENTAL_RDF_TOPIC: incremental_rdf_diff
       LOG_LEVEL: "INFO"
       CI: "true"

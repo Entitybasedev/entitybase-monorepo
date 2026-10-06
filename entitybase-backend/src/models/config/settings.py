@@ -258,6 +258,16 @@ class Settings(BaseModel):
         return os.getenv("STREAMING_ENABLED", "false").lower() == "true"
 
     @property
+    def incremental_rdf_enabled(self) -> bool:
+        """Whether the incremental RDF worker should run.
+
+        Off by default: it turns every entity change into an RDF diff, which is
+        only worth the work when something downstream - a SPARQL endpoint, say -
+        is following the topic.
+        """
+        return os.getenv("INCREMENTAL_RDF_ENABLED", "false").lower() == "true"
+
+    @property
     def s3_enabled(self) -> bool:
         """Check if S3 is configured (everything is stored in mysql otherwise)."""
         return bool(self.s3_endpoint)

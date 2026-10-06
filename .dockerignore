@@ -1,0 +1,41 @@
+# The worker images are built with the repository root as their context, but
+# each Dockerfile copies exactly two things: entitybase-backend/ and its own
+# worker directory. Everything else here was still being sent.
+#
+# The worst of it was entitybase-backend/.venv at 353MB, which is inside the
+# path every worker copies - so it was both transferred and baked into the
+# image, on every build, whether or not anything had changed.
+
+# Virtualenvs, everywhere. The workers install their own with uv sync.
+**/.venv
+.venv
+
+# Python caches
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+
+# Frontend dependencies and build output
+**/node_modules
+**/dist
+
+# Scratch clones: external/ is gitignored and hundreds of megabytes
+external/
+
+# Generated documentation and reports
+site/
+**/site/
+.docs-site/
+**/coverage/
+coverage.txt
+coverage.xml
+coverage_below_threshold.txt
+test-results/
+playwright-report/
+
+# Logs and local run output
+*.log
+**/var/

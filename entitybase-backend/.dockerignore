@@ -1,0 +1,27 @@
+# The API image is built with this directory as its context and copies only
+# requirements.txt, pyproject.toml, src/ and scripts/. Without this the build
+# ships .venv - 353MB - plus caches, coverage output and generated docs, and
+# bakes them into the context hash, so the build is redone whether or not
+# anything changed.
+
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Test data and output: not needed to run the API
+tests/
+test_data/
+coverage/
+coverage.txt
+coverage.xml
+coverage_below_threshold.txt
+.pytest_cache/
+
+# Generated documentation and local run output
+site/
+*.log
+docs/draft/
