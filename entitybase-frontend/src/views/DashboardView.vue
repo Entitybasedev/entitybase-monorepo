@@ -68,7 +68,7 @@
         target="_blank"
         rel="noopener"
         data-testid="dashboard-qlever-link"
-      >Query it with SPARQL →</a>
+      >Query with SPARQL →</a>
     </p>
   </section>
 </template>
@@ -86,9 +86,10 @@ const loaded = ref(false)
 // separate service, so this is an absolute URL rather than a route.
 const dokuwikiUrl = import.meta.env.VITE_DOKUWIKI_URL || 'http://localhost:8082'
 
-// The QLever SPARQL endpoint, which holds the same data as RDF and is kept
-// current from the change stream. Also a separate service.
-const qleverUrl = import.meta.env.VITE_QLEVER_URL || 'http://localhost:7019'
+// The QLever UI, which queries the endpoint over the same data. A separate
+// service, so an absolute URL rather than a route. The endpoint itself is on
+// 8081 if you would rather go straight to SPARQL.
+const qleverUrl = import.meta.env.VITE_QLEVER_URL || 'http://localhost:8086'
 
 async function load() {
   error.value = ''

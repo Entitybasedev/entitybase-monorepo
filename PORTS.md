@@ -23,6 +23,8 @@ Host Port → Container Port (Service Name)
 | Host Port | Container Port | Service | Description |
 |-----------|----------------|---------|-------------|
 | 8083 | 8080 | entitybase-api | REST API |
+| 8081 | 7019 | qlever | SPARQL endpoint, kept current from the change stream |
+| 8086 | 7000 | qlever-ui | QLever's query UI over that endpoint |
 | 8888 | 8888 | kafka2sse-backend | SSE API |
 | 8889 | 8889 | kafka2sse-frontend | SSE UI |
 

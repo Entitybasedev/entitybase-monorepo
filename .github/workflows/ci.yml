@@ -257,7 +257,8 @@ jobs:
       DOKUWIKI_PORT: 8082
       DOKUWIKI_URL: http://localhost:8082
       STREAM_PORT: 8888
-      QLEVER_PORT: 7019
+      QLEVER_PORT: 8081
+      QLEVER_UI_PORT: 8086
     defaults:
       run:
         working-directory: e2e-ui
@@ -407,6 +408,33 @@ jobs:
             sleep 2
           done
           echo "QLever did not come up"; docker logs qlever; exit 1
+
+      - name: Start the QLever UI
+        working-directory: ${{ github.workspace }}
+        run: |
+          # The UI is a separate image that keeps its own backend list in a
+          # sqlite database, so it needs seeding before it can query anything.
+          # A fresh install has no backend at all and would come up empty.
+          docker run -d --name qlever-ui \
+            --network host \
+            --user 0:0 \
+            --entrypoint /bin/sh \
+            -v "$PWD/qlever/ui-entrypoint.sh:/ui-entrypoint.sh:ro" \
+            -v qlever-ui-data-ci:/app/db \
+            -e QLEVER_BACKEND_URL="http://localhost:${{ env.QLEVER_PORT }}" \
+            adfreiburg/qlever-ui:latest /ui-entrypoint.sh
+
+      - name: Wait for the QLever UI
+        timeout-minutes: 3
+        working-directory: ${{ github.workspace }}
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:${{ env.QLEVER_UI_PORT }}/" > /dev/null; then
+              echo "the QLever UI is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "the QLever UI did not come up"; docker logs qlever-ui; exit 1
 
       - name: Install e2e + frontend deps
         run: |

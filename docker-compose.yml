@@ -292,7 +292,7 @@ services:
       - ./qlever/entrypoint.sh:/entrypoint.sh:ro
       - qlever-data:/data
     ports:
-      - "7019:7019"
+      - "8081:7019"
     depends_on:
       kafka2sse-backend:
         condition: service_started
@@ -306,6 +306,37 @@ services:
       start_period: 90s
     mem_limit: 1g
     cpus: 1
+    networks:
+      - entitybase-network
+
+# The QLever UI, a separate image from the endpoint it queries. Seeds its own
+  # backend row on start, because a fresh install has none and would otherwise
+  # come up with nothing to query.
+  qlever-ui:
+    container_name: qlever-ui
+    image: adfreiburg/qlever-ui:latest
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/ui-entrypoint.sh"]
+    environment:
+      # The browser calls the endpoint, not this container, so the URL has to be
+      # the one the browser can reach rather than a compose service name.
+      - QLEVER_BACKEND_URL=http://localhost:8081
+    volumes:
+      - ./qlever/ui-entrypoint.sh:/ui-entrypoint.sh:ro
+      - qlever-ui-data:/app/db
+    ports:
+      - "8086:7000"
+    depends_on:
+      qlever:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:7000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+    mem_limit: 512m
+    cpus: 0.5
     networks:
       - entitybase-network
 
@@ -363,3 +394,5 @@ volumes:
   # QLever's index. Named rather than a bind mount so `docker compose down -v`
   # resets it along with the rest of the data.
   qlever-data:
+  # The UI's sqlite database, which is where it keeps its backend list.
+  qlever-ui-data:

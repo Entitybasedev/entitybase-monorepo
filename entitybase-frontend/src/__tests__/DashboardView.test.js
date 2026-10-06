@@ -78,6 +78,21 @@ describe('DashboardView', () => {
     expect(link.attributes('target')).toBe('_blank')
   })
 
+  it('links to the QLever SPARQL endpoint', async () => {
+    apiMocks.getGeneralStats.mockResolvedValue({})
+    apiMocks.getEditStats.mockResolvedValue({})
+
+    const wrapper = await mountView()
+
+    const link = wrapper.find('[data-testid="dashboard-qlever-link"]')
+    // The label says SPARQL, which is what the reader wants to do; the
+    // service it leads to is QLever, which the testid and the href identify.
+    expect(link.text()).toContain('SPARQL')
+    // The endpoint is a separate service, so it opens on its own origin
+    expect(link.attributes('href')).toBe('http://localhost:8086')
+    expect(link.attributes('target')).toBe('_blank')
+  })
+
   it('shows an error banner when the stats API fails', async () => {
     apiMocks.getGeneralStats.mockRejectedValue(new Error('boom'))
 

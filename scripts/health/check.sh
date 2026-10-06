@@ -187,18 +187,32 @@ if is_running qlever; then
     ANY_RUNNING=1
     # The SPARQL endpoint; a reachable one means the index was built and the
     # server came up. Whether the stream has filled it is another question.
-    if timeout 10 curl -sf http://localhost:7019/ping > /dev/null 2>&1; then
+    if timeout 10 curl -sf http://localhost:8081/ping > /dev/null 2>&1; then
         report running
     else
-        fail "qlever" "SPARQL endpoint not responding on :7019"
+        fail "qlever" "SPARQL endpoint not responding on :8081"
     fi
 else
     report "qlever" not-running
     FAILURES=$((FAILURES + 1))
 fi
 
+# --- qlever-ui ---
+start_check "qlever-ui"
+if is_running qlever-ui; then
+    ANY_RUNNING=1
+    if timeout 10 curl -sf http://localhost:8086/ > /dev/null 2>&1; then
+        report running
+    else
+        fail "qlever-ui" "not responding on :8086"
+    fi
+else
+    report "qlever-ui" not-running
+    FAILURES=$((FAILURES + 1))
+fi
+
 echo ""
-TOTAL=10
+TOTAL=11
 HEALTHY=$((TOTAL - FAILURES))
 if [ "$FAILURES" -eq 0 ]; then
     echo "${GREEN}${HEALTHY}/${TOTAL} healthy${RESET}"
