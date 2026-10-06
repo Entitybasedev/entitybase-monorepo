@@ -14,6 +14,13 @@ from models.rdf_builder.writers.value_node import ValueNodeWriter
 
 logger = logging.getLogger(__name__)
 
+# The wikibase: class an entity is typed with, per entity type
+ENTITY_TYPE_CLASSES = {
+    "item": "Item",
+    "property": "Property",
+    "lexeme": "Lexeme",
+}
+
 
 class TripleWriters:
     """Collection of writers for RDF triples in various formats."""
@@ -35,10 +42,18 @@ class TripleWriters:
         output.write(TURTLE_PREFIXES)
 
     @staticmethod
-    def write_entity_type(output: TextIO, entity_id: str) -> None:
-        """Write entity type triple."""
+    def write_entity_type(
+        output: TextIO, entity_id: str, entity_type: str = "item"
+    ) -> None:
+        """Write entity type triple.
+
+        The type is the entity's own, not a constant: a property is a
+        wikibase:Property and a lexeme a wikibase:Lexeme, and typing everything
+        an Item makes the export wrong for two thirds of what it carries.
+        """
         output.write(
-            f"{TripleWriters.uri.entity_prefixed(entity_id)} a wikibase:Item .\n"
+            f"{TripleWriters.uri.entity_prefixed(entity_id)} "
+            f"a wikibase:{ENTITY_TYPE_CLASSES.get(entity_type, 'Item')} .\n"
         )
 
     @staticmethod

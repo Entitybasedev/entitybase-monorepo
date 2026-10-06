@@ -54,7 +54,7 @@ class EntityConverter(BaseModel):
         self, entity: EntityMetadataResponse, output: TextIO
     ) -> None:
         """Write entity type, labels, descriptions, aliases, sitelinks."""
-        self.writers.write_entity_type(output, entity.id)
+        self.writers.write_entity_type(output, entity.id, entity.type)
         self.writers.write_dataset_triples(output, entity.id)
 
         for lang, label in entity.labels.data.items():
@@ -179,7 +179,7 @@ class EntityConverter(BaseModel):
                 )
                 continue
 
-            self.writers.write_entity_type(output, ref_entity.id)
+            self.writers.write_entity_type(output, ref_entity.id, ref_entity.type)
 
             for lang, label in ref_entity.labels.data.items():
                 self.writers.write_label(output, ref_entity.id, lang, label.value)

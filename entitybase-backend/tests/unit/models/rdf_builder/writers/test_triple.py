@@ -30,12 +30,33 @@ class TestTripleWriters:
         assert "@prefix rdfs:" in result
 
     def test_write_entity_type(self) -> None:
-        """Test writing entity type triple."""
+        """Test writing entity type triple, defaulting to an item."""
         output = io.StringIO()
         TripleWriters.write_entity_type(output, "Q42")
 
         result = output.getvalue()
         assert result == "wd:Q42 a wikibase:Item .\n"
+
+    def test_write_entity_type_of_a_property(self) -> None:
+        """A property is typed as a Property, not as an Item."""
+        output = io.StringIO()
+        TripleWriters.write_entity_type(output, "P31", "property")
+
+        assert output.getvalue() == "wd:P31 a wikibase:Property .\n"
+
+    def test_write_entity_type_of_a_lexeme(self) -> None:
+        """A lexeme is typed as a Lexeme."""
+        output = io.StringIO()
+        TripleWriters.write_entity_type(output, "L1", "lexeme")
+
+        assert output.getvalue() == "wd:L1 a wikibase:Lexeme .\n"
+
+    def test_write_entity_type_of_an_unknown_type_falls_back_to_item(self) -> None:
+        """An unrecognised type is an Item rather than a broken triple."""
+        output = io.StringIO()
+        TripleWriters.write_entity_type(output, "Q1", "entity-schema")
+
+        assert output.getvalue() == "wd:Q1 a wikibase:Item .\n"
 
     def test_write_dataset_triples(self) -> None:
         """Test writing dataset triples for entity."""
@@ -422,8 +443,8 @@ class TestTripleWriters:
             ),
         )
 
-        mock_format_value.side_effect = (
-            lambda v: "wd:Q5" if v == "wd:Q5" else '"Book Title"@en'
+        mock_format_value.side_effect = lambda v: (
+            "wd:Q5" if v == "wd:Q5" else '"Book Title"@en'
         )
 
         # Mock property registry
@@ -495,8 +516,8 @@ class TestTripleWriters:
             ),
         )
 
-        mock_format_value.side_effect = (
-            lambda v: "wd:Q5" if v == "wd:Q5" else '"https://example.com"'
+        mock_format_value.side_effect = lambda v: (
+            "wd:Q5" if v == "wd:Q5" else '"https://example.com"'
         )
 
         # Mock property registry and RDF reference

@@ -34,16 +34,17 @@ class ExportHandler(Handler):
 
         try:
             revision = self.state.read_revision_data(entity_id, head_revision_id)
-            entity_data = revision.revision.copy()
-            entity_data["id"] = entity_id
         except Exception:
             raise_validation_error(
                 f"Entity revision not found: {entity_id}", status_code=404
             )
 
-        logger.debug(
-            f"Serializing entity {entity_id} to Turtle, entity_data keys: {entity_data.keys()}"
+        logger.debug(f"Serializing entity {entity_id} to Turtle")
+        turtle = serialize_entity_to_turtle(
+            entity_id,
+            revision.revision,
+            self.state.s3_client,
+            self.state.property_registry,
         )
-        turtle = serialize_entity_to_turtle(entity_data, self.state.property_registry)
         logger.debug(f"Generated Turtle length: {len(turtle)}")
         return TurtleResponse(turtle=turtle)
