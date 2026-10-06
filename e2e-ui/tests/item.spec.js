@@ -57,10 +57,12 @@ test('an entity links to its history and its JSON and RDF data', async ({ page }
   expect((await jsonResponse.json()).data.id).toBe(entityId)
 
   // The normalized revision has the hashes resolved, so the label is readable
-  // straight out of it rather than being a reference to chase
+  // straight out of it rather than being a reference to chase. Both JSON
+  // endpoints wrap the entity in a data envelope, which is why .data.id above
+  // works.
   const njsonResponse = await page.request.get(njsonHref)
   expect(njsonResponse.ok()).toBeTruthy()
-  expect((await njsonResponse.json()).labels.en.value).toBe(label)
+  expect((await njsonResponse.json()).data.labels.en.value).toBe(label)
 
   // RDF carries the label too. This is not a formatting check: the endpoint
   // stores labels as hashes, and the Turtle used to come back with the entity
