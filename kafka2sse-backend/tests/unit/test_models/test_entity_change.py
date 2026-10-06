@@ -97,22 +97,40 @@ class TestSSEEvent:
         sse = SSEEvent(**data)
         assert sse.event_type == "entity_change"
         assert sse.id == "82c5a9"
-        assert sse.data.entity_id == "Q42"
+        # data is the payload as a dict, whatever schema it follows
+        assert sse.data["entity_id"] == "Q42"
 
-    def test_invalid_event_type(self):
+    def test_event_type_is_not_restricted(self):
+        """Any event type is allowed.
+
+        This gateway serves several topics, each with its own payload schema,
+        and they name themselves. Restricting the type to "entity_change"
+        rejected everything on any other topic - as a warning, in an empty
+        stream, rather than as an error.
+        """
         data = {
-            "event_type": "wrong_type",
+            "event_type": "incremental_rdf_diff",
             "id": "82c5a9",
-            "data": {
-                "entity_id": "Q42",
-                "revision_id": 12345,
-                "change_type": "edit",
-                "changed_at": "2023-01-01T12:00:00Z",
-                "user_id": "user1",
-            },
+            "data": {"entity_id": "P1", "operation": "import"},
         }
-        with pytest.raises(ValidationError):
-            SSEEvent(**data)
+        sse = SSEEvent(**data)
+        assert sse.event_type == "incremental_rdf_diff"
+        assert sse.data["operation"] == "import"
+
+    def test_data_may_be_a_model(self):
+        """A payload model is accepted and stored as a dict."""
+        sse = SSEEvent(
+            id="1",
+            event_type="entity_change",
+            data=EntityChange(
+                entity_id="Q1",
+                revision_id=1,
+                change_type=ChangeType.CREATION,
+                changed_at="2024-01-01T00:00:00Z",
+                user_id="user1",
+            ),
+        )
+        assert sse.data["entity_id"] == "Q1"
 
 
 class TestChangeType:

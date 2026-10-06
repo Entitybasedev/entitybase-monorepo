@@ -79,7 +79,6 @@ def get_available_topics() -> list[str]:
 
 
 from src.config import config
-from src.models.entity_change import EntityChange
 from src.models.sse_event import SSEEvent
 from src.services.client_connection import ClientConnection
 from src.services.stream_manager import stream_manager
@@ -369,13 +368,18 @@ async def stream(
                         try:
                             raw_value = msg.value.decode("utf-8")
                             logger.debug(f"Kafka raw value: {raw_value}")
+                            # Relay the payload as published rather than parsing
+                            # it into one topic's schema: the topics this serves
+                            # carry different shapes, and a message that did not
+                            # fit was dropped with a warning, which read as an
+                            # empty stream.
                             value = json.loads(raw_value)
-                            entity_change = EntityChange(**value)
-                            logger.info(f"[{log_prefix}] Parsed entity_change: entity_id={entity_change.entity_id}, change_type={entity_change.change_type}, revision_id={entity_change.revision_id}")
                             event = SSEEvent(
-                                event_type="entity_change",
+                                event_type=str(
+                                    value.get("meta", {}).get("stream", "message")
+                                ),
                                 id=str(msg.offset),
-                                data=entity_change,
+                                data=value,
                             )
                             client.events_sent += 1
                             try:
@@ -413,11 +417,25 @@ async def stream(
                     break
                 try:
                     event = await asyncio.wait_for(client.queue.get(), timeout=30)
-                    logger.debug(f"[{log_prefix}] Sending SSE event: id={event.id}, entity_id={event.data.entity_id}")
-                    data = event.model_dump_json()
-                    yield f"data: {data}\n\n"
+                    logger.debug(f"[{log_prefix}] Sending SSE event: id={event.id}, type={event.event_type}")
+                    # Send the message as published, with the offset in the SSE
+                    # id field rather than wrapped in an envelope. Wrapping put
+                    # the payload under data.data, so a consumer following the
+                    # EventStreams convention - where meta sits at the top level
+                    # of the message - found nothing it recognised. The id
+                    # field is what SSE gives a client for resuming, so the
+                    # offset belongs there and not in the payload.
+                    # EventSourceResponse writes the "data: " prefix itself, so
+                    # the value yielded here must not carry one.
+                    yield {"id": event.id, "data": json.dumps(event.data)}
                 except TimeoutError:
-                    yield "data: {\"ping\": true}\n\n"
+                    # Nothing to send, and deliberately no keep-alive payload.
+                    # A client reading the topic cannot tell a ping from an
+                    # event, so anything with data: is a message it must
+                    # interpret. sse-starlette already sends : ping comments,
+                    # which keep the connection open and are ignored by
+                    # clients, so that is the keep-alive here.
+                    pass
         except asyncio.CancelledError:
             logger.info("Event generator cancelled")
         finally:

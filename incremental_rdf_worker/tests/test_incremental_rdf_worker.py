@@ -1,9 +1,13 @@
 """Unit tests for incremental_rdf_worker and rdf_change_builder."""
 
+import re
+from pathlib import Path
+
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, AsyncMock, patch
 
+from models.config.settings import settings
 from models.data.infrastructure.stream.consumer import EntityChangeEventData
 from incremental_rdf_worker.rdf_change_builder import (
     EventConfig,
@@ -25,9 +29,18 @@ class TestIncrementalRDFWorker:
         assert worker.worker_id == "test-worker"
         assert worker.worker_enabled is False
         assert worker.db_client is None
-        assert worker.s3_client is None
         assert worker.consumer is None
         assert worker.producer is None
+
+    def test_no_s3_client(self):
+        """The worker holds no S3 client: it never reads object storage.
+
+        It used to, assigned and never used, and initialising it failed on a
+        config field that does not exist - which stopped the worker starting at
+        all. Asserting the field is gone keeps it from creeping back.
+        """
+        worker = IncrementalRDFWorker(worker_id="test-worker", worker_enabled=False)
+        assert not hasattr(worker, "s3_client")
 
     def test_get_kafka_brokers_empty(self):
         """Test getting kafka brokers when not configured."""
@@ -316,3 +329,54 @@ class TestRDFChangeEventBuilder:
         event = RDFChangeEventBuilder.build(config)
 
         assert event.meta["request_id"] == "custom-request-123"
+
+
+class TestSettingsContract:
+    """Every settings attribute and config field the worker reads must exist.
+
+    The worker crashed five times before it started once, each time on an
+    attribute that was never there: kafka_incremental_rdf_topic,
+    get_incremental_rdf_stream_config, incremental_rdf_enabled,
+    incremental_rdf_consumer_group, and s3_config.endpoint. None was caught,
+    because every test constructed the worker with worker_enabled=False and
+    so never reached the code that reads them.
+
+    This reads them off the source instead, so a rename shows up here rather
+    than in a container.
+    """
+
+    WORKER_SOURCE = (
+        Path(__file__).parent.parent
+        / "src"
+        / "incremental_rdf_worker"
+        / "worker.py"
+    )
+
+    def test_settings_attributes_exist(self):
+        source = self.WORKER_SOURCE.read_text()
+        used = set(re.findall(r"settings\.([a-zA-Z_]+)", source))
+
+        assert used, "no settings attributes found; the pattern probably changed"
+        missing = sorted(a for a in used if not hasattr(settings, a))
+        assert not missing, f"worker reads settings the Settings class lacks: {missing}"
+
+    def test_config_fields_exist(self):
+        """Config objects are checked field by field, not just by name.
+
+        get_s3_config existed, so the settings check passed, while the field the
+        worker then read off it did not. One level deeper is what was missing.
+        """
+        source = self.WORKER_SOURCE.read_text()
+        checked = 0
+        for variable, config_getter in re.findall(
+            r"(\w+_config) = settings\.(get_\w+)", source
+        ):
+            config = getattr(settings, config_getter)
+            used = set(re.findall(rf"{variable}\.([a-zA-Z_]+)", source))
+            for field in used:
+                checked += 1
+                assert hasattr(config, field), (
+                    f"{variable} ({config_getter}) has no field {field!r}; "
+                    f"fields are {sorted(config.model_fields)}"
+                )
+        assert checked, "no config fields found; the pattern probably changed"

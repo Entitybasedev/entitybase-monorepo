@@ -10,7 +10,6 @@ from pydantic import Field
 
 from models.config.settings import settings
 from models.data.infrastructure.stream.consumer import EntityChangeEventData
-from models.infrastructure.s3.client import MyS3Client
 from models.infrastructure.stream.consumer import StreamConsumerClient
 from models.infrastructure.stream.producer import StreamProducerClient
 from models.infrastructure.db.client import MysqlClient
@@ -31,13 +30,12 @@ class IncrementalRDFWorker(Worker):
     This worker:
     1. Consumes entity change events from entitybase.entity_change Kafka topic
     2. Looks up revision metadata in MySQL to get content hashes
-    3. Fetches entity snapshots from S3 for both old and new revisions
+    3. Fetches the stored revision for both the old and the new revision
     4. Computes RDF diffs using IncrementalRDFUpdater
     5. Publishes RDF change events to incremental_rdf_diff Kafka topic
     """
 
     db_client: Optional[MysqlClient] = Field(default=None, exclude=True)
-    s3_client: Optional[MyS3Client] = Field(default=None, exclude=True)
     consumer: Optional[StreamConsumerClient] = Field(default=None, exclude=True)
     producer: Optional[StreamProducerClient] = Field(default=None, exclude=True)
     worker_enabled: bool = Field(default=False, exclude=True)
@@ -66,7 +64,7 @@ class IncrementalRDFWorker(Worker):
             logger.info("IncrementalRDFWorker stopped")
 
     async def _initialize_clients(self) -> None:
-        """Initialize Kafka consumer, producer, database and S3 clients."""
+        """Initialize Kafka consumer, producer and database clients."""
         kafka_brokers = self._get_kafka_brokers()
 
         if kafka_brokers:
@@ -110,7 +108,12 @@ class IncrementalRDFWorker(Worker):
         )
 
     async def _initialize_storage_clients(self) -> None:
-        """Initialize database and S3 clients."""
+        """Initialize the database client.
+
+        No S3 client: this worker only reads revision metadata from the
+        database. It had one, assigned and never read, whose initialisation
+        failed on a field name that does not exist.
+        """
         if not self.worker_enabled:
             return
 
@@ -122,13 +125,6 @@ class IncrementalRDFWorker(Worker):
             logger.warning(
                 "Database not configured, worker cannot fetch revision metadata"
             )
-
-        s3_config = settings.get_s3_config
-        if s3_config.endpoint:
-            self.s3_client = MyS3Client(config=s3_config)
-            logger.info("S3 client initialized")
-        else:
-            logger.warning("S3 not configured, worker cannot fetch entity snapshots")
 
     async def _cleanup_clients(self) -> None:
         """Clean up all clients."""

@@ -34,6 +34,14 @@ class KafkaConsumerService:
         return Consumer(conf)
 
     async def _consume_loop(self):
+        # Poll only once the starting offset is in place. Assigning the offset
+        # and starting to poll are two halves of one operation: if the consume
+        # loop starts first the consumer is still on its default reset, and the
+        # backlog is skipped - which looks like "no events" rather than an
+        # error.
+        if self._setup_future is not None:
+            await self._setup_future
+
         import os
         worker_pid = os.getpid()
         logger.info(f"Starting consume loop for {self.topic} in worker {worker_pid}")
@@ -107,7 +115,12 @@ class KafkaConsumerService:
 
         import asyncio
         loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, setup_consumer)
+        # Await it. Assigning the starting offset and starting to poll are two
+        # halves of one operation: leave the seek unawaited and the consume loop
+        # gets going first, the consumer is still on its default reset, and the
+        # seek is then either too late or applied after messages were missed.
+        # It looked like "no events" rather than like an error.
+        self._setup_future = loop.run_in_executor(None, setup_consumer)
 
         self._task = asyncio.create_task(self._consume_loop())
         logger.info(f"Kafka consumer for topic {self.topic} started")

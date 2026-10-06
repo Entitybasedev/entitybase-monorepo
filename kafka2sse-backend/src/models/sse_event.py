@@ -1,11 +1,22 @@
-from pydantic import BaseModel, Field, field_validator
+from typing import Any
 
-from src.models.entity_change import EntityChange
+from pydantic import BaseModel, Field, field_validator
 
 
 class SSEEvent(BaseModel):
-    """Server-Sed Events message format for entity changes."""
-    
+    """Server-Sent Events message format.
+
+    `data` is the message as it came off the topic, not a model of it. This
+    gateway relays several topics whose payloads follow different schemas -
+    entity changes, RDF diffs - and those schemas live in other projects, so
+    naming one of them here meant every message on any other topic was rejected
+    as invalid. That surfaced as a warning and an empty stream rather than as
+    an error, which is a poor way to be told.
+
+    Validating here bought nothing: the producer already validated the payload
+    before publishing it, and a consumer that wants the shape parses it.
+    """
+
     model_config = {
         "populate_by_name": True,
         "json_schema_extra": {
@@ -26,14 +37,20 @@ class SSEEvent(BaseModel):
         },
     }
 
-    event_type: str = Field(default="entity_change", description="Event type identifier")
+    event_type: str = Field(
+        default="entity_change", description="Event type identifier"
+    )
     id: str = Field(..., description="Unique ID for SSE event")
-    data: EntityChange = Field(..., description="The entity change data")
+    data: dict[str, Any] = Field(..., description="The message, as published")
 
-    @field_validator("event_type")
+    @field_validator("data", mode="before")
     @classmethod
-    def validate_event_type(cls, v: str) -> str:
-        if v != "entity_change":
-            raise ValueError("event_type must be 'entity_change'")
-        return v
+    def coerce_data(cls, v: Any) -> Any:
+        """Accept a payload model as readily as a plain dict.
 
+        Callers that hold a typed event should not have to dump it by hand, and
+        what reaches the wire is a dict either way.
+        """
+        if isinstance(v, BaseModel):
+            return v.model_dump()
+        return v

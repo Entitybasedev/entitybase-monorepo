@@ -119,6 +119,10 @@ class RDFChangeEventBuilder:
         meta = {
             "domain": config.domain,
             "stream": "incremental_rdf_diff",
+            # EventStreams puts the topic in meta, and consumers that follow
+            # that convention read meta.topic to decide whether a message is
+            # theirs. Without it every message is discarded as unrelated.
+            "topic": "incremental_rdf_diff",
             "request_id": request_id,
         }
 
