@@ -158,6 +158,7 @@ class Settings(BaseModel):
     meilisearch_api_key: str = ""
     meilisearch_index: str = "entitybase"
     meilisearch_consumer_group: str = "entitybase-meilisearch-indexer"
+    incremental_rdf_consumer_group: str = "entitybase-incremental-rdf"
 
     def model_post_init(self, context: Any) -> None:
         """Initialize all fields from environment variables.
@@ -408,6 +409,9 @@ class Settings(BaseModel):
         )
         self.meilisearch_consumer_group = os.getenv(
             "MEILISEARCH_CONSUMER_GROUP", self.meilisearch_consumer_group
+        )
+        self.incremental_rdf_consumer_group = os.getenv(
+            "INCREMENTAL_RDF_CONSUMER_GROUP", self.incremental_rdf_consumer_group
         )
         logger.debug(
             f"Workers config loaded: backlink_stats_enabled={self.backlink_stats_enabled}, "

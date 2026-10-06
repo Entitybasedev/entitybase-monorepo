@@ -95,7 +95,7 @@ class MeilisearchIndexerWorker(Worker):
         if self.search_client is not None:
             self.search_client.close()
         if self.db_client is not None and self.db_client.connection_manager:
-            self.db_client.connection_manager.close()
+            self.db_client.connection_manager.disconnect()
 
     async def start(self) -> None:
         """Index everything that exists, then follow the change stream."""

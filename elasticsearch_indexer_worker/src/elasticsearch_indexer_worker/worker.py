@@ -143,7 +143,7 @@ class ElasticsearchIndexerWorker(Worker):
         if self.elasticsearch_client:
             self.elasticsearch_client.close()
         if self.db_client and self.db_client.connection_manager:
-            self.db_client.connection_manager.close()
+            self.db_client.connection_manager.disconnect()
         logger.debug("All clients cleaned up")
 
     async def run(self) -> None:

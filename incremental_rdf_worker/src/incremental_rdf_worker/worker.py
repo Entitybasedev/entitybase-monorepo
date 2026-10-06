@@ -137,7 +137,7 @@ class IncrementalRDFWorker(Worker):
         if self.producer:
             await self.producer.stop()
         if self.db_client and self.db_client.connection_manager:
-            self.db_client.connection_manager.close()
+            self.db_client.connection_manager.disconnect()
         logger.debug("All clients cleaned up")
 
     async def run(self) -> None:
