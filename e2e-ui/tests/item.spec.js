@@ -62,8 +62,15 @@ test('an entity links to its history and its JSON and RDF data', async ({ page }
   expect(njsonResponse.ok()).toBeTruthy()
   expect((await njsonResponse.json()).labels.en.value).toBe(label)
 
+  // RDF carries the label too. This is not a formatting check: the endpoint
+  // stores labels as hashes, and the Turtle used to come back with the entity
+  // type and nothing else, because the export fed the stored revision to a
+  // parser expecting resolved values.
   const rdfResponse = await page.request.get(rdfHref)
   expect(rdfResponse.ok()).toBeTruthy()
+  expect(rdfResponse.headers()['content-type']).toContain('text/turtle')
+  const turtle = await rdfResponse.text()
+  expect(turtle).toContain(`rdfs:label "${label}"@en`)
 })
 
 test('create an item via the UI and see its label', async ({ page }) => {
