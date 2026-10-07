@@ -428,6 +428,7 @@ jobs:
             -v "$PWD/qlever/ui-entrypoint.sh:/ui-entrypoint.sh:ro" \
             -v qlever-ui-data-ci:/app/db \
             -e QLEVER_BACKEND_URL="http://localhost:${{ env.QLEVER_PORT }}" \
+            -e QLEVER_UI_PORT="${{ env.QLEVER_UI_PORT }}" \
             adfreiburg/qlever-ui:latest /ui-entrypoint.sh
 
       - name: Wait for the QLever UI

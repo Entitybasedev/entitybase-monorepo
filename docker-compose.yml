@@ -331,7 +331,9 @@ services:
       qlever:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:7000/"]
+      # Reads the port the entrypoint was given rather than repeating it, so the
+      # probe follows the change if the served port is ever overridden.
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:$${QLEVER_UI_PORT:-7000}/"]
       interval: 15s
       timeout: 5s
       retries: 10

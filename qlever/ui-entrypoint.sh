@@ -34,4 +34,9 @@ print(('created' if created else 'updated'), 'backend ->', url)
 # Point everything at the one backend, so the UI does not offer an empty list.
 python manage.py configure entitybase "${BACKEND_URL}"
 
-exec gunicorn --bind ":7000" --workers 3 --limit-request-line 10000 qlever.wsgi:application
+# The port is overridable for the same reason the endpoint's is: with
+# --network host there is no port mapping to publish 7000 as 8086, so the UI has
+# to serve the port the job asks for itself.
+PORT="${QLEVER_UI_PORT:-7000}"
+
+exec gunicorn --bind ":${PORT}" --workers 3 --limit-request-line 10000 qlever.wsgi:application
