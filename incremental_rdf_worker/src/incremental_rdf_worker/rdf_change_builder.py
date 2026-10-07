@@ -1,9 +1,26 @@
 """RDF Change Event builder for incremental RDF diff output."""
 
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+
+def eventstreams_timestamp(timestamp: str) -> str:
+    """Render a timestamp the way an EventStreams consumer parses it.
+
+    EventStreams dates are whole seconds ending in Z. The timestamp this worker
+    generates carries microseconds and a +00:00 offset, which a consumer cannot
+    read: it strips fractional seconds with a pattern anchored on Z and then
+    parses what is left with strptime. That fails on the first message it sees,
+    which is why the date belongs in the shape the reader expects rather than
+    the shape the writer finds natural.
+    """
+    parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class RDFDataField(BaseModel):
@@ -116,13 +133,22 @@ class RDFChangeEventBuilder:
         """
         request_id = config.request_id or str(uuid.uuid4())
 
+        # EventStreams keeps the envelope fields in meta, and a consumer
+        # following that convention reads them from there: meta.topic to decide
+        # whether a message is theirs, and meta.dt to order it. Ours carried the
+        # topic only after the topic itself went missing, and the date not at
+        # all, so every message was discarded as belonging to something else.
         meta = {
             "domain": config.domain,
             "stream": "incremental_rdf_diff",
-            # EventStreams puts the topic in meta, and consumers that follow
-            # that convention read meta.topic to decide whether a message is
-            # theirs. Without it every message is discarded as unrelated.
             "topic": "incremental_rdf_diff",
+            "partition": 0,
+            # Whole seconds ending in Z. A consumer strips fractional seconds
+            # with a pattern anchored on Z, then parses what is left as
+            # "%Y-%m-%dT%H:%M:%SZ"; the microseconds and +00:00 offset this
+            # timestamp is generated with match neither, and it fails on the
+            # first message rather than on the ones after it.
+            "dt": eventstreams_timestamp(config.timestamp),
             "request_id": request_id,
         }
 

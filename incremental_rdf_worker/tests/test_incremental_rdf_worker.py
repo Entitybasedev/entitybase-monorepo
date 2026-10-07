@@ -11,6 +11,7 @@ from models.config.settings import settings
 from models.data.infrastructure.stream.consumer import EntityChangeEventData
 from incremental_rdf_worker.rdf_change_builder import (
     EventConfig,
+    eventstreams_timestamp,
     RDFChangeEvent,
     RDFChangeEventBuilder,
     RDFDataField,
@@ -100,6 +101,99 @@ class TestIncrementalRDFWorker:
         await worker.process_message(message)
 
     @pytest.mark.asyncio
+    async def test_published_event_carries_the_rdf(self):
+        """The published event must contain the RDF the diff produced.
+
+        End to end through process_message, because the pieces were tested
+        apart: the diff was right and the event was still empty, which is the
+        same empty graph as never having computed a diff at all.
+        """
+        worker = self._worker_with_content()
+        worker.producer = MagicMock()
+        worker.producer.publish = AsyncMock()
+        worker._fetch_previous_entity_data = AsyncMock(return_value=None)
+        worker._fetch_entity_data = AsyncMock(
+            return_value={"id": "Q42", "hashes": {"labels": {"en": 1}}}
+        )
+        turtle = (
+            "<http://wikiba.se/ontology#Q42> "
+            "<http://www.w3.org/2000/01/rdf-schema#label> \"Test\" .\n"
+        )
+
+        with patch(
+            "incremental_rdf_worker.worker.serialize_entity_to_turtle",
+            return_value=turtle,
+        ):
+            await worker.process_message(
+                EntityChangeEventData(
+                    id="Q42",
+                    rev=123,
+                    from_rev=None,
+                    type="update",
+                    at="2024-01-01T00:00:00Z",
+                    user="test",
+                    summary="test",
+                )
+            )
+
+        worker.producer.publish.assert_awaited_once()
+        published = worker.producer.publish.await_args[0][0]
+        assert "Q42" in published.rdf_added_data.data
+        assert "Test" in published.rdf_added_data.data
+        assert published.rdf_added_data.mime_type == "text/turtle"
+        assert published.rdf_deleted_data is None
+
+    @pytest.mark.asyncio
+    async def test_published_event_carries_removals(self):
+        """A statement that went away has to be published as a removal.
+
+        Publishing only additions would leave the old triples in the graph
+        forever, with no way for a consumer to know they were meant to go.
+        """
+        worker = self._worker_with_content()
+        worker.producer = MagicMock()
+        worker.producer.publish = AsyncMock()
+        worker._fetch_previous_entity_data = AsyncMock(return_value=None)
+        worker._fetch_entity_data = AsyncMock(
+            return_value={"id": "Q42", "revision_id": 2}
+        )
+        turtle_by_revision = {
+            1: (
+                "<http://wikiba.se/ontology#Q42> "
+                "<http://www.w3.org/2000/01/rdf-schema#label> \"Old\" .\n"
+            ),
+            2: (
+                "<http://wikiba.se/ontology#Q42> "
+                "<http://www.w3.org/2000/01/rdf-schema#label> \"New\" .\n"
+            ),
+        }
+        worker._fetch_previous_entity_data = AsyncMock(
+            return_value={"id": "Q42", "revision_id": 1}
+        )
+
+        with patch(
+            "incremental_rdf_worker.worker.serialize_entity_to_turtle",
+            side_effect=lambda _id, revision, _client, *a, **kw: (
+                turtle_by_revision[revision["revision_id"]]
+            ),
+        ):
+            await worker.process_message(
+                EntityChangeEventData(
+                    id="Q42",
+                    rev=2,
+                    from_rev=1,
+                    type="update",
+                    at="2024-01-01T00:00:00Z",
+                    user="test",
+                    summary="test",
+                )
+            )
+
+        published = worker.producer.publish.await_args[0][0]
+        assert '"New"' in published.rdf_added_data.data
+        assert '"Old"' in published.rdf_deleted_data.data
+
+    @pytest.mark.asyncio
     async def test_process_message_delete(self):
         """Test processing delete message."""
         worker = IncrementalRDFWorker(worker_enabled=False)
@@ -125,54 +219,148 @@ class TestIncrementalRDFWorker:
         worker = IncrementalRDFWorker(worker_enabled=False)
         await worker.run()
 
-    def test_compute_diff_and_rdf_import_operation(self):
-        """Test compute diff for import operation (no old data)."""
+    @staticmethod
+    def _worker_with_content():
+        """A worker whose serializer is stubbed out per test.
+
+        The content client only has to be present: _revision_triples checks it
+        before serializing, and the serializer is patched, so anything will do.
+        """
         worker = IncrementalRDFWorker(worker_enabled=False)
-        operation, rdf_added = worker._compute_diff_and_rdf(
-            "Q42", None, {"entity": {"id": "Q42"}}
+        worker.content_client = object()
+        return worker
+
+    def test_creation_publishes_the_whole_entity(self):
+        """A creation has nothing to compare against, so it carries everything.
+
+        It used to carry an empty string, so every creation on the stream said
+        an entity had arrived and then described none of it - which is how the
+        graph stayed empty while the stream looked busy.
+        """
+        worker = self._worker_with_content()
+        turtle = (
+            "<http://wikiba.se/ontology#Q42> "
+            "<http://www.w3.org/2000/01/rdf-schema#label> \"Test\" .\n"
+        )
+        with patch(
+            "incremental_rdf_worker.worker.serialize_entity_to_turtle",
+            return_value=turtle,
+        ):
+            operation, added, removed = worker._compute_diff_and_rdf(
+                "Q42", None, {"id": "Q42", "hashes": {"labels": {"en": 1}}}
+            )
+        assert operation == "import"
+        assert "Q42" in added
+        assert "Test" in added
+        assert removed == ""
+
+    def test_edit_publishes_only_what_changed(self):
+        """An edit publishes the triples that differ, in both directions.
+
+        Publishing the whole new entity would be wrong: it cannot express a
+        removal, and QLever would never learn that a statement went away.
+        """
+        worker = self._worker_with_content()
+        old = (
+            "<http://wikiba.se/ontology#Q42> "
+            "<http://www.w3.org/2000/01/rdf-schema#label> \"Old\" .\n"
+        )
+        new = (
+            "<http://wikiba.se/ontology#Q42> "
+            "<http://www.w3.org/2000/01/rdf-schema#label> \"New\" .\n"
+        )
+        # Keyed on the revision rather than returned in order, so the test
+        # states which revision is which instead of relying on which one the
+        # diff happens to serialize first.
+        turtle_by_revision = {1: old, 2: new}
+        with patch(
+            "incremental_rdf_worker.worker.serialize_entity_to_turtle",
+            side_effect=lambda _id, revision, _client, *a, **kw: (
+                turtle_by_revision[revision["revision_id"]]
+            ),
+        ):
+            operation, added, removed = worker._compute_diff_and_rdf(
+                "Q42",
+                {"id": "Q42", "revision_id": 1},
+                {"id": "Q42", "revision_id": 2},
+            )
+        assert operation == "diff"
+        assert '"New"' in added and '"Old"' not in added
+        assert '"Old"' in removed and '"New"' not in removed
+
+    def test_unchanged_revision_produces_no_triples(self):
+        """Reindexing the same revision changes nothing, and says so.
+
+        Rather than republishing the whole entity as if it were an edit.
+        """
+        worker = self._worker_with_content()
+        turtle = (
+            "<http://wikiba.se/ontology#Q42> "
+            "<http://www.w3.org/2000/01/rdf-schema#label> \"Same\" .\n"
+        )
+        with patch(
+            "incremental_rdf_worker.worker.serialize_entity_to_turtle",
+            side_effect=[turtle, turtle],
+        ):
+            _, added, removed = worker._compute_diff_and_rdf(
+                "Q42", {"id": "Q42", "revision_id": 1}, {"id": "Q42", "revision_id": 2}
+            )
+        assert added == ""
+        assert removed == ""
+
+    def test_formatting_differences_are_not_changes(self):
+        """Two spellings of the same triples are the same triples.
+
+        The revisions are serialized independently, so prefixes and whitespace
+        differ between them even when nothing about the entity changed. Diffing
+        the raw text would report every entity as edited on every revision.
+        """
+        worker = self._worker_with_content()
+        spelled_one = (
+            "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+            "<http://wikiba.se/ontology#Q42> rdfs:label \"Same\" .\n"
+        )
+        spelled_two = (
+            "<http://wikiba.se/ontology#Q42> "
+            "<http://www.w3.org/2000/01/rdf-schema#label>   \"Same\"  .\n"
+        )
+        turtle_by_revision = {1: spelled_one, 2: spelled_two}
+        with patch(
+            "incremental_rdf_worker.worker.serialize_entity_to_turtle",
+            side_effect=lambda _id, revision, _client, *a, **kw: (
+                turtle_by_revision[revision["revision_id"]]
+            ),
+        ):
+            _, added, removed = worker._compute_diff_and_rdf(
+                "Q42", {"id": "Q42", "revision_id": 1}, {"id": "Q42", "revision_id": 2}
+            )
+        assert added == ""
+        assert removed == ""
+
+    def test_unresolvable_hashes_publish_nothing_rather_than_guessing(self):
+        """Without a content client the hashes cannot be read, so nothing is sent.
+
+        An empty payload is a claim that the entity has no RDF. Guessing at one
+        would put triples in the graph that no revision ever described.
+        """
+        worker = IncrementalRDFWorker(worker_enabled=False)
+        assert worker.content_client is None
+        operation, added, removed = worker._compute_diff_and_rdf(
+            "Q42", None, {"id": "Q42", "hashes": {"labels": {"en": 1}}}
         )
         assert operation == "import"
-        assert rdf_added == ""
+        assert added == ""
+        assert removed == ""
 
-    def test_compute_diff_and_rdf_diff_operation(self):
-        """Test compute diff for diff operation (with old data)."""
+    def test_missing_new_revision_publishes_nothing(self):
+        """A change whose new revision cannot be read publishes no RDF."""
         worker = IncrementalRDFWorker(worker_enabled=False)
-        with patch.object(
-            worker, "_compute_rdf_diff", return_value="<diff> ."
-        ) as mock_diff:
-            operation, rdf_added = worker._compute_diff_and_rdf(
-                "Q42",
-                {"entity": {"id": "Q42"}},
-                {"entity": {"id": "Q42"}},
-            )
-            assert operation == "diff"
-            mock_diff.assert_called_once()
-
-    def test_convert_to_entity_data_success(self):
-        """Test converting dict to EntityData."""
-        worker = IncrementalRDFWorker(worker_enabled=False)
-        entity_data = {
-            "entity": {
-                "id": "Q42",
-                "type": "item",
-                "labels": {"en": {"value": "Test"}},
-                "descriptions": {},
-                "aliases": {},
-                "statements": [],
-                "sitelinks": {},
-            }
-        }
-        result = worker._convert_to_entity_data(entity_data)
-        assert result is not None
-        assert result.id == "Q42"
-        assert result.type == "item"
-
-    def test_convert_to_entity_data_with_empty_entity_key(self):
-        """Test converting dict with empty entity key to EntityData."""
-        worker = IncrementalRDFWorker(worker_enabled=False)
-        result = worker._convert_to_entity_data({})
-        assert result is not None
-        assert result.id == ""
+        operation, added, removed = worker._compute_diff_and_rdf(
+            "Q42", {"id": "Q42"}, None
+        )
+        assert operation == "import"
+        assert added == ""
+        assert removed == ""
 
 
 class TestRDFDataField:
@@ -247,6 +435,53 @@ class TestRDFChangeEvent:
 
 class TestRDFChangeEventBuilder:
     """Test RDFChangeEventBuilder."""
+
+    @pytest.mark.parametrize(
+        "written",
+        [
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00.123456+00:00",
+            "2024-01-01T00:00:00",
+        ],
+    )
+    def test_eventstreams_timestamp_is_whole_seconds_ending_in_z(self, written):
+        """The date in meta has to be readable by the consumer that follows it.
+
+        It strips fractional seconds with a pattern anchored on Z and parses
+        what is left as "%Y-%m-%dT%H:%M:%SZ". The timestamp this worker writes
+        matches neither part, and a consumer that cannot read the date drops
+        every message.
+        """
+        rendered = eventstreams_timestamp(written)
+
+        assert rendered == "2024-01-01T00:00:00Z"
+        # Exactly what the consumer does with it, so the two cannot drift apart.
+        stripped = re.sub(r"\.\d*Z$", "Z", rendered)
+        assert datetime.strptime(stripped, "%Y-%m-%dT%H:%M:%SZ")
+
+    def test_meta_carries_the_envelope_a_consumer_reads(self):
+        """topic, partition and dt all belong in meta, and it is where they go.
+
+        A consumer following the EventStreams convention looks for the topic
+        there to decide a message is its own, and the date there to order it.
+        Carried anywhere else - or absent - and it skips the message without
+        saying why.
+        """
+        event = RDFChangeEventBuilder.build(
+            EventConfig(
+                entity_id="Q42",
+                rev_id=1,
+                operation="import",
+                rdf_added_data="<added> .",
+                rdf_deleted_data="",
+                timestamp="2024-01-01T00:00:00.987654+00:00",
+            )
+        )
+
+        assert event.meta["topic"] == "incremental_rdf_diff"
+        assert event.meta["partition"] == 0
+        assert event.meta["dt"] == "2024-01-01T00:00:00Z"
+        assert event.meta["request_id"]
 
     def test_build_diff_event(self):
         """Test building a diff event."""
@@ -354,7 +589,8 @@ class TestSettingsContract:
 
     def test_settings_attributes_exist(self):
         source = self.WORKER_SOURCE.read_text()
-        used = set(re.findall(r"settings\.([a-zA-Z_]+)", source))
+        # digits included: get_s3_config truncates to get_s without them
+        used = set(re.findall(r"settings\.([a-zA-Z_0-9]+)", source))
 
         assert used, "no settings attributes found; the pattern probably changed"
         missing = sorted(a for a in used if not hasattr(settings, a))

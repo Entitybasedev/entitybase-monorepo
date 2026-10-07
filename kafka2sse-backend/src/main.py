@@ -56,7 +56,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from confluent_kafka import KafkaError, KafkaException, Producer
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -145,6 +145,79 @@ def _detect_backend_type(metadata: Any) -> str:
     return "kafka"
 
 
+def stamp_stream_position(value: dict, msg: Any) -> dict:
+    """Record where in the topic a message sits, in the envelope consumers read.
+
+    A producer cannot know its own Kafka offset before it sends, so the
+    position is missing from the payload it publishes. A consumer following the
+    EventStreams convention looks for it in meta to work out where to resume,
+    and does arithmetic on it: given none, it raised on the first batch it
+    finished having ingested correctly.
+
+    Only filled in where absent, so a producer that knows its own position keeps
+    it, and a payload with no meta at all is left alone rather than given an
+    empty one.
+    """
+    meta = value.get("meta")
+    if not isinstance(meta, dict):
+        return value
+    # Plain attributes: these are aiokafka consumer records, whose offset is a
+    # field rather than a method.
+    meta.setdefault("offset", msg.offset)
+    meta.setdefault("partition", msg.partition)
+    meta.setdefault("topic", msg.topic)
+    return value
+
+
+def resume_offset_from(last_event_id: str | None, topic: str) -> int | None:
+    """Where a reconnecting client wants to carry on from.
+
+    SSE gives a client one way to say "I have got this far" - the Last-Event-ID
+    header - and sse-starlette does not read it, so it is read here. Clients that
+    follow the EventStreams convention send a JSON list of positions rather than
+    a bare offset.
+
+    It was ignored, and a client that reconnects therefore started over from the
+    beginning of the topic every time: the same messages again, in a loop, and
+    for a follower applying changes in batches, never a settled state to move on
+    from.
+
+    Returns None for a header that is absent or unreadable, which leaves the
+    caller with its own starting position rather than guessing at one.
+    """
+    if not last_event_id:
+        return None
+    try:
+        position = json.loads(last_event_id)
+    except ValueError:
+        # A bare number is what this endpoint puts in the SSE id field, so a
+        # client resuming by echoing that id back sends exactly this.
+        bare = last_event_id.strip()
+        if bare.isdigit():
+            return int(bare)
+        logger.warning(f"Ignoring unreadable Last-Event-ID: {last_event_id!r}")
+        return None
+
+    if isinstance(position, int):
+        # The id this endpoint emits is the bare offset, so a client echoing it
+        # back sends a number rather than a position.
+        return position
+
+    entries = position if isinstance(position, list) else [position]
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("topic") not in (None, topic):
+            continue
+        offset = entry.get("offset")
+        if isinstance(offset, int):
+            return offset
+    logger.warning(
+        f"Last-Event-ID carries no offset for {topic}: {last_event_id!r}"
+    )
+    return None
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     kafka_status = "disconnected"
@@ -221,6 +294,7 @@ async def stream(
     offset: int | None = None,
     since: str | None = None,
     limit: int | None = None,
+    last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
 ):
     logger.info("=== STREAM ENDPOINT CALLED ===")
     logger.info(f"topic={topic}, offset={offset}, offset_type={type(offset)}, since={since}, limit={limit}")
@@ -244,6 +318,16 @@ async def stream(
     Returns:
         Server-Sent Events response that streams Kafka messages as JSON.
     """
+    # A reconnect says where it got to, which is more specific than the offset
+    # it started from, so it wins. Without this a client that reconnects is
+    # handed the whole topic again.
+    resumed_from = resume_offset_from(last_event_id, topic)
+    if resumed_from is not None:
+        logger.info(f"[{topic}] Resuming at offset {resumed_from} from Last-Event-ID")
+        offset = resumed_from
+        since = None
+        last_event_id = None
+
     logger.info(f"Stream endpoint called for topic={topic}, offset={offset}, limit={limit}")
 
     # Validate the topic exists before starting the stream
@@ -374,6 +458,7 @@ async def stream(
                             # fit was dropped with a warning, which read as an
                             # empty stream.
                             value = json.loads(raw_value)
+                            stamp_stream_position(value, msg)
                             event = SSEEvent(
                                 event_type=str(
                                     value.get("meta", {}).get("stream", "message")
@@ -408,34 +493,53 @@ async def stream(
 
     kafka_task = asyncio.create_task(kafka_consumer())
 
+    idle_timeout = config.sse.idle_timeout_seconds
+
     async def event_generator():
         logger.info(f"[{log_prefix}] event_generator started, client.limit={client.limit}")
         try:
             while True:
                 if client.limit and client.events_sent >= client.limit:
-                    logger.info(f"[{log_prefix}] Limit reached: {client.events_sent}/{client.limit}")
+                    logger.info(
+                        f"[{log_prefix}] Limit reached: "
+                        f"{client.events_sent}/{client.limit}"
+                    )
                     break
                 try:
-                    event = await asyncio.wait_for(client.queue.get(), timeout=30)
-                    logger.debug(f"[{log_prefix}] Sending SSE event: id={event.id}, type={event.event_type}")
+                    event = await asyncio.wait_for(
+                        client.queue.get(), timeout=idle_timeout
+                    )
+                    logger.debug(
+                        f"[{log_prefix}] Sending SSE event: id={event.id}, "
+                        f"type={event.event_type}"
+                    )
                     # Send the message as published, with the offset in the SSE
                     # id field rather than wrapped in an envelope. Wrapping put
                     # the payload under data.data, so a consumer following the
                     # EventStreams convention - where meta sits at the top level
-                    # of the message - found nothing it recognised. The id
-                    # field is what SSE gives a client for resuming, so the
-                    # offset belongs there and not in the payload.
+                    # of the message - found nothing it recognised. The id field
+                    # is what SSE gives a client for resuming, so the offset
+                    # belongs there and not in the payload.
                     # EventSourceResponse writes the "data: " prefix itself, so
                     # the value yielded here must not carry one.
                     yield {"id": event.id, "data": json.dumps(event.data)}
                 except TimeoutError:
-                    # Nothing to send, and deliberately no keep-alive payload.
-                    # A client reading the topic cannot tell a ping from an
-                    # event, so anything with data: is a message it must
-                    # interpret. sse-starlette already sends : ping comments,
-                    # which keep the connection open and are ignored by
-                    # clients, so that is the keep-alive here.
-                    pass
+                    # Nothing arrived within the idle window, so close the stream.
+                    #
+                    # A client that applies changes in batches needs to see the
+                    # stream end to know it has the whole batch, and it never
+                    # gets that on a stream that goes quiet: the changes sit
+                    # unread until some later change prompts it to commit. It
+                    # reconnects with Last-Event-ID and carries on from here.
+                    #
+                    # Deliberately no keep-alive payload. A client reading the
+                    # topic cannot tell a ping from an event, so anything with
+                    # data: is a message it must interpret.
+                    logger.info(
+                        f"[{log_prefix}] Closing the stream after {idle_timeout:g}s "
+                        f"idle so the client can act on what it has read"
+                    )
+                    break
         except asyncio.CancelledError:
             logger.info("Event generator cancelled")
         finally:

@@ -23,11 +23,24 @@ class ServerConfig(BaseModel):
     app_version: str = getenv("VERSION", "v0.0.0")
 
 
+class SSEConfig(BaseModel):
+    """Configuration for the Server-Sent Events gateway."""
+
+    # How long a stream stays open with nothing to send before it is closed.
+    # Closing is deliberate: a consumer that never sees the stream end has no
+    # point at which it can safely act on what it has read, so a follower that
+    # applies changes in batches holds them until the next change arrives -
+    # which, on a stream edited occasionally, means holding them indefinitely.
+    # A client reconnects with Last-Event-ID and carries on where it left off.
+    idle_timeout_seconds: float = float(getenv("SSE_IDLE_TIMEOUT_SECONDS", "30"))
+
+
 class Config(BaseModel):
     """Main configuration container for the application."""
     kafka: KafkaConfig = KafkaConfig()
     valkey: ValkeyConfig = ValkeyConfig()
     server: ServerConfig = ServerConfig()
+    sse: SSEConfig = SSEConfig()
 
     @cached_property
     def kafka_broker_list(self) -> list[str]:

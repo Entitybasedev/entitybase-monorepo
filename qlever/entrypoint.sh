@@ -79,6 +79,30 @@ fi
 # It is deliberately not the --since option: kafka2sse falls back to "subscribe
 # from latest" when a timestamp matches no offset, which would silently skip
 # everything already in the topic.
+# --lag-seconds decides how stale a message may be before qlever stops waiting
+# for a bigger batch and commits what it has. Its default is 1 second, and the
+# check only runs while reading a message, so on a stream that is edited
+# occasionally a batch can stay open indefinitely: the triples sit in memory,
+# unpublished, and the endpoint answers queries against a graph that reads as
+# empty. Nothing errors; there is simply nothing committed yet.
+#
+# A day is the useful line here, and it separates two cases rather than
+# compromising between them. A message dated within the last day is a live edit
+# and is committed at once, which is the whole point of following the stream. A
+# message from a historical backlog is far older than that, so it does not trip
+# the check and replay still batches as intended.
+#
+# --batch-size 1 is for the same reason, and it is what actually closes the gap.
+# Every one of those conditions is evaluated while a message is in hand, so with
+# a larger batch the last edit of a quiet afternoon is never committed: it waits
+# for the next edit to arrive and trigger the check. An edit stream that is
+# edited occasionally - which is what this is - would sit one edit behind
+# indefinitely, with no error to say so. Committing each message as it is read
+# makes the graph reflect the last edit, which is the whole point.
+#
+# It costs one update request per message. That is the right trade for following
+# a change stream; importing a bulk dump would want a larger value, and would
+# want --lag-seconds small with it.
 echo "Following ${STREAM_TOPIC} from the start of the stream"
 exec qlever update-wikidata "${STREAM_URL}" \
   --host-name localhost \
@@ -87,4 +111,6 @@ exec qlever update-wikidata "${STREAM_URL}" \
   --topic "${STREAM_TOPIC}" \
   --partition 0 \
   --offset 0 \
+  --lag-seconds "${QLEVER_LAG_SECONDS:-86400}" \
+  --batch-size "${QLEVER_BATCH_SIZE:-1}" \
   --log-level INFO

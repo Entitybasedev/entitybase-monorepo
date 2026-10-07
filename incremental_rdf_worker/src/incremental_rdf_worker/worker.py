@@ -7,14 +7,17 @@ from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Optional, cast
 
 from pydantic import Field
+from rdflib import Graph
 
 from models.config.settings import settings
 from models.data.infrastructure.stream.consumer import EntityChangeEventData
 from models.infrastructure.stream.consumer import StreamConsumerClient
 from models.infrastructure.stream.producer import StreamProducerClient
 from models.infrastructure.db.client import MysqlClient
-from models.internal_representation.entity_data import EntityData
-from models.rdf_builder.incremental_updater import IncrementalRDFUpdater
+from models.infrastructure.s3.client import MyS3Client
+from models.rest_api.entitybase.v1.services.rdf_service import (
+    serialize_entity_to_turtle,
+)
 from models.workers.worker import Worker
 from incremental_rdf_worker.rdf_change_builder import (
     EventConfig,
@@ -31,11 +34,15 @@ class IncrementalRDFWorker(Worker):
     1. Consumes entity change events from entitybase.entity_change Kafka topic
     2. Looks up revision metadata in MySQL to get content hashes
     3. Fetches the stored revision for both the old and the new revision
-    4. Computes RDF diffs using IncrementalRDFUpdater
+    4. Serializes both revisions to Turtle and diffs the triples
     5. Publishes RDF change events to incremental_rdf_diff Kafka topic
     """
 
     db_client: Optional[MysqlClient] = Field(default=None, exclude=True)
+    # Resolves the content hashes a stored revision points at. Built with the
+    # database client so it falls back to the database for content when no
+    # object store is configured, which is how the stack runs.
+    content_client: Optional[Any] = Field(default=None, exclude=True)
     consumer: Optional[StreamConsumerClient] = Field(default=None, exclude=True)
     producer: Optional[StreamProducerClient] = Field(default=None, exclude=True)
     worker_enabled: bool = Field(default=False, exclude=True)
@@ -108,11 +115,11 @@ class IncrementalRDFWorker(Worker):
         )
 
     async def _initialize_storage_clients(self) -> None:
-        """Initialize the database client.
+        """Initialize the database client and the content client.
 
-        No S3 client: this worker only reads revision metadata from the
-        database. It had one, assigned and never read, whose initialisation
-        failed on a field name that does not exist.
+        Both are needed. The database holds the revision document and, when no
+        object store is configured, the deduplicated content it points at; the
+        content client is what turns the hashes in a revision back into text.
         """
         if not self.worker_enabled:
             return
@@ -125,6 +132,18 @@ class IncrementalRDFWorker(Worker):
             logger.warning(
                 "Database not configured, worker cannot fetch revision metadata"
             )
+            return
+
+        try:
+            # db_client is what lets content resolve from the database when
+            # there is no object store. Without it every hash is unresolvable
+            # and the worker emits empty diffs.
+            self.content_client = MyS3Client(
+                config=settings.get_s3_config, db_client=self.db_client
+            )
+            logger.info("Content client initialized")
+        except Exception as e:
+            logger.warning(f"Content client unavailable: {e}")
 
     async def _cleanup_clients(self) -> None:
         """Clean up all clients."""
@@ -195,11 +214,11 @@ class IncrementalRDFWorker(Worker):
         )
         new_entity_data = await self._fetch_entity_data(entity_id, to_revision_id)
 
-        operation, rdf_added = self._compute_diff_and_rdf(
+        operation, rdf_added, rdf_removed = self._compute_diff_and_rdf(
             entity_id, old_entity_data, new_entity_data
         )
         await self._publish_rdf_change_event(
-            entity_id, to_revision_id, operation, rdf_added
+            entity_id, to_revision_id, operation, rdf_added, rdf_removed
         )
 
     async def _fetch_previous_entity_data(
@@ -215,39 +234,78 @@ class IncrementalRDFWorker(Worker):
         entity_id: str,
         old_entity_data: Optional[dict],
         new_entity_data: Optional[dict],
-    ) -> tuple[str, str]:
-        """Compute diff between old and new entity data and generate RDF."""
+    ) -> tuple[str, str, str]:
+        """Return the operation, the triples to add and the triples to remove.
+
+        A creation has nothing to compare against, so its payload is the whole
+        entity. It used to be an empty string, which is why every creation on
+        the stream carried no RDF at all.
+        """
+        if new_entity_data is None:
+            return "import", "", ""
+
+        new_triples = self._revision_triples(entity_id, new_entity_data)
+
         if old_entity_data is None:
-            operation = "import"
-            rdf_added = ""
-        else:
-            operation = "diff"
-            rdf_added = self._compute_rdf_diff(
-                entity_id, old_entity_data, new_entity_data
-            )
+            return "import", self._to_turtle(new_triples), ""
 
-        return operation, rdf_added
+        old_triples = self._revision_triples(entity_id, old_entity_data)
+        added = new_triples - old_triples
+        removed = old_triples - new_triples
+        return "diff", self._to_turtle(added), self._to_turtle(removed)
 
-    def _compute_rdf_diff(
-        self, entity_id: str, old_entity_data: dict, new_entity_data: Optional[dict]
-    ) -> str:
-        """Compute RDF diff between old and new entity data."""
-        updater = IncrementalRDFUpdater(entity_id=entity_id)
+    def _revision_triples(self, entity_id: str, revision: dict[str, Any]) -> set[str]:
+        """The triples one stored revision describes.
 
-        if new_entity_data:
-            try:
-                old_entity = self._convert_to_entity_data(old_entity_data)
-                new_entity = self._convert_to_entity_data(new_entity_data)
-                if old_entity and new_entity:
-                    diffs = IncrementalRDFUpdater.compute_diffs(old_entity, new_entity)
-                    updater.apply_diffs(diffs)
-            except Exception as e:
-                logger.warning(f"Failed to compute diffs: {e}")
+        The revision keeps its terms as content hashes, so it is serialized by
+        the same path the .ttl endpoint uses: the hashes are resolved and the
+        result is real RDF. Reading the revision's fields directly produced
+        nothing, because it has no `entity` key and its labels are numbers.
+        """
+        if self.content_client is None:
+            logger.warning("No content client; cannot resolve revision hashes")
+            return set()
 
-        return updater.get_updated_rdf()
+        turtle = serialize_entity_to_turtle(entity_id, revision, self.content_client)
+        return self._parse_triples(turtle)
+
+    @staticmethod
+    def _parse_triples(turtle: str) -> set[str]:
+        """Read a Turtle document into N-Triples lines.
+
+        Diffing needs a comparable form: the two revisions are written
+        independently, so their prefixes and formatting differ even where the
+        triples are identical. N-Triples lines are canonical, so equal triples
+        compare equal.
+        """
+        if not turtle.strip():
+            return set()
+        try:
+            graph = Graph()
+            graph.parse(data=turtle, format="turtle")
+            return {
+                line
+                for line in graph.serialize(format="nt").splitlines()
+                if line.strip()
+            }
+        except Exception as e:
+            logger.warning(f"Could not parse Turtle: {e}")
+            return set()
+
+    @staticmethod
+    def _to_turtle(triples: set[str]) -> str:
+        """Render N-Triples lines as a Turtle document."""
+        if not triples:
+            return ""
+        return "\n".join(sorted(triples)) + "\n"
 
     async def _publish_rdf_change_event(
-        self, entity_id: str, rev_id: int, operation: str, rdf_added: str
+        self,
+        entity_id: str,
+        rev_id: int,
+        operation: str,
+        rdf_added: str,
+        rdf_removed: str = "",
     ) -> None:
         """Publish RDF change event to Kafka."""
         event_config = EventConfig(
@@ -255,7 +313,7 @@ class IncrementalRDFWorker(Worker):
             rev_id=rev_id,
             operation=operation,
             rdf_added_data=rdf_added,
-            rdf_deleted_data="",
+            rdf_deleted_data=rdf_removed,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
         event_data = RDFChangeEventBuilder.build(event_config)
@@ -297,24 +355,6 @@ class IncrementalRDFWorker(Worker):
             logger.error(
                 f"Failed to fetch entity data for {entity_id} rev {revision_id}: {e}"
             )
-            return None
-
-    def _convert_to_entity_data(
-        self, entity_data: dict[str, Any]
-    ) -> Optional[EntityData]:
-        """Convert S3 revision dict to EntityData for diff computation."""
-        try:
-            return EntityData(
-                id=entity_data.get("entity", {}).get("id", ""),
-                type=entity_data.get("entity", {}).get("type", "item"),
-                labels=entity_data.get("entity", {}).get("labels", {}),
-                descriptions=entity_data.get("entity", {}).get("descriptions", {}),
-                aliases=entity_data.get("entity", {}).get("aliases", {}),
-                statements=entity_data.get("entity", {}).get("statements", []),
-                sitelinks=entity_data.get("entity", {}).get("sitelinks"),
-            )
-        except Exception as e:
-            logger.warning(f"Failed to convert to EntityData: {e}")
             return None
 
     async def _handle_entity_deletion(self, entity_id: str, revision_id: int) -> None:
