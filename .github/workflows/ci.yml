@@ -386,6 +386,11 @@ jobs:
           # arrives afterwards.
           docker compose -f entitybase-backend/docker-compose.ci.yml build incremental-rdf-worker
           docker compose -f entitybase-backend/docker-compose.ci.yml up -d incremental-rdf-worker
+          # --network host means there is no port mapping to do the translating,
+          # so QLever has to serve the port the rest of the job uses directly.
+          # The entrypoint defaults to 7019, which is what the compose file maps
+          # 8081 onto locally; here nothing maps it, so the endpoint came up on
+          # 7019 while the checks waited on 8081 and timed out.
           docker run -d --name qlever \
             --network host \
             --user 0:0 \
@@ -395,6 +400,7 @@ jobs:
             -v "$PWD/qlever/entrypoint.sh:/entrypoint.sh:ro" \
             -v qlever-data-ci:/data \
             -e QLEVER_STREAM_URL="http://localhost:${{ env.STREAM_PORT }}/v1/streams/incremental_rdf_diff?offset=0" \
+            -e QLEVER_PORT="${{ env.QLEVER_PORT }}" \
             adfreiburg/qlever /entrypoint.sh
 
       - name: Wait for QLever
